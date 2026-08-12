@@ -8,12 +8,21 @@ export default function App() {
   const [state, setState] = useState<UiState>("idle");
   const [categories, setCategories] = useState<Category[]>([]);
   void categories;
+  const [errorMsg, setErrorMsg] = useState("");
 
   async function handleCheck() {
     // TODO(Issue 4): set loading, call checkSystem(), then either
     //   - success: store categories and show Online + the list, or
     //   - error: show Offline + a useful message.
     setState("loading");
+    try {
+      const result = await checkSystem();
+      setCategories(result.categories);
+      setState("success");
+    } catch (err) {
+      setErrorMsg("Unable to connect to TokTickIT API");
+      setState("error");
+    }
   }
 
   return (
@@ -25,6 +34,12 @@ export default function App() {
       <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
         {state === "loading" ? "Loading…" : "Check System"}
       </button>
+      {state === "success" && <p className="mt-3">System Status: <strong>Online</strong></p>}
+      {state === "error" && (
+        <div className="alert alert-danger mt-3">
+          System Status: Offline<br />{errorMsg}
+        </div>
+      )}
 
       {/* TODO(Issue 4): render loading / success (Online + categories) / error (Offline) states. */}
     </div>
