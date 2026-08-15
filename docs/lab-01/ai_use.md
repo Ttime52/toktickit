@@ -11,6 +11,7 @@
 | 4 | เขียน GET /api/categories จาก postgreSQL โดยใช้ prisma เรียง { id, name } ตามลำดับ | ทำการแก้ไฟล์ app.ts route /api/categories |
 | 5 | เขียน categories.test.ts using health.test.ts as the pattern. | ตรวจสิ่งที่ AI เจนและทำการแก้ไข categories.test ให้ตรง requirement |
 | 6 | เขียน fetch ${API_URL}/api/categories return { online: true, categories }. | รีวิวและ approve โค้ด api.ts ตามที่ AI เจน ทำการเช็คไฟล์อื่นๆ ที่ AI แก้โดยไม่จำเป็นให้กลับมาเป็นเหมือนเดิม|
+| 7 | edit the readme.md file to have full setup instruction according to this project | ตรวจสอบและแก้ไขไฟล์ readme.md ตามที่ AI เขียน| 
 
 ## Reflection
 Two or three sentences: what made your prompts better, and one place you had to
@@ -29,3 +30,5 @@ Prompt 4 : สามารถทำงานได้ถูกต้องดี
 Prompt 5 : ส่วนใหญ่ AI เขียนได้ถูกต้อง แต่ต้องปรับแก้ไขเองเล็กน้อยในส่วนที่ prompt ไม่ครอบคลุม
 
 Prompt 6 : AI ทำการแก้ไขไฟล์ได้ถูกต้อง แต่มีการสร้างไฟล์ใหม่เองมากเกินกว่าที่ต้องการ จึงต้องมีการ undo และแก้ไขเองใหม่ อาจเป็นเพราะ prompt เราไม่ชัดเจน ทำให้ AI เดาและทำเผื่อ
+
+Prompt 7 : AI สามารถทำงานได้ถูกต้องในครั้งเดียว เพราะเรา prompt ชัดเจน
