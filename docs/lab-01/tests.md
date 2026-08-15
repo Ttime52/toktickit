@@ -4,11 +4,11 @@ All test files live under server/tests/lab-01/ and client/tests/lab-01/.
 
 | # | Tool | Test | Result |
 |---|------|------|--------|
-| 1 | Supertest | GET /api/health returns 200, status=ok | |
-| 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | |
-| 3 | Vitest | Heading renders | |
-| 4 | Vitest | Success state shows Online + category list | |
-| 5 | Vitest | Error state shows Offline + message | |
+| 1 | Supertest | GET /api/health returns 200, status=ok | Pass |
+| 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | Pass |
+| 3 | Vitest | Heading renders | Pass |
+| 4 | Vitest | Success state shows Online + category list | Pass |
+| 5 | Vitest | Error state shows Offline + message | Pass |
 
 Paste your passing terminal output / screenshot below.
 
@@ -32,6 +32,7 @@ Paste your passing terminal output / screenshot below.
    Start at  13:34:02
    Duration  643ms (transform 68ms, setup 0ms, collect 373ms, tests 14ms, environment 1ms, prepare 304ms)
 ------------------------------------------
+# Test2
 | 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | |
 
 ![alt text](image-2.png)
@@ -53,6 +54,7 @@ D:\GitHub\toktickit\server>npm test
    Duration  915ms (transform 76ms, setup 0ms, collect 432ms, tests 180ms, environment 1ms, prepare 449ms)
 
 ---------------------------
+# Test3,4,5
 | 3 | Vitest | Heading renders | |
 | 4 | Vitest | Success state shows Online + category list | |
 | 5 | Vitest | Error state shows Offline + message | |
