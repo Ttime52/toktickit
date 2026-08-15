@@ -9,7 +9,7 @@
 |  #5  | feature/1-project-foundation | Approved |
 |  #6  | feature/2-health-check | Approved |
 |  #7  | feature/3-category-seed | Approved |
-|  #8  | feature/4-category-list |  |
+|  #8  | feature/4-category-list | Approved |
 
 PR #5 feature/1-project-foundation
 Reviewer comment I received: <Everything looks great Both the frontend and backend work fine. I also tested it locally on both the client and server, and the results are correct. No .env files or secrets were committed.>
@@ -24,8 +24,8 @@ Reviewer comment I received: <look good. The schema.prisma structure is correct,
 How I responded: <Merged.>
 
 PR #8 feature/4-category-list
-Reviewer comment I received:
-How I responded:
+Reviewer comment I received: <Both the frontend and backend are implemented correctly, and all tests (Vitest and Supertest) are passing successfully.>
+How I responded: <Noted. Ready to merge.>
 
 ## Pull Requests I reviewed for my partner
 feature/1-project-foundation
