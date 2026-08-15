@@ -21,8 +21,11 @@ export async function checkSystem(): Promise<SystemStatus> {
   
   const healthRes = await fetch(`${API_URL}/api/health`);
   if (!healthRes.ok) throw new Error("Backend health check failed");
+  
+  const catRes = await fetch(`${API_URL}/api/categories`);
+  if (!catRes.ok) throw new Error("Failed to load categories");
+  const categories: Category[] = await catRes.json();
 
-  // Categories endpoint doesn't exist until Issue 4 — placeholder for now.
-  return { online: true, categories: [] };
+  return { online: true, categories };
   
 }
