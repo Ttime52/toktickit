@@ -7,7 +7,6 @@ type UiState = "idle" | "loading" | "success" | "error";
 export default function App() {
   const [state, setState] = useState<UiState>("idle");
   const [categories, setCategories] = useState<Category[]>([]);
-  void categories;
   const [errorMsg, setErrorMsg] = useState("");
 
   async function handleCheck() {
@@ -34,14 +33,22 @@ export default function App() {
       <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
         {state === "loading" ? "Loading…" : "Check System"}
       </button>
-      {state === "success" && <p className="mt-3">System Status: <strong>Online</strong></p>}
+      {state === "success" && (
+        <div className="mt-3">
+          <p>System Status: <strong>Online</strong></p>
+          <p className="mb-1">Supported Request Categories:</p>
+          <ul>
+            {categories.map((c) => (
+              <li key={c.id}>{c.name}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {state === "error" && (
         <div className="alert alert-danger mt-3">
           System Status: Offline<br />{errorMsg}
         </div>
       )}
-
-      {/* TODO(Issue 4): render loading / success (Online + categories) / error (Offline) states. */}
     </div>
   );
 }
