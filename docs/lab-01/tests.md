@@ -18,6 +18,7 @@ Paste your passing terminal output / screenshot below.
 
 ![alt text](image.png)
 
+```
 > toktickit-server@1.0.0 test
 > vitest run
 
@@ -31,12 +32,15 @@ Paste your passing terminal output / screenshot below.
       Tests  1 passed | 1 todo (2)
    Start at  13:34:02
    Duration  643ms (transform 68ms, setup 0ms, collect 373ms, tests 14ms, environment 1ms, prepare 304ms)
+```
+
 ------------------------------------------
 # Test2
 | 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | |
 
 ![alt text](image-2.png)
 
+```
 D:\GitHub\toktickit\server>npm test
 
 > toktickit-server@1.0.0 test
@@ -52,6 +56,7 @@ D:\GitHub\toktickit\server>npm test
       Tests  2 passed (2)
    Start at  01:27:38
    Duration  915ms (transform 76ms, setup 0ms, collect 432ms, tests 180ms, environment 1ms, prepare 449ms)
+```
 
 ---------------------------
 # Test3,4,5
@@ -61,6 +66,7 @@ D:\GitHub\toktickit\server>npm test
 
 ![alt text](image-1.png)
 
+```
 D:\GitHub\toktickit\client>npm test
 
 > toktickit-client@1.0.0 test
@@ -79,3 +85,4 @@ D:\GitHub\toktickit\client>npm test
       Tests  3 passed (3)
    Start at  01:39:42
    Duration  1.36s (transform 68ms, setup 101ms, collect 142ms, tests 74ms, environment 486ms, prepare 231ms)
+```
