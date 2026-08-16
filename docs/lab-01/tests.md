@@ -14,7 +14,7 @@ Paste your passing terminal output / screenshot below.
 
 ------------------------------------------
 # Test1
-| 1 | Supertest | GET /api/health returns 200, status=ok | |
+| 1 | Supertest | GET /api/health returns 200, status=ok | health.test.ts |
 
 ![alt text](image.png)
 
@@ -36,7 +36,7 @@ Paste your passing terminal output / screenshot below.
 
 ------------------------------------------
 # Test2
-| 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | |
+| 2 | Supertest | GET /api/categories returns 4 seeded categories in id order | categories.test.ts |
 
 ![alt text](image-2.png)
 
@@ -60,9 +60,9 @@ D:\GitHub\toktickit\server>npm test
 
 ---------------------------
 # Test3,4,5
-| 3 | Vitest | Heading renders | |
-| 4 | Vitest | Success state shows Online + category list | |
-| 5 | Vitest | Error state shows Offline + message | |
+| 3 | Vitest | Heading renders | App.test.tsx |
+| 4 | Vitest | Success state shows Online + category list | App.test.tsx |
+| 5 | Vitest | Error state shows Offline + message | App.test.tsx |
 
 ![alt text](image-1.png)
 
