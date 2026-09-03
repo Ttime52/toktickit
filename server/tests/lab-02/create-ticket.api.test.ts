@@ -8,6 +8,7 @@ import { getPrisma } from "../../src/prisma.js";
 
 const prisma = getPrisma();
 const createdTicketIds: number[] = [];
+const temporaryRequesterIds: number[] = [];
 
 function idempotencyKey() {
   return randomUUID();
@@ -43,6 +44,12 @@ afterAll(async () => {
   if (createdTicketIds.length > 0) {
     await prisma.attachment.deleteMany({ where: { ticketId: { in: createdTicketIds } } });
     await prisma.ticket.deleteMany({ where: { id: { in: createdTicketIds } } });
+  }
+
+  if (temporaryRequesterIds.length > 0) {
+    await prisma.developmentRequester.deleteMany({
+      where: { id: { in: temporaryRequesterIds } },
+    });
   }
 });
 
@@ -112,6 +119,51 @@ describe("POST /api/tickets (API-03/API-04/API-05/API-06)", () => {
     const persisted = await rememberTicket(key);
     expect(persisted).not.toBeNull();
     expect(await prisma.ticket.count({ where: { idempotencyKey: key } })).toBe(1);
+  });
+
+  it("replays the existing Ticket when its requester becomes inactive", async () => {
+    const temporaryRequester = await prisma.developmentRequester.create({
+      data: {
+        displayName: "Replay Edge Requester",
+        email: `replay-${randomUUID()}@example.test`,
+        isActive: true,
+      },
+    });
+    temporaryRequesterIds.push(temporaryRequester.id);
+
+    const body = await validBody();
+    const requestBody = { ...body, requesterId: temporaryRequester.id };
+    const key = idempotencyKey();
+
+    try {
+      const first = await request(app)
+        .post("/api/tickets")
+        .set("Idempotency-Key", key)
+        .send(requestBody);
+
+      expect(first.status).toBe(201);
+      createdTicketIds.push(first.body.data.id);
+
+      await prisma.developmentRequester.update({
+        where: { id: temporaryRequester.id },
+        data: { isActive: false },
+      });
+
+      const replay = await request(app)
+        .post("/api/tickets")
+        .set("Idempotency-Key", key)
+        .send(requestBody);
+
+      expect(replay.status).toBe(200);
+      expect(replay.body.meta).toEqual({ idempotentReplay: true });
+      expect(replay.body.data.id).toBe(first.body.data.id);
+      expect(replay.body.data.ticketNumber).toBe(first.body.data.ticketNumber);
+    } finally {
+      await prisma.developmentRequester.update({
+        where: { id: temporaryRequester.id },
+        data: { isActive: true },
+      });
+    }
   });
 
   it("rejects invalid form values before creating a Ticket", async () => {

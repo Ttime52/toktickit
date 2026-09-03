@@ -140,6 +140,9 @@ export async function createTicket(
   input: NormalizedCreateTicketInput,
   idempotencyKey: string,
 ): Promise<CreateTicketResult> {
+  const replay = await readReplay(prisma, idempotencyKey, input);
+  if (replay !== null) return replay;
+
   const [requester, category, relatedSystem] = await Promise.all([
     prisma.developmentRequester.findUnique({
       where: { id: input.requesterId },
