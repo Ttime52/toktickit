@@ -32,13 +32,17 @@ body {
 }
 
 button,
-select {
+input,
+select,
+textarea {
   font: inherit;
 }
 
 button:focus-visible,
 a:focus-visible,
-select:focus-visible {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline: 3px solid var(--zen-focus);
   outline-offset: 2px;
 }
@@ -143,6 +147,37 @@ h1 {
 }
 
 .zen-field select[aria-invalid="true"] {
+  border-color: var(--zen-error);
+}
+
+.zen-form-field input,
+.zen-form-field select,
+.zen-form-field textarea {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 6px;
+  color: var(--zen-text);
+  min-height: 44px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.zen-form-field textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.zen-form-field input:disabled,
+.zen-form-field select:disabled,
+.zen-form-field textarea:disabled {
+  background: var(--zen-disabled-bg);
+  color: var(--zen-disabled-text);
+  cursor: not-allowed;
+}
+
+.zen-form-field input[aria-invalid="true"],
+.zen-form-field select[aria-invalid="true"],
+.zen-form-field textarea[aria-invalid="true"] {
   border-color: var(--zen-error);
 }
 
@@ -310,6 +345,237 @@ h1 {
   color: var(--zen-muted);
 }
 
+.zen-create-page {
+  margin: 0 auto;
+  max-width: 980px;
+}
+
+.zen-create-heading {
+  margin-bottom: 24px;
+}
+
+.zen-create-heading .zen-lead {
+  margin-bottom: 0;
+}
+
+.zen-create-card {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgb(23 53 42 / 8%);
+  padding: 32px;
+}
+
+.zen-form-section + .zen-form-section {
+  border-top: 1px solid var(--zen-border);
+  margin-top: 28px;
+  padding-top: 28px;
+}
+
+.zen-form-section h2,
+.zen-success-panel h2 {
+  font-size: 20px;
+  line-height: 1.3;
+  margin: 0 0 16px;
+}
+
+.zen-read-only-grid,
+.zen-success-details {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.zen-read-only-item {
+  background: #f0f4f1;
+  border: 1px solid var(--zen-border);
+  border-radius: 6px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.zen-read-only-item dt {
+  color: var(--zen-muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.zen-read-only-item dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.zen-read-only-item output {
+  color: var(--zen-text);
+  display: block;
+  font-weight: 600;
+}
+
+.zen-classification-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.zen-form-field {
+  min-width: 0;
+}
+
+.zen-form-field-full {
+  margin-top: 20px;
+}
+
+.zen-form-field label,
+.zen-file-input-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.zen-field-help {
+  color: var(--zen-muted);
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+
+.zen-reference-state {
+  margin-top: 16px;
+}
+
+.zen-reference-state .zen-callout {
+  margin: 0;
+}
+
+.zen-reference-state .zen-button {
+  margin-left: 12px;
+  min-height: 36px;
+  padding: 4px 12px;
+}
+
+.zen-success-panel {
+  background: var(--zen-pale);
+  border: 2px solid var(--zen-secondary);
+  border-radius: 10px;
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.zen-success-panel > p {
+  margin: 0 0 16px;
+}
+
+.zen-success-details {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 20px;
+}
+
+.zen-action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.zen-form-actions {
+  border-top: 1px solid var(--zen-border);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+
+.zen-file-input-label {
+  color: var(--zen-secondary);
+  cursor: pointer;
+  margin-top: 20px;
+  text-decoration: underline;
+}
+
+.zen-file-input {
+  display: block;
+  max-width: 100%;
+  min-height: 44px;
+}
+
+.zen-attachment-list {
+  margin-top: 16px;
+}
+
+.zen-attachment-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.zen-empty-files {
+  color: var(--zen-muted);
+  margin: 0;
+}
+
+.zen-attachment-row {
+  align-items: center;
+  border: 1px solid var(--zen-border);
+  border-radius: 6px;
+  display: grid;
+  gap: 8px 16px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  margin-top: 8px;
+  padding: 12px;
+}
+
+.zen-attachment-row.is-invalid,
+.zen-attachment-row.is-failed {
+  background: var(--zen-error-bg);
+  border-color: #e7aaaa;
+}
+
+.zen-attachment-details {
+  min-width: 0;
+}
+
+.zen-attachment-details strong,
+.zen-attachment-details span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.zen-attachment-details span,
+.zen-attachment-state {
+  color: var(--zen-muted);
+  font-size: 14px;
+}
+
+.zen-attachment-state {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zen-attachment-row .zen-field-error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.zen-small-button {
+  min-height: 36px;
+  padding: 4px 12px;
+}
+
+.zen-text-button {
+  background: transparent;
+  border: 0;
+  color: var(--zen-secondary);
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 4px 8px;
+  text-decoration: underline;
+}
+
+.zen-text-button:hover {
+  background: var(--zen-pale);
+}
+
 /* Kept off-screen so the Lab 1 diagnostic test remains backwards compatible
    while the Lab 2 requester selector is the only visible entry point. */
 .zen-legacy-diagnostic {
@@ -369,5 +635,32 @@ h1 {
 
   .zen-shell-content {
     padding: 16px;
+  }
+
+  .zen-create-card {
+    padding: 24px 16px;
+  }
+
+  .zen-read-only-grid,
+  .zen-classification-grid,
+  .zen-success-details {
+    grid-template-columns: 1fr;
+  }
+
+  .zen-attachment-row {
+    align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .zen-attachment-row .zen-text-button,
+  .zen-attachment-row .zen-small-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .zen-attachment-state {
+    grid-column: 1;
+    grid-row: 2;
+    white-space: normal;
   }
 }
