@@ -23,7 +23,50 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
-// Issue 4 — Category list
+// Issue 3 - Development Requester selector
+// The requester is a temporary Lab 2 testing context, not authentication.
+// Keep the documented route and the short compatibility alias requested by
+// the issue description on the same handler.
+// ---------------------------------------------------------------------------
+async function listActiveDevelopmentRequesters(
+  req: Request,
+  res: Response,
+) {
+  const active = req.query.active;
+
+  if (active !== undefined && (typeof active !== "string" || active !== "true")) {
+    res.status(400).json({
+      error: {
+        code: "INVALID_QUERY_PARAMETER",
+        message: "The active query parameter must be true.",
+      },
+    });
+    return;
+  }
+
+  try {
+    const requesters = await getPrisma().developmentRequester.findMany({
+      where: { isActive: true },
+      select: { id: true, displayName: true, email: true },
+      orderBy: { id: "asc" },
+    });
+
+    res.status(200).json(requesters);
+  } catch {
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Unable to load Development Requesters.",
+      },
+    });
+  }
+}
+
+app.get("/api/development-requesters", listActiveDevelopmentRequesters);
+app.get("/api/requesters", listActiveDevelopmentRequesters);
+
+// ---------------------------------------------------------------------------
+// Issue 4 - Category list
 // Add:  GET /api/categories
 //   -> read categories from PostgreSQL via getPrisma().category.findMany(...)
 //   -> return each { id, name } in a predictable (id) order

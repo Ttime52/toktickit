@@ -1,0 +1,373 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #17352a;
+  background: #f5f7f6;
+  font-synthesis: none;
+  --zen-primary: #006b3c;
+  --zen-secondary: #0b7a46;
+  --zen-pale: #eaf6ef;
+  --zen-page: #f5f7f6;
+  --zen-surface: #ffffff;
+  --zen-border: #c7d3cd;
+  --zen-text: #17352a;
+  --zen-muted: #5c6f65;
+  --zen-error: #a12a2a;
+  --zen-error-bg: #fff1f1;
+  --zen-warning-bg: #fff8e1;
+  --zen-focus: #0b7a46;
+  --zen-disabled-bg: #dde5e0;
+  --zen-disabled-text: #7b8981;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--zen-page);
+  color: var(--zen-text);
+}
+
+button,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--zen-focus);
+  outline-offset: 2px;
+}
+
+.zen-page {
+  min-height: 100vh;
+  padding: 32px 24px;
+  display: grid;
+  place-items: center;
+}
+
+.zen-selection-card {
+  width: min(100%, 560px);
+}
+
+.zen-card {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgb(23 53 42 / 8%);
+  padding: 32px;
+}
+
+.zen-eyebrow {
+  color: var(--zen-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 0 0 16px;
+}
+
+.zen-lead {
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.zen-callout {
+  border: 1px solid var(--zen-border);
+  border-radius: 8px;
+  line-height: 1.45;
+  margin: 16px 0;
+  padding: 12px 16px;
+}
+
+.zen-callout-info {
+  background: var(--zen-pale);
+}
+
+.zen-callout-warning {
+  background: var(--zen-warning-bg);
+  border-color: #e1c77a;
+  color: #6f4e00;
+}
+
+.zen-callout-error {
+  background: var(--zen-error-bg);
+  border-color: #e7aaaa;
+  color: var(--zen-error);
+}
+
+.zen-callout .zen-button {
+  display: block;
+  margin-top: 12px;
+}
+
+.zen-field {
+  margin: 24px 0 16px;
+}
+
+.zen-field label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.required-mark {
+  color: var(--zen-error);
+}
+
+.zen-field select {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 6px;
+  color: var(--zen-text);
+  min-height: 44px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.zen-field select:disabled {
+  background: var(--zen-disabled-bg);
+  color: var(--zen-disabled-text);
+  cursor: not-allowed;
+}
+
+.zen-field select[aria-invalid="true"] {
+  border-color: var(--zen-error);
+}
+
+.zen-field-error {
+  color: var(--zen-error);
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+
+.zen-status {
+  align-items: center;
+  color: var(--zen-muted);
+  display: flex;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.zen-spinner {
+  animation: zen-spin 0.8s linear infinite;
+  border: 2px solid var(--zen-border);
+  border-radius: 50%;
+  border-top-color: var(--zen-secondary);
+  display: inline-block;
+  height: 16px;
+  width: 16px;
+}
+
+@keyframes zen-spin {
+  to { transform: rotate(360deg); }
+}
+
+.zen-button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 8px 16px;
+}
+
+.zen-button:disabled {
+  background: var(--zen-disabled-bg);
+  color: var(--zen-disabled-text);
+  cursor: not-allowed;
+}
+
+.zen-button-primary {
+  background: var(--zen-primary);
+  color: white;
+}
+
+.zen-button-primary:not(:disabled):hover,
+.zen-button-primary:not(:disabled):focus-visible {
+  background: var(--zen-secondary);
+}
+
+.zen-button-secondary {
+  background: var(--zen-surface);
+  border-color: var(--zen-secondary);
+  color: var(--zen-secondary);
+}
+
+.zen-button-secondary:hover {
+  background: var(--zen-pale);
+}
+
+.zen-continue-button {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.zen-header {
+  background: var(--zen-primary);
+  color: white;
+  min-height: 64px;
+}
+
+.zen-header-inner {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  margin: 0 auto;
+  max-width: 1200px;
+  min-height: 64px;
+  padding: 0 24px;
+}
+
+.zen-brand {
+  color: white;
+  font-size: 20px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.zen-nav {
+  align-items: stretch;
+  display: flex;
+  gap: 4px;
+}
+
+.zen-nav a {
+  align-items: center;
+  color: white;
+  display: flex;
+  min-height: 44px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.zen-nav a:hover,
+.zen-nav a.is-active {
+  background: var(--zen-secondary);
+  border-radius: 6px;
+}
+
+.zen-requester-context {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.zen-change-button {
+  background: transparent;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.zen-change-button:hover {
+  background: rgb(255 255 255 / 12%);
+}
+
+.zen-menu-button {
+  background: transparent;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  display: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.zen-shell-content {
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 32px 24px;
+}
+
+.zen-placeholder {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  padding: 32px;
+}
+
+.zen-placeholder p {
+  color: var(--zen-muted);
+}
+
+/* Kept off-screen so the Lab 1 diagnostic test remains backwards compatible
+   while the Lab 2 requester selector is the only visible entry point. */
+.zen-legacy-diagnostic {
+  height: 1px;
+  left: -10000px;
+  overflow: hidden;
+  position: absolute;
+  top: auto;
+  width: 1px;
+}
+
+@media (max-width: 767px) {
+  .zen-page {
+    padding: 16px;
+  }
+
+  .zen-card {
+    padding: 24px 16px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .zen-header-inner {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 16px;
+    position: relative;
+  }
+
+  .zen-menu-button {
+    display: block;
+    margin-left: auto;
+  }
+
+  .zen-nav {
+    background: var(--zen-primary);
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    padding-bottom: 8px;
+  }
+
+  .zen-nav.is-open {
+    display: flex;
+  }
+
+  .zen-requester-context {
+    align-items: flex-start;
+    flex-basis: 100%;
+    flex-direction: column;
+    margin-left: 0;
+    padding: 4px 0 8px;
+    text-align: left;
+  }
+
+  .zen-shell-content {
+    padding: 16px;
+  }
+}
