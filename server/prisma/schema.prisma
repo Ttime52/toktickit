@@ -10,18 +10,128 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------------------------------------------------------------------
-// Issue 3 — Create and seed IT request categories
-// Define a Category model with:
-//   id        Int      @id @default(autoincrement())
-//   name      String   @unique
-//   createdAt DateTime @default(now())
-// Then run:  npx prisma migrate dev --name init
-// TODO(Issue 3): add the Category model below.
-// ---------------------------------------------------------------------------
-
 model Category {
   id        Int      @id @default(autoincrement())
   name      String   @unique
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  tickets Ticket[]
+
+  @@index([isActive, name])
+  @@map("categories")
+}
+
+model DevelopmentRequester {
+  id          Int      @id @default(autoincrement())
+  displayName String
+  email       String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  tickets             Ticket[]
+  uploadedAttachments Attachment[] @relation("AttachmentUploadedBy")
+  removedAttachments  Attachment[] @relation("AttachmentRemovedBy")
+
+  @@index([isActive, displayName])
+  @@map("development_requesters")
+}
+
+model RelatedSystem {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  tickets Ticket[]
+
+  @@index([isActive, name])
+  @@map("related_systems")
+}
+
+model Ticket {
+  id                Int               @id @default(autoincrement())
+  ticketNumber      String            @unique
+  ticketDate        DateTime
+  requesterId       Int
+  categoryId        Int
+  relatedSystemId   Int
+  summary           String
+  description       String
+  requestedPriority RequestedPriority @default(MEDIUM)
+  itPriority        ItPriority?
+  currentStatus     CurrentStatus     @default(NEW)
+  idempotencyKey    String            @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @default(now()) @updatedAt
+
+  requester     DevelopmentRequester @relation(fields: [requesterId], references: [id], onDelete: Restrict)
+  category      Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  relatedSystem RelatedSystem        @relation(fields: [relatedSystemId], references: [id], onDelete: Restrict)
+  attachments   Attachment[]
+
+  @@index([requesterId, updatedAt])
+  @@index([requesterId, currentStatus])
+  @@index([requesterId, categoryId])
+  @@index([requesterId, relatedSystemId])
+  @@index([requesterId, requestedPriority])
+  @@map("tickets")
+}
+
+model TicketNumberCounter {
+  year      Int @id
+  nextValue Int @default(1)
+
+  @@map("ticket_number_counters")
+}
+
+model Attachment {
+  id                    Int                    @id @default(autoincrement())
+  ticketId              Int
+  uploadedByRequesterId Int
+  originalFilename      String
+  storageKey            String                 @unique
+  mimeType              String
+  sizeBytes             Int
+  uploadedAt            DateTime               @default(now())
+  availabilityState     AttachmentAvailability @default(AVAILABLE)
+  unavailableAt         DateTime?
+  unavailableReason     String?
+  removedAt             DateTime?
+  removedByRequesterId  Int?
+  removalReason         String?
+
+  ticket              Ticket                @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  uploadedByRequester DevelopmentRequester  @relation("AttachmentUploadedBy", fields: [uploadedByRequesterId], references: [id], onDelete: Restrict)
+  removedByRequester  DevelopmentRequester? @relation("AttachmentRemovedBy", fields: [removedByRequesterId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, removedAt])
+  @@index([ticketId, uploadedAt])
+  @@map("attachments")
+}
+
+enum RequestedPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CurrentStatus {
+  NEW
+}
+
+enum ItPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AttachmentAvailability {
+  AVAILABLE
+  UNAVAILABLE
 }
