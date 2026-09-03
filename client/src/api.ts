@@ -5,9 +5,48 @@ export interface Category {
   name: string;
 }
 
+export interface DevelopmentRequester {
+  id: number;
+  displayName: string;
+  email: string;
+}
+
 export interface SystemStatus {
   online: boolean;
   categories: Category[];
+}
+
+const REQUESTER_API_PATH = `${API_URL}/api/development-requesters?active=true`;
+
+export async function fetchDevelopmentRequesters(
+  signal?: AbortSignal,
+): Promise<DevelopmentRequester[]> {
+  const response = signal
+    ? await fetch(REQUESTER_API_PATH, { signal })
+    : await fetch(REQUESTER_API_PATH);
+
+  if (!response.ok) {
+    throw new Error("Unable to load Development Requesters");
+  }
+
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) {
+    throw new Error("Invalid Development Requester response");
+  }
+
+  return body.filter(isDevelopmentRequester);
+}
+
+function isDevelopmentRequester(value: unknown): value is DevelopmentRequester {
+  if (typeof value !== "object" || value === null) return false;
+
+  const requester = value as Record<string, unknown>;
+  return (
+    Number.isInteger(requester.id) &&
+    typeof requester.displayName === "string" &&
+    typeof requester.email === "string" &&
+    (requester.isActive === undefined || requester.isActive === true)
+  );
 }
 
 // Issue 2 + Issue 4 — call the backend.

@@ -1,54 +1,145 @@
-import { useState } from "react";
-import { checkSystem, Category } from "./api.js";
+import { useCallback, useEffect, useState } from "react";
 
-// UI states you must handle for Issue 4: idle, loading, success, error.
-type UiState = "idle" | "loading" | "success" | "error";
+import ApplicationShell, { type AppPage } from "./ApplicationShell.js";
+import RequesterSelection from "./RequesterSelection.js";
+import {
+  RequesterProvider,
+  useRequesterContext,
+} from "./RequesterContext.js";
+import { checkSystem, type Category } from "./api.js";
+import "./styles.css";
 
-export default function App() {
-  const [state, setState] = useState<UiState>("idle");
+const REQUESTER_SELECTION_PATH = "/select-requester";
+
+function pageFromPath(pathname: string): AppPage {
+  return pathname === "/create-ticket" ? "create-ticket" : "my-tickets";
+}
+
+function pathForPage(page: AppPage) {
+  return page === "create-ticket" ? "/create-ticket" : "/my-tickets";
+}
+
+function LabOneDiagnostic() {
+  const [state, setState] = useState<"idle" | "loading" | "success" | "error">(
+    "idle",
+  );
   const [categories, setCategories] = useState<Category[]>([]);
-  const [errorMsg, setErrorMsg] = useState("");
 
-  async function handleCheck() {
-    // TODO(Issue 4): set loading, call checkSystem(), then either
-    //   - success: store categories and show Online + the list, or
-    //   - error: show Offline + a useful message.
+  async function handleCheckSystem() {
     setState("loading");
     try {
       const result = await checkSystem();
       setCategories(result.categories);
       setState("success");
-    } catch (err) {
-      setErrorMsg("Unable to connect to TokTickIT API");
+    } catch {
       setState("error");
     }
   }
 
   return (
-    <div className="container py-5" style={{ maxWidth: 640 }}>
-      <h1 className="h3 mb-4">
-        TokTickIT <span className="text-success">IT Service Desk</span>
-      </h1>
-
-      <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
-        {state === "loading" ? "Loading…" : "Check System"}
+    <div className="zen-legacy-diagnostic" hidden>
+      <button type="button" tabIndex={-1} onClick={handleCheckSystem}>
+        Check System
       </button>
       {state === "success" && (
-        <div className="mt-3">
-          <p>System Status: <strong>Online</strong></p>
-          <p className="mb-1">Supported Request Categories:</p>
+        <div>
+          System Status: <strong>Online</strong>
           <ul>
-            {categories.map((c) => (
-              <li key={c.id}>{c.name}</li>
+            {categories.map((category) => (
+              <li key={category.id}>{category.name}</li>
             ))}
           </ul>
         </div>
       )}
       {state === "error" && (
-        <div className="alert alert-danger mt-3">
-          System Status: Offline<br />{errorMsg}
+        <div>
+          System Status: Offline
+          <span>Unable to connect to TokTickIT API</span>
         </div>
       )}
     </div>
+  );
+}
+
+function AppContent() {
+  const { selectedRequester, clearRequester, requesterRevision } =
+    useRequesterContext();
+  const [pathname, setPathname] = useState(
+    () => window.location.pathname || "/my-tickets",
+  );
+
+  const navigateTo = useCallback((path: string, replace = false) => {
+    if (window.location.pathname !== path) {
+      if (replace) {
+        window.history.replaceState({}, "", path);
+      } else {
+        window.history.pushState({}, "", path);
+      }
+    }
+    setPathname(path);
+  }, []);
+
+  useEffect(() => {
+    function handlePopState() {
+      setPathname(window.location.pathname || "/my-tickets");
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (selectedRequester === null && pathname !== REQUESTER_SELECTION_PATH) {
+      navigateTo(REQUESTER_SELECTION_PATH, true);
+      return;
+    }
+
+    if (
+      selectedRequester !== null &&
+      (pathname === REQUESTER_SELECTION_PATH || pathname === "/")
+    ) {
+      navigateTo("/my-tickets", true);
+    }
+  }, [navigateTo, pathname, selectedRequester]);
+
+  if (selectedRequester === null) {
+    return (
+      <>
+        <RequesterSelection onContinue={() => navigateTo("/my-tickets")} />
+        <LabOneDiagnostic />
+      </>
+    );
+  }
+
+  const currentPage = pageFromPath(pathname);
+  const requesterName = selectedRequester.displayName;
+
+  return (
+    <ApplicationShell
+      currentPage={currentPage}
+      requesterName={requesterName}
+      onNavigate={(page) => navigateTo(pathForPage(page))}
+      onChangeRequester={() => {
+        clearRequester();
+        navigateTo(REQUESTER_SELECTION_PATH);
+      }}
+    >
+      <div key={requesterRevision} className="zen-placeholder">
+        <h1>{currentPage === "my-tickets" ? "My Tickets" : "Create Ticket"}</h1>
+        <p>
+          {currentPage === "my-tickets"
+            ? `Tickets for ${requesterName} will appear here.`
+            : "Ticket creation will be available in the next requester workflow increment."}
+        </p>
+      </div>
+    </ApplicationShell>
+  );
+}
+
+export default function App() {
+  return (
+    <RequesterProvider>
+      <AppContent />
+    </RequesterProvider>
   );
 }
