@@ -141,6 +141,9 @@ function AppContent() {
         {currentPage === "create-ticket" ? (
           <CreateTicket
             onNavigate={(page) => navigateTo(pathForPage(page))}
+            onViewTicket={(createdTicketId) =>
+              navigateTo(`/tickets/${createdTicketId}`)
+            }
           />
         ) : currentPage === "ticket-detail" && ticketId !== null ? (
           <TicketDetail

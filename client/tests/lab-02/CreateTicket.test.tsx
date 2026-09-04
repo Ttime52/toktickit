@@ -76,6 +76,9 @@ function mockApi(options?: {
         options?.createStatus ?? 201,
       );
     }
+    if (url.includes("/api/tickets/101?requesterId=1")) {
+      return jsonResponse({ data: createdTicket });
+    }
     if (url.includes("/attachments") && init?.method === "POST") {
       return jsonResponse({
         data: {
@@ -204,6 +207,11 @@ describe("Create Ticket screen (UI-03 through UI-10)", () => {
     });
     expect((createInit.headers as Record<string, string>)["Idempotency-Key"]).toMatch(/^[\x21-\x7e]{16,64}$/u);
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "View Ticket" }));
+    expect(await screen.findByRole("heading", { name: "Ticket Detail" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/tickets/101");
+    expect(screen.queryByText(/outside Issue 4/iu)).not.toBeInTheDocument();
   });
 
   it("shows immediate type/size/count attachment errors without uploading invalid rows", async () => {

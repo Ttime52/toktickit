@@ -65,8 +65,8 @@ These are minor improvements rather than blocking issues. Overall, I think the P
 PR #28 feature/10-ticket-detail-attachments
 https://github.com/Ttime52/toktickit/pull/28
 
-- Reviewer comment I received: 
-- How I responded: 
+- Reviewer comment I received: Tested the PR locally. All 56 tests passed, and the Ticket Detail and Attachment lifecycle flows are working as expected. The only issue I found is that View Ticket still shows “Ticket Detail is outside Issue 4” instead of navigating to the Ticket Detail page. Please update this flow; everything else looks good.
+- How I responded: I will fix that.
 
 
 ## Pull Requests I reviewed for my partner
@@ -83,7 +83,7 @@ feature/6-data-model-seed
 https://github.com/KwanchanokThungsuk/toktickit/pull/27
 
 - My comment: Looks good. It aligned with the Lab 2 Sprint engineering contract.
-- Partner's response: 
+- Partner's response: Merged.
 
 feature/7-zen-green-foundation
 https://github.com/KwanchanokThungsuk/toktickit/pull/28
@@ -126,3 +126,9 @@ Added a combined-filter test to verify the filters work with AND logic.
 Changed the category ordering to name ASC to follow the api-spec.md contract.
 Fixed the test setup to clear existing data before creating test data, avoiding duplicate/unique constraint errors.
 - My comment: Looks good now. Fantastic job.
+
+feature/12-my-tickets-ui
+https://github.com/KwanchanokThungsuk/toktickit/pull/33
+
+- My comment: Everything looks good. The main requirements for search, filters, sorting, pagination, requester switching, and the different UI states are covered.
+- Partner's response: Merged.
