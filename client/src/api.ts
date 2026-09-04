@@ -338,6 +338,44 @@ export async function fetchTickets(
   };
 }
 
+export async function fetchTicket(
+  ticketId: number,
+  requesterId: number,
+  signal?: AbortSignal,
+): Promise<Ticket> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`,
+    signal ? { signal } : undefined,
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Ticket Detail.");
+  }
+
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Ticket Detail response.", response.status);
+  }
+
+  return body.data as Ticket;
+}
+
+export function getAttachmentDownloadUrl(
+  ticketId: number,
+  attachmentId: number,
+  requesterId: number,
+): string {
+  return `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}/download?requesterId=${requesterId}`;
+}
+
+export function getAttachmentPreviewUrl(
+  ticketId: number,
+  attachmentId: number,
+  requesterId: number,
+): string {
+  return `${getAttachmentDownloadUrl(ticketId, attachmentId, requesterId)}&disposition=inline`;
+}
+
 export async function uploadAttachment(
   ticketId: number,
   requesterId: number,
@@ -361,6 +399,33 @@ export async function uploadAttachment(
 
   if (typeof body.data !== "object" || body.data === null) {
     throw new ApiRequestError("Invalid Attachment response.", response.status);
+  }
+
+  return body.data as TicketAttachment;
+}
+
+export async function removeAttachment(
+  ticketId: number,
+  attachmentId: number,
+  requesterId: number,
+  reason: string,
+): Promise<TicketAttachment> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}?requesterId=${requesterId}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    },
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to remove Attachment.");
+  }
+
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Attachment removal response.", response.status);
   }
 
   return body.data as TicketAttachment;

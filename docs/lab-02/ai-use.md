@@ -13,8 +13,8 @@
 | 6 | Check this PR if it should approve or not โดยดูตามใบแลปด้วย | ดูตามไฟล์ที่ AI บอกว่ามีปัญหาแล้วตรวจสอบและ test ด้วยตนเองก่อนคอมเมนต์ให้เพื่อน |
 | 7 | ตรวจสอบ Replay Edge Case ถ้ามีปัญหาให้แก้เลย | ดูโค้ดและรัน test เพื่อเช็คว่าถูกต้อง |
 | 8 | ลองดูที่เพื่อน review มา ควร test ตามนี้ไหม ถ้าควรให้เพิ่ม test เลย | ตรวจว่าสร้าง test ถูกตาม review มั้ย |
-| 9 | | |
-| 10 | | |
+| 9 | layout ตอนย่อ request priority ไม่อยู่ในกรอบ แก้ให้อันที่เลยกรอบมาอยู่ในกรอบ ดูดีหน่อย | ตรวจสอบโค้ดและดู ย่อขนาดหน้าต่างเพื่อดูว่า layout ทำงานได้ดีไหม |
+| 10 | ตอนนี้ปุ่ม preview action เหมือน download เลย ทำให้มันแค่เปิดไฟล์มาดูโดยไม่ดาวน์โหลดได้ไหม | ตรวจสอบดูหน้า UI ใหม่และทดสอบปุ่ม preview |
 
 ## Reflection
 Two or three sentences: what made your prompts better, and one place you had to

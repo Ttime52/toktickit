@@ -267,6 +267,13 @@ describe("My Tickets screen (UI-11/UI-12)", () => {
     expect(stylesheet).toMatch(
       /\.zen-ticket-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(220px, 2fr\)/,
     );
+    const tabletRules = stylesheet.slice(stylesheet.indexOf("@media (max-width: 991px)"));
+    expect(tabletRules).toMatch(
+      /\.zen-ticket-toolbar\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)/,
+    );
+    expect(tabletRules).toMatch(
+      /\.zen-list-search\s*\{[^}]*grid-column:\s*1 \/ -1/,
+    );
   });
 
   it("distinguishes first-use empty, no-results, and failure states", async () => {

@@ -4,6 +4,7 @@ import ApplicationShell, { type AppPage } from "./ApplicationShell.js";
 import CreateTicket from "./CreateTicket.js";
 import MyTickets from "./MyTickets.js";
 import RequesterSelection from "./RequesterSelection.js";
+import TicketDetail from "./TicketDetail.js";
 import {
   RequesterProvider,
   useRequesterContext,
@@ -14,11 +15,20 @@ import "./styles.css";
 const REQUESTER_SELECTION_PATH = "/select-requester";
 
 function pageFromPath(pathname: string): AppPage {
-  return pathname === "/create-ticket" ? "create-ticket" : "my-tickets";
+  if (pathname === "/create-ticket") return "create-ticket";
+  if (/^\/tickets\/[1-9]\d*$/u.test(pathname)) return "ticket-detail";
+  return "my-tickets";
 }
 
 function pathForPage(page: AppPage) {
   return page === "create-ticket" ? "/create-ticket" : "/my-tickets";
+}
+
+function ticketIdFromPath(pathname: string): number | null {
+  const match = /^\/tickets\/([1-9]\d*)$/u.exec(pathname);
+  if (match === null) return null;
+  const ticketId = Number(match[1]);
+  return Number.isSafeInteger(ticketId) ? ticketId : null;
 }
 
 function LabOneDiagnostic() {
@@ -115,6 +125,7 @@ function AppContent() {
 
   const currentPage = pageFromPath(pathname);
   const requesterName = selectedRequester.displayName;
+  const ticketId = ticketIdFromPath(pathname);
 
   return (
     <ApplicationShell
@@ -131,11 +142,20 @@ function AppContent() {
           <CreateTicket
             onNavigate={(page) => navigateTo(pathForPage(page))}
           />
+        ) : currentPage === "ticket-detail" && ticketId !== null ? (
+          <TicketDetail
+            ticketId={ticketId}
+            requesterId={selectedRequester.id}
+            onNavigate={() => navigateTo("/my-tickets")}
+          />
         ) : (
           <MyTickets
             requesterId={selectedRequester.id}
             requesterName={requesterName}
             onNavigate={(page) => navigateTo(pathForPage(page))}
+            onOpenTicket={(openedTicketId) =>
+              navigateTo(`/tickets/${openedTicketId}`)
+            }
           />
         )}
       </div>

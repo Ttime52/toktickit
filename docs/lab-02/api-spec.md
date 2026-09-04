@@ -386,7 +386,10 @@ first.
 `GET /api/tickets/:ticketId/attachments/:attachmentId/download?requesterId=1`
 
 - Active, owned file: `200`, original stored MIME type, safe
-  `Content-Disposition` filename, and file bytes.
+  `Content-Disposition: attachment` filename, and file bytes. The UI may add
+  `disposition=inline` to this same authorized endpoint when opening a preview;
+  in that case the response uses `Content-Disposition: inline` so supported
+  image/PDF files open in a new browser tab without forcing a download.
 - Missing Ticket/Attachment: `404`.
 - Non-owner: `403` with no bytes.
 - Removed or unavailable file: `410 ATTACHMENT_NOT_AVAILABLE` with no bytes.
