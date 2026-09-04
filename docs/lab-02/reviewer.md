@@ -10,7 +10,7 @@
 |  #24  | feature/6-data-model-seed | Approved |
 |  #25  | feature/7-requester-context | Approved |
 |  #26  | feature/8-create-ticket | Request changes and Approved |
-|  #27  | feature/9-my-tickets |  |
+|  #27  | feature/9-my-tickets | Approved |
 |  #28  | feature/10-ticket-detail-attachments |  |
 |  #29  | feature/11-e2e-visual-qa |  |
 |  #30  | feature/12-docs-release |  |
@@ -48,8 +48,22 @@ One thing to verify: idempotency replay should still return the existing ticket 
 - Reviewer comment I received: All relevant tests passed, including the idempotency replay fix and edge case. good good
 - How I responded: Thank you so much kub.
 
-PR #27 feature/5-specification-docs
+PR #27 feature/9-my-tickets
 https://github.com/Ttime52/toktickit/pull/27
+
+- Reviewer comment I received: verall, the My Tickets implementation looks good and the main functionality works as expected. I tested the requester ownership filtering, search, filters, sorting, pagination, and empty states, and the tickets are correctly visible only to their corresponding requester.
+
+A few minor suggestions:
+
+The search placeholder currently mentions only ticket number, summary, and description, while the search also supports category and related system. Consider updating the placeholder to reflect that.
+
+It may be worth adding test coverage for changing page size (10/20/50), responsive behavior on mobile/tablet, and sorting when multiple tickets have the same primary sort value.
+
+These are minor improvements rather than blocking issues. Overall, I think the PR is in good shape.
+- How I responded: Thank you for reviewing. I will consider the suggestion to be implemented in the next issue.
+
+PR #28 feature/10-ticket-detail-attachments
+https://github.com/Ttime52/toktickit/pull/28
 
 - Reviewer comment I received: 
 - How I responded: 
@@ -106,4 +120,9 @@ feature/11-my-tickets-api
 https://github.com/KwanchanokThungsuk/toktickit/pull/32
 
 - My comment: The filtering logic is implemented, but I don't see tests for categoryId, relatedSystemId, or requestedPriority yet. Please add coverage for these filters, including at least one combined-filter case. Moreover, api-spec.md says categories should be ordered by name ascending, but this changes it to id order and updates the test to match. Can we keep orderBy: { name: "asc" } so it still follows the API contract?
-- Partner's response: 
+- Partner's response: I’ve fixed the comments on PR #11.
+Added tests for categoryId, relatedSystemId, and requestedPriority filters.
+Added a combined-filter test to verify the filters work with AND logic.
+Changed the category ordering to name ASC to follow the api-spec.md contract.
+Fixed the test setup to clear existing data before creating test data, avoiding duplicate/unique constraint errors.
+- My comment: Looks good now. Fantastic job.
