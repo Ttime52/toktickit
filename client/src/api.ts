@@ -51,6 +51,58 @@ export interface Ticket {
   updatedAt: string;
 }
 
+export type TicketSortField =
+  | "ticketNumber"
+  | "ticketDate"
+  | "updatedAt"
+  | "requestedPriority"
+  | "currentStatus"
+  | "category";
+
+export type TicketSortOrder = "asc" | "desc";
+export type TicketPageSize = 10 | 20 | 50;
+
+export interface TicketListItem {
+  id: number;
+  ticketNumber: string;
+  ticketDate: string;
+  summary: string;
+  category: Category;
+  relatedSystem: RelatedSystem;
+  requestedPriority: RequestedPriority;
+  itPriority: RequestedPriority | null;
+  currentStatus: "NEW";
+  attachmentCount: number;
+  updatedAt: string;
+}
+
+export interface TicketListQuery {
+  requesterId: number;
+  search: string;
+  categoryId: number | null;
+  relatedSystemId: number | null;
+  requestedPriority: RequestedPriority | null;
+  currentStatus: "NEW" | null;
+  sortBy: TicketSortField;
+  sortOrder: TicketSortOrder;
+  page: number;
+  pageSize: TicketPageSize;
+}
+
+export interface TicketListMeta {
+  page: number;
+  pageSize: TicketPageSize;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface TicketListResult {
+  data: TicketListItem[];
+  meta: TicketListMeta;
+}
+
 export interface CreateTicketInput {
   requesterId: number;
   categoryId: number;
@@ -238,6 +290,51 @@ export async function createTicket(
   return {
     ticket: body.data as Ticket,
     idempotentReplay: meta.idempotentReplay === true,
+  };
+}
+
+export async function fetchTickets(
+  query: TicketListQuery,
+  signal?: AbortSignal,
+): Promise<TicketListResult> {
+  const params = new URLSearchParams({
+    requesterId: String(query.requesterId),
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+
+  if (query.search.trim().length > 0) params.set("search", query.search.trim());
+  if (query.categoryId !== null) params.set("categoryId", String(query.categoryId));
+  if (query.relatedSystemId !== null) {
+    params.set("relatedSystemId", String(query.relatedSystemId));
+  }
+  if (query.requestedPriority !== null) {
+    params.set("requestedPriority", query.requestedPriority);
+  }
+  if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+
+  const response = await fetch(`${API_URL}/api/tickets?${params.toString()}`, signal
+    ? { signal }
+    : undefined);
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load My Tickets.");
+  }
+
+  if (
+    !Array.isArray(body.data) ||
+    typeof body.meta !== "object" ||
+    body.meta === null
+  ) {
+    throw new ApiRequestError("Invalid My Tickets response.", response.status);
+  }
+
+  return {
+    data: body.data as TicketListItem[],
+    meta: body.meta as TicketListMeta,
   };
 }
 
