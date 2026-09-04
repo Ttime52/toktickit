@@ -9,7 +9,7 @@
 |  #23  | feature/5-specification-docs | Approved |
 |  #24  | feature/6-data-model-seed | Approved |
 |  #25  | feature/7-requester-context | Approved |
-|  #26  | feature/8-create-ticket |  |
+|  #26  | feature/8-create-ticket | Request changes and Approved |
 |  #27  | feature/9-my-tickets |  |
 |  #28  | feature/10-ticket-detail-attachments |  |
 |  #29  | feature/11-e2e-visual-qa |  |
@@ -36,8 +36,24 @@ https://github.com/Ttime52/toktickit/pull/25
 PR #26 feature/8-create-ticket
 https://github.com/Ttime52/toktickit/pull/26
 
-- Reviewer comment I received:
-- How I responded:
+- Reviewer comment I received: Reviewed & tested
+AC-03/04: Active reference data and error/retry handling work correctly.
+AC-05/06: Ticket creation, backend Ticket Number, UTC date, and NEW status work correctly.
+AC-07/08: Validation and active Requester/Category/System checks work correctly.
+AC-09: Idempotency tests passed and duplicate creation is prevented.
+AC-10: Form data is preserved when the API/upload fails.
+AC-16/17: Attachment type, signature, size, and 5-file limit validation work correctly.
+One thing to verify: idempotency replay should still return the existing ticket with the same key/payload.
+- How I responded: I already check the idempotency replay. It really need to fix. I will work on that. (feat: fix idempotentkey replay edge case)
+- Reviewer comment I received: All relevant tests passed, including the idempotency replay fix and edge case. good good
+- How I responded: Thank you so much kub.
+
+PR #27 feature/5-specification-docs
+https://github.com/Ttime52/toktickit/pull/27
+
+- Reviewer comment I received: 
+- How I responded: 
+
 
 ## Pull Requests I reviewed for my partner
 
@@ -83,5 +99,11 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/31
 - My comment: The attachment validation is fixed now, but the selected files are currently only validated and displayed in the UI. They are never uploaded after the ticket is created. There is still a TODO for uploading selectedFiles using the created ticket ID. According to the Lab 2 requirements, supporting attachments should actually be attached to the created ticket. Please complete the upload flow before merging.
 - Partner's response: feat(ticket): implement attachment upload flow and fix lab 2 tests
 - My comment: The upload flow is fixed now. One thing is still missing: the backend does not enforce file type, 5 MB limit, or max 5 active attachments. These are required by the Lab 2 sheet and should not rely only on frontend validation. Please add these checks and tests before merge.
-- Partner's response:
-- My comment:
+- Partner's response: feat(ticket): enforce attachment validation rules and fix test suites
+- My comment: The issues from my previous review are fixed now. The backend validates file type, 5 MB limit, and max 5 active attachments, and there are tests for these cases. Great job.
+
+feature/11-my-tickets-api
+https://github.com/KwanchanokThungsuk/toktickit/pull/32
+
+- My comment: The filtering logic is implemented, but I don't see tests for categoryId, relatedSystemId, or requestedPriority yet. Please add coverage for these filters, including at least one combined-filter case. Moreover, api-spec.md says categories should be ordered by name ascending, but this changes it to id order and updates the test to match. Can we keep orderBy: { name: "asc" } so it still follows the API contract?
+- Partner's response: 
