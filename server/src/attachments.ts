@@ -364,21 +364,23 @@ export async function readStoredAttachment(storageKey: string): Promise<Buffer> 
   return readFile(storagePath(storageKey));
 }
 
+export const attachmentMetadataSelect = {
+  id: true,
+  ticketId: true,
+  originalFilename: true,
+  storageKey: true,
+  mimeType: true,
+  sizeBytes: true,
+  uploadedAt: true,
+  availabilityState: true,
+  unavailableAt: true,
+  unavailableReason: true,
+  removedAt: true,
+  removalReason: true,
+} satisfies Prisma.AttachmentSelect;
+
 export type AttachmentMetadataRecord = Prisma.AttachmentGetPayload<{
-  select: {
-    id: true;
-    ticketId: true;
-    originalFilename: true;
-    storageKey: true;
-    mimeType: true;
-    sizeBytes: true;
-    uploadedAt: true;
-    availabilityState: true;
-    unavailableAt: true;
-    unavailableReason: true;
-    removedAt: true;
-    removalReason: true;
-  };
+  select: typeof attachmentMetadataSelect;
 }>;
 
 export function serializeAttachmentMetadata(

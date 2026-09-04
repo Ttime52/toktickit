@@ -9,10 +9,18 @@ import {
   storeAttachmentBytes,
   validateAttachmentFile,
 } from "./attachments.js";
+import {
+  downloadOwnedAttachment,
+  getOwnedAttachment,
+  listOwnedAttachments,
+  softRemoveOwnedAttachment,
+} from "./attachment-service.js";
 import { ApiError, sendApiError } from "./errors.js";
 import { getPrisma } from "./prisma.js";
 import {
+  assertOwnedTicket,
   createTicket,
+  getOwnedTicket,
   listTickets,
   serializeTicket,
 } from "./ticket-service.js";
@@ -47,6 +55,70 @@ function parsePositiveInteger(value: unknown): number | null {
   if (typeof value !== "string" || !/^[1-9]\d*$/u.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+type TicketScope = { ticketId: number; requesterId: number };
+type AttachmentScope = TicketScope & { attachmentId: number };
+
+function parseTicketScope(req: Request, res: Response): TicketScope | null {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  const requesterId = parsePositiveInteger(req.query.requesterId);
+  const fields: Record<string, string> = {};
+
+  if (ticketId === null) fields.ticketId = "A positive integer is required.";
+  if (requesterId === null) fields.requesterId = "A positive integer is required.";
+
+  if (Object.keys(fields).length > 0) {
+    sendApiError(
+      res,
+      new ApiError(
+        400,
+        "VALIDATION_ERROR",
+        "Ticket ID and requesterId must be positive integers.",
+        fields,
+      ),
+    );
+    return null;
+  }
+
+  return { ticketId: ticketId as number, requesterId: requesterId as number };
+}
+
+function parseAttachmentScope(
+  req: Request,
+  res: Response,
+): AttachmentScope | null {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  const attachmentId = parsePositiveInteger(req.params.attachmentId);
+  const requesterId = parsePositiveInteger(req.query.requesterId);
+  const fields: Record<string, string> = {};
+
+  if (ticketId === null) fields.ticketId = "A positive integer is required.";
+  if (attachmentId === null) fields.attachmentId = "A positive integer is required.";
+  if (requesterId === null) fields.requesterId = "A positive integer is required.";
+
+  if (Object.keys(fields).length > 0) {
+    sendApiError(
+      res,
+      new ApiError(
+        400,
+        "VALIDATION_ERROR",
+        "Ticket ID, Attachment ID, and requesterId must be positive integers.",
+        fields,
+      ),
+    );
+    return null;
+  }
+
+  return {
+    ticketId: ticketId as number,
+    attachmentId: attachmentId as number,
+    requesterId: requesterId as number,
+  };
+}
+
+function safeDownloadFilename(filename: string): string {
+  return filename.replace(/["\\\r\n]/gu, "_") || "attachment";
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +268,120 @@ app.get("/api/tickets", async (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// Issue 6 - requester-owned Ticket Detail and Attachment lifecycle
+// ---------------------------------------------------------------------------
+app.get("/api/tickets/:ticketId", async (req: Request, res: Response) => {
+  const scope = parseTicketScope(req, res);
+  if (scope === null) return;
+
+  try {
+    const ticket = await getOwnedTicket(
+      getPrisma(),
+      scope.ticketId,
+      scope.requesterId,
+    );
+    res.status(200).json({ data: serializeTicket(ticket) });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+});
+
+app.get(
+  "/api/tickets/:ticketId/attachments",
+  async (req: Request, res: Response) => {
+    const scope = parseTicketScope(req, res);
+    if (scope === null) return;
+
+    try {
+      const data = await listOwnedAttachments(
+        getPrisma(),
+        scope.ticketId,
+        scope.requesterId,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/tickets/:ticketId/attachments/:attachmentId",
+  async (req: Request, res: Response) => {
+    const scope = parseAttachmentScope(req, res);
+    if (scope === null) return;
+
+    try {
+      const { attachment } = await getOwnedAttachment(
+        getPrisma(),
+        scope.ticketId,
+        scope.attachmentId,
+        scope.requesterId,
+      );
+      res.status(200).json({
+        data: serializeAttachmentMetadata(attachment, scope.requesterId),
+      });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/tickets/:ticketId/attachments/:attachmentId/download",
+  async (req: Request, res: Response) => {
+    const scope = parseAttachmentScope(req, res);
+    if (scope === null) return;
+
+    try {
+      const { attachment, bytes } = await downloadOwnedAttachment(
+        getPrisma(),
+        scope.ticketId,
+        scope.attachmentId,
+        scope.requesterId,
+      );
+      res
+        .status(200)
+        .set("Content-Type", attachment.mimeType)
+        .set(
+          "Content-Disposition",
+          `${req.query.disposition === "inline" ? "inline" : "attachment"}; filename="${safeDownloadFilename(attachment.originalFilename)}"`,
+        )
+        .set("Content-Length", String(bytes.length))
+        .send(bytes);
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.delete(
+  "/api/tickets/:ticketId/attachments/:attachmentId",
+  async (req: Request, res: Response) => {
+    const scope = parseAttachmentScope(req, res);
+    if (scope === null) return;
+
+    const body =
+      typeof req.body === "object" && req.body !== null
+        ? (req.body as Record<string, unknown>)
+        : {};
+
+    try {
+      const data = await softRemoveOwnedAttachment(
+        getPrisma(),
+        scope.ticketId,
+        scope.attachmentId,
+        scope.requesterId,
+        body.reason,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
 // Issue 4 - Attachment upload after a Ticket exists
 // ---------------------------------------------------------------------------
 app.post(
@@ -224,30 +410,7 @@ app.post(
 
     try {
       const prisma = getPrisma();
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
-        select: { id: true, requesterId: true },
-      });
-
-      if (ticket === null) {
-        sendApiError(
-          res,
-          new ApiError(404, "TICKET_NOT_FOUND", "Ticket was not found."),
-        );
-        return;
-      }
-
-      if (ticket.requesterId !== requesterId) {
-        sendApiError(
-          res,
-          new ApiError(
-            403,
-            "OWNERSHIP_FORBIDDEN",
-            "This Ticket is not available for the selected Requester.",
-          ),
-        );
-        return;
-      }
+      await assertOwnedTicket(prisma, ticketId, requesterId);
 
       const upload = await parseSingleMultipartFile(req);
       const validation = validateAttachmentFile(upload);

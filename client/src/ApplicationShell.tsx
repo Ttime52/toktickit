@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 
-export type AppPage = "my-tickets" | "create-ticket";
+export type AppPage = "my-tickets" | "create-ticket" | "ticket-detail";
 
 interface ApplicationShellProps {
   currentPage: AppPage;
@@ -58,8 +58,16 @@ export default function ApplicationShell({
           >
             <a
               href="/my-tickets"
-              aria-current={currentPage === "my-tickets" ? "page" : undefined}
-              className={currentPage === "my-tickets" ? "is-active" : ""}
+              aria-current={
+                currentPage === "my-tickets" || currentPage === "ticket-detail"
+                  ? "page"
+                  : undefined
+              }
+              className={
+                currentPage === "my-tickets" || currentPage === "ticket-detail"
+                  ? "is-active"
+                  : ""
+              }
               onClick={(event) => {
                 event.preventDefault();
                 navigate("my-tickets");

@@ -272,6 +272,40 @@ describe("GET /api/tickets (API-08/API-09/API-10/API-11)", () => {
     );
   });
 
+  it("keeps id desc ordering when multiple Tickets share the primary sort value", async () => {
+    const requester = await createRequester("Tie Break Owner");
+    const first = await createOwnedTicket(requester.id, {
+      requestedPriority: "HIGH",
+      summary: "First ticket with the same priority",
+    });
+    const second = await createOwnedTicket(requester.id, {
+      requestedPriority: "HIGH",
+      summary: "Second ticket with the same priority",
+    });
+
+    const ascending = await listQuery(requester.id, {
+      requestedPriority: "HIGH",
+      sortBy: "requestedPriority",
+      sortOrder: "asc",
+    });
+    const descending = await listQuery(requester.id, {
+      requestedPriority: "HIGH",
+      sortBy: "requestedPriority",
+      sortOrder: "desc",
+    });
+
+    expect(ascending.status).toBe(200);
+    expect(descending.status).toBe(200);
+    expect(ascending.body.data.map((ticket: { id: number }) => ticket.id)).toEqual([
+      second.id,
+      first.id,
+    ]);
+    expect(descending.body.data.map((ticket: { id: number }) => ticket.id)).toEqual([
+      second.id,
+      first.id,
+    ]);
+  });
+
   it("returns correct pagination, empty/no-results responses, and rejects invalid queries", async () => {
     const requester = await createRequester("Pagination Owner");
     for (let index = 0; index < 11; index += 1) {
@@ -313,6 +347,25 @@ describe("GET /api/tickets (API-08/API-09/API-10/API-11)", () => {
       hasNextPage: false,
       hasPreviousPage: true,
     });
+
+    for (const pageSize of [20, 50] as const) {
+      const resizedPage = await listQuery(requester.id, {
+        page: "1",
+        pageSize: String(pageSize),
+        sortBy: "ticketNumber",
+        sortOrder: "asc",
+      });
+      expect(resizedPage.status).toBe(200);
+      expect(resizedPage.body.data).toHaveLength(11);
+      expect(resizedPage.body.meta).toEqual({
+        page: 1,
+        pageSize,
+        totalItems: 11,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      });
+    }
 
     const emptyRequester = await createRequester("Empty Owner");
     const empty = await listQuery(emptyRequester.id);

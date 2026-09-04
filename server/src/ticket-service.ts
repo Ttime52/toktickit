@@ -132,6 +132,73 @@ export interface TicketListResult {
   meta: TicketListMeta;
 }
 
+export async function assertActiveRequester(
+  prisma: PrismaClient,
+  requesterId: number,
+) {
+  const requester = await prisma.developmentRequester.findUnique({
+    where: { id: requesterId },
+    select: { id: true, isActive: true },
+  });
+
+  if (requester === null || !requester.isActive) {
+    throw new ApiError(
+      400,
+      "REQUESTER_CONTEXT_INVALID",
+      "The selected Development Requester is not active.",
+      { requesterId: "Select an active Development Requester." },
+    );
+  }
+
+  return requester;
+}
+
+export async function assertOwnedTicket(
+  prisma: PrismaClient,
+  ticketId: number,
+  requesterId: number,
+) {
+  await assertActiveRequester(prisma, requesterId);
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true, requesterId: true },
+  });
+
+  if (ticket === null) {
+    throw new ApiError(404, "TICKET_NOT_FOUND", "Ticket was not found.");
+  }
+
+  if (ticket.requesterId !== requesterId) {
+    throw new ApiError(
+      403,
+      "OWNERSHIP_FORBIDDEN",
+      "This Ticket is not available for the selected Requester.",
+    );
+  }
+
+  return ticket;
+}
+
+export async function getOwnedTicket(
+  prisma: PrismaClient,
+  ticketId: number,
+  requesterId: number,
+): Promise<FullTicketRecord> {
+  await assertOwnedTicket(prisma, ticketId, requesterId);
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    include: fullTicketInclude,
+  });
+
+  if (ticket === null) {
+    throw new ApiError(404, "TICKET_NOT_FOUND", "Ticket was not found.");
+  }
+
+  return ticket;
+}
+
 function serializeTicketListItem(ticket: TicketListRecord): TicketListItem {
   return {
     id: ticket.id,
@@ -255,19 +322,7 @@ export async function listTickets(
   prisma: PrismaClient,
   query: TicketListQuery,
 ): Promise<TicketListResult> {
-  const requester = await prisma.developmentRequester.findUnique({
-    where: { id: query.requesterId },
-    select: { id: true, isActive: true },
-  });
-
-  if (requester === null || !requester.isActive) {
-    throw new ApiError(
-      400,
-      "REQUESTER_CONTEXT_INVALID",
-      "The selected Development Requester is not active.",
-      { requesterId: "Select an active Development Requester." },
-    );
-  }
+  await assertActiveRequester(prisma, query.requesterId);
 
   const tickets = await prisma.ticket.findMany({
     where: ownedTicketWhere(query),

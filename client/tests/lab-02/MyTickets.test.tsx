@@ -3,6 +3,14 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 
 import MyTickets from "../../src/MyTickets.js";
+// @ts-ignore The client test package intentionally does not include Node types;
+// Vitest executes this test in Node so it can inspect the responsive CSS contract.
+import { readFileSync } from "node:fs";
+
+const stylesheet = readFileSync(
+  "src/styles.css",
+  "utf8",
+);
 
 const categories = [
   { id: 1, name: "Account and Access" },
@@ -197,6 +205,75 @@ describe("My Tickets screen (UI-11/UI-12)", () => {
       const calls = fetchMock.mock.calls.filter(([input]) => String(input).includes("/api/tickets?"));
       expect(new URL(String(calls.at(-1)?.[0])).searchParams.get("page")).toBe("2");
     });
+  });
+
+  it("requests each supported page size and resets to the first page", async () => {
+    const fetchMock = mockApi({
+      listResponse: listResponse([ticket], {
+        totalItems: 51,
+        totalPages: 6,
+        hasNextPage: true,
+      }),
+    });
+    const user = userEvent.setup();
+    renderMyTickets();
+    await screen.findByRole("table");
+
+    const pageSize = screen.getByLabelText("Page size");
+    for (const size of [20, 50, 10] as const) {
+      const pageSize = screen.getByLabelText("Page size");
+      await user.selectOptions(pageSize, String(size));
+      await waitFor(() => {
+        const calls = fetchMock.mock.calls.filter(([input]) =>
+          String(input).includes("/api/tickets?"),
+        );
+        expect(
+          calls.some(([input]) => {
+            const params = new URL(String(input)).searchParams;
+            return params.get("pageSize") === String(size) && params.get("page") === "1";
+          }),
+        ).toBe(true);
+      });
+      await screen.findByRole("table");
+    }
+  });
+
+  it("keeps desktop table and mobile card structures responsive", async () => {
+    mockApi();
+    renderMyTickets();
+    await screen.findByRole("table");
+
+    const tableWrap = document.querySelector(".zen-ticket-table-wrap");
+    const cardList = document.querySelector(".zen-ticket-card-list");
+    expect(tableWrap).toBeInTheDocument();
+    expect(cardList).toBeInTheDocument();
+    expect(within(cardList as HTMLElement).getByText(ticket.ticketNumber)).toBeInTheDocument();
+    expect(within(cardList as HTMLElement).getByText(ticket.summary)).toBeInTheDocument();
+    expect(
+      within(cardList as HTMLElement).getByRole("button", {
+        name: `Open ${ticket.ticketNumber}`,
+      }),
+    ).toBeInTheDocument();
+
+    const mobileRules = stylesheet.slice(stylesheet.indexOf("@media (max-width: 767px)"));
+    expect(mobileRules).toMatch(/\.zen-ticket-table-wrap\s*\{[^}]*display:\s*none/);
+    expect(mobileRules).toMatch(/\.zen-ticket-card-list\s*\{[^}]*display:\s*grid/);
+    expect(mobileRules).toMatch(/\.zen-ticket-open-button\s*\{[^}]*width:\s*100%/);
+    expect(mobileRules).toMatch(/\.zen-pagination\s*\{[^}]*flex-direction:\s*column/);
+
+    expect(stylesheet).toMatch(
+      /\.zen-ticket-table-wrap\s*\{[^}]*overflow-x:\s*auto/,
+    );
+    expect(stylesheet).toMatch(
+      /\.zen-ticket-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(220px, 2fr\)/,
+    );
+    const tabletRules = stylesheet.slice(stylesheet.indexOf("@media (max-width: 991px)"));
+    expect(tabletRules).toMatch(
+      /\.zen-ticket-toolbar\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)/,
+    );
+    expect(tabletRules).toMatch(
+      /\.zen-list-search\s*\{[^}]*grid-column:\s*1 \/ -1/,
+    );
   });
 
   it("distinguishes first-use empty, no-results, and failure states", async () => {
