@@ -8,7 +8,7 @@
 |----|--------|------------------|
 |  #23  | feature/5-specification-docs | Approved |
 |  #24  | feature/6-data-model-seed | Approved |
-|  #25  | feature/7-requester-context |  |
+|  #25  | feature/7-requester-context | Approved |
 |  #26  | feature/8-create-ticket |  |
 |  #27  | feature/9-my-tickets |  |
 |  #28  | feature/10-ticket-detail-attachments |  |
@@ -30,8 +30,14 @@ https://github.com/Ttime52/toktickit/pull/24
 PR #25 feature/7-requester-context
 https://github.com/Ttime52/toktickit/pull/25
 
-- Reviewer comment I received: 
-- How I responded: 
+- Reviewer comment I received: tested the requester selection flow, persistence, validation, error/retry handling, backend and UI tests, and responsive layout. Everything passed and looks good.
+- How I responded: Thank you reviewer.
+
+PR #26 feature/8-create-ticket
+https://github.com/Ttime52/toktickit/pull/26
+
+- Reviewer comment I received:
+- How I responded:
 
 ## Pull Requests I reviewed for my partner
 
@@ -75,5 +81,7 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/31
 - My comment: UI overall looks good but, there are things need to fix. The Lab 2 sheet requires attachment validation on Create Ticket, but right now the file input does not check file type, 5 MB limit, max 5 files, or show an invalid-file error, and there is no test for it. Also the View Ticket button on the success screen currently does nothing. Moreover, the ui doesnt show files that are selected in attachments.
 - Partner's response: feat: complete CreateTicket UI, attachment validation, and unit tests for Issue 10
 - My comment: The attachment validation is fixed now, but the selected files are currently only validated and displayed in the UI. They are never uploaded after the ticket is created. There is still a TODO for uploading selectedFiles using the created ticket ID. According to the Lab 2 requirements, supporting attachments should actually be attached to the created ticket. Please complete the upload flow before merging.
-- Partner's response: 
+- Partner's response: feat(ticket): implement attachment upload flow and fix lab 2 tests
+- My comment: The upload flow is fixed now. One thing is still missing: the backend does not enforce file type, 5 MB limit, or max 5 active attachments. These are required by the Lab 2 sheet and should not rely only on frontend validation. Please add these checks and tests before merge.
+- Partner's response:
 - My comment:

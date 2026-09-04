@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import ApplicationShell, { type AppPage } from "./ApplicationShell.js";
+import CreateTicket from "./CreateTicket.js";
 import RequesterSelection from "./RequesterSelection.js";
 import {
   RequesterProvider,
@@ -124,13 +125,17 @@ function AppContent() {
         navigateTo(REQUESTER_SELECTION_PATH);
       }}
     >
-      <div key={requesterRevision} className="zen-placeholder">
-        <h1>{currentPage === "my-tickets" ? "My Tickets" : "Create Ticket"}</h1>
-        <p>
-          {currentPage === "my-tickets"
-            ? `Tickets for ${requesterName} will appear here.`
-            : "Ticket creation will be available in the next requester workflow increment."}
-        </p>
+      <div key={requesterRevision}>
+        {currentPage === "create-ticket" ? (
+          <CreateTicket
+            onNavigate={(page) => navigateTo(pathForPage(page))}
+          />
+        ) : (
+          <div className="zen-placeholder">
+            <h1>My Tickets</h1>
+            <p>Tickets for {requesterName} will appear here.</p>
+          </div>
+        )}
       </div>
     </ApplicationShell>
   );

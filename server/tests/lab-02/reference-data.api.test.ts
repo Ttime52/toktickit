@@ -106,4 +106,38 @@ describe("Development Requester reference API (API-01/API-02)", () => {
     expect(JSON.stringify(response.body)).not.toContain("SELECT");
     expect(JSON.stringify(response.body)).not.toContain("secret");
   });
+
+  it("returns active Categories and Related Systems in id order", async () => {
+    const [categories, relatedSystems] = await Promise.all([
+      request(app).get("/api/categories?active=true"),
+      request(app).get("/api/related-systems?active=true"),
+    ]);
+
+    expect(categories.status).toBe(200);
+    expect(categories.body.map((item: { id: number }) => item.id)).toEqual(
+      [...categories.body.map((item: { id: number }) => item.id)].sort(
+        (a, b) => a - b,
+      ),
+    );
+    expect(categories.body.map((item: { name: string }) => item.name)).toEqual([
+      "Account and Access",
+      "Hardware",
+      "Software",
+      "Network",
+    ]);
+
+    expect(relatedSystems.status).toBe(200);
+    expect(relatedSystems.body.map((item: { name: string }) => item.name)).toEqual([
+      "Email",
+      "Campus Wi-Fi",
+      "VPN",
+      "LEB2 App",
+      "Grade Submission App",
+      "Printer",
+      "Corporate Laptop",
+    ]);
+    for (const item of relatedSystems.body as Array<Record<string, unknown>>) {
+      expect(Object.keys(item).sort()).toEqual(["id", "name"]);
+    }
+  });
 });
