@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import ApplicationShell, { type AppPage } from "./ApplicationShell.js";
 import CreateTicket from "./CreateTicket.js";
+import MyTickets from "./MyTickets.js";
 import RequesterSelection from "./RequesterSelection.js";
 import {
   RequesterProvider,
@@ -131,10 +132,11 @@ function AppContent() {
             onNavigate={(page) => navigateTo(pathForPage(page))}
           />
         ) : (
-          <div className="zen-placeholder">
-            <h1>My Tickets</h1>
-            <p>Tickets for {requesterName} will appear here.</p>
-          </div>
+          <MyTickets
+            requesterId={selectedRequester.id}
+            requesterName={requesterName}
+            onNavigate={(page) => navigateTo(pathForPage(page))}
+          />
         )}
       </div>
     </ApplicationShell>

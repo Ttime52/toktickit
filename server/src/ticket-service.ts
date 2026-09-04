@@ -14,6 +14,10 @@ import {
   normalizedPayloadKey,
   type NormalizedCreateTicketInput,
 } from "./ticket-validation.js";
+import {
+  type TicketListQuery,
+  type TicketSortField,
+} from "./ticket-query.js";
 
 export const fullTicketInclude = {
   requester: {
@@ -69,6 +73,223 @@ export function serializeTicket(ticket: FullTicketRecord) {
     ),
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
+  };
+}
+
+const ticketListSelect = {
+  id: true,
+  ticketNumber: true,
+  ticketDate: true,
+  summary: true,
+  category: {
+    select: { id: true, name: true },
+  },
+  relatedSystem: {
+    select: { id: true, name: true },
+  },
+  requestedPriority: true,
+  itPriority: true,
+  currentStatus: true,
+  updatedAt: true,
+  attachments: {
+    where: {
+      removedAt: null,
+      availabilityState: "AVAILABLE",
+    },
+    select: { id: true },
+  },
+} satisfies Prisma.TicketSelect;
+
+type TicketListRecord = Prisma.TicketGetPayload<{
+  select: typeof ticketListSelect;
+}>;
+
+export interface TicketListItem {
+  id: number;
+  ticketNumber: string;
+  ticketDate: string;
+  summary: string;
+  category: { id: number; name: string };
+  relatedSystem: { id: number; name: string };
+  requestedPriority: RequestedPriority;
+  itPriority: FullTicketRecord["itPriority"];
+  currentStatus: FullTicketRecord["currentStatus"];
+  attachmentCount: number;
+  updatedAt: string;
+}
+
+export interface TicketListMeta {
+  page: number;
+  pageSize: TicketListQuery["pageSize"];
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface TicketListResult {
+  data: TicketListItem[];
+  meta: TicketListMeta;
+}
+
+function serializeTicketListItem(ticket: TicketListRecord): TicketListItem {
+  return {
+    id: ticket.id,
+    ticketNumber: ticket.ticketNumber,
+    ticketDate: ticket.ticketDate.toISOString(),
+    summary: ticket.summary,
+    category: ticket.category,
+    relatedSystem: ticket.relatedSystem,
+    requestedPriority: ticket.requestedPriority,
+    itPriority: ticket.itPriority,
+    currentStatus: ticket.currentStatus,
+    attachmentCount: ticket.attachments.length,
+    updatedAt: ticket.updatedAt.toISOString(),
+  };
+}
+
+const priorityRank: Record<RequestedPriority, number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  URGENT: 3,
+};
+
+function compareText(left: string, right: string): number {
+  const normalizedLeft = left.toLocaleLowerCase("en-US");
+  const normalizedRight = right.toLocaleLowerCase("en-US");
+  if (normalizedLeft < normalizedRight) return -1;
+  if (normalizedLeft > normalizedRight) return 1;
+  return 0;
+}
+
+function compareTicketListRecords(
+  left: TicketListRecord,
+  right: TicketListRecord,
+  sortBy: TicketSortField,
+): number {
+  switch (sortBy) {
+    case "ticketNumber":
+      return compareText(left.ticketNumber, right.ticketNumber);
+    case "ticketDate":
+      return left.ticketDate.getTime() - right.ticketDate.getTime();
+    case "updatedAt":
+      return left.updatedAt.getTime() - right.updatedAt.getTime();
+    case "requestedPriority":
+      return priorityRank[left.requestedPriority] - priorityRank[right.requestedPriority];
+    case "currentStatus":
+      return compareText(left.currentStatus, right.currentStatus);
+    case "category":
+      return compareText(left.category.name, right.category.name);
+  }
+}
+
+function sortTicketListRecords(
+  tickets: TicketListRecord[],
+  query: TicketListQuery,
+): TicketListRecord[] {
+  return tickets.sort((left, right) => {
+    const primary = compareTicketListRecords(left, right, query.sortBy);
+    if (primary === 0) return right.id - left.id;
+    return query.sortOrder === "asc" ? primary : -primary;
+  });
+}
+
+function ownedTicketWhere(query: TicketListQuery): Prisma.TicketWhereInput {
+  return {
+    requesterId: query.requesterId,
+    ...(query.categoryId === null ? {} : { categoryId: query.categoryId }),
+    ...(query.relatedSystemId === null
+      ? {}
+      : { relatedSystemId: query.relatedSystemId }),
+    ...(query.requestedPriority === null
+      ? {}
+      : { requestedPriority: query.requestedPriority }),
+    ...(query.currentStatus === null
+      ? {}
+      : { currentStatus: query.currentStatus }),
+    ...(query.search.length === 0
+      ? {}
+      : {
+          OR: [
+            {
+              ticketNumber: {
+                contains: query.search,
+                mode: "insensitive",
+              },
+            },
+            {
+              summary: {
+                contains: query.search,
+                mode: "insensitive",
+              },
+            },
+            {
+              description: {
+                contains: query.search,
+                mode: "insensitive",
+              },
+            },
+            {
+              category: {
+                name: {
+                  contains: query.search,
+                  mode: "insensitive",
+                },
+              },
+            },
+            {
+              relatedSystem: {
+                name: {
+                  contains: query.search,
+                  mode: "insensitive",
+                },
+              },
+            },
+          ],
+        }),
+  };
+}
+
+export async function listTickets(
+  prisma: PrismaClient,
+  query: TicketListQuery,
+): Promise<TicketListResult> {
+  const requester = await prisma.developmentRequester.findUnique({
+    where: { id: query.requesterId },
+    select: { id: true, isActive: true },
+  });
+
+  if (requester === null || !requester.isActive) {
+    throw new ApiError(
+      400,
+      "REQUESTER_CONTEXT_INVALID",
+      "The selected Development Requester is not active.",
+      { requesterId: "Select an active Development Requester." },
+    );
+  }
+
+  const tickets = await prisma.ticket.findMany({
+    where: ownedTicketWhere(query),
+    select: ticketListSelect,
+  });
+  const sortedTickets = sortTicketListRecords(tickets, query);
+  const totalItems = sortedTickets.length;
+  const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / query.pageSize);
+  const start = (query.page - 1) * query.pageSize;
+
+  return {
+    data: sortedTickets
+      .slice(start, start + query.pageSize)
+      .map(serializeTicketListItem),
+    meta: {
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages,
+      hasNextPage: query.page < totalPages,
+      hasPreviousPage: query.page > 1 && totalPages > 0,
+    },
   };
 }
 

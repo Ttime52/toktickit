@@ -587,6 +587,274 @@ h1 {
   width: 1px;
 }
 
+.zen-visually-hidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.zen-my-tickets-page {
+  margin: 0 auto;
+  max-width: 1200px;
+}
+
+.zen-list-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.zen-list-heading .zen-lead {
+  margin-bottom: 0;
+}
+
+.zen-ticket-toolbar {
+  align-items: end;
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr));
+  margin-bottom: 24px;
+  padding: 20px;
+}
+
+.zen-list-field {
+  min-width: 0;
+}
+
+.zen-list-field label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.zen-list-field input,
+.zen-list-field select,
+.zen-pagination select {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 6px;
+  color: var(--zen-text);
+  min-height: 44px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.zen-list-field input:disabled,
+.zen-list-field select:disabled {
+  background: var(--zen-disabled-bg);
+  color: var(--zen-disabled-text);
+  cursor: not-allowed;
+}
+
+.zen-list-search {
+  grid-column: span 2;
+}
+
+.zen-clear-filters {
+  align-self: end;
+  min-height: 44px;
+}
+
+.zen-ticket-results {
+  min-width: 0;
+}
+
+.zen-ticket-table-wrap {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.zen-ticket-table {
+  border-collapse: collapse;
+  min-width: 960px;
+  width: 100%;
+}
+
+.zen-ticket-table th,
+.zen-ticket-table td {
+  border-bottom: 1px solid var(--zen-border);
+  padding: 14px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.zen-ticket-table th {
+  background: #f0f4f1;
+  color: var(--zen-text);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zen-ticket-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.zen-ticket-table tbody tr:hover {
+  background: var(--zen-pale);
+}
+
+.zen-table-sort-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font-weight: inherit;
+  min-height: 32px;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.zen-table-sort-button:hover {
+  color: var(--zen-secondary);
+}
+
+.zen-ticket-summary {
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
+
+.zen-ticket-number {
+  font-family: ui-monospace, "Roboto Mono", Consolas, monospace;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.zen-badge {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.zen-badge-priority {
+  background: var(--zen-pale);
+  border-color: var(--zen-secondary);
+  color: var(--zen-text);
+}
+
+.zen-badge-status {
+  background: #f0f4f1;
+  border-color: var(--zen-border);
+  color: var(--zen-text);
+}
+
+.zen-ticket-card-list {
+  display: none;
+}
+
+.zen-ticket-skeleton {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 24px;
+}
+
+.zen-ticket-skeleton span {
+  animation: zen-skeleton-pulse 1.2s ease-in-out infinite alternate;
+  background: #e5ece8;
+  border-radius: 4px;
+  display: block;
+  height: 20px;
+}
+
+.zen-ticket-skeleton span:nth-child(1) { width: 32%; }
+.zen-ticket-skeleton span:nth-child(2) { width: 78%; }
+.zen-ticket-skeleton span:nth-child(3) { width: 60%; }
+.zen-ticket-skeleton span:nth-child(4) { width: 44%; }
+
+@keyframes zen-skeleton-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+.zen-empty-panel {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  padding: 32px;
+  text-align: center;
+}
+
+.zen-empty-panel h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.zen-empty-panel p {
+  color: var(--zen-muted);
+  margin: 0 0 20px;
+}
+
+.zen-callout-warning .zen-small-button {
+  margin-left: 12px;
+}
+
+.zen-pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.zen-pagination p {
+  color: var(--zen-muted);
+  margin: 0;
+}
+
+.zen-pagination-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.zen-pagination-controls > span {
+  min-width: 110px;
+  text-align: center;
+}
+
+.zen-pagination-controls label {
+  color: var(--zen-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.zen-pagination select {
+  min-width: 72px;
+  width: auto;
+}
+
+.zen-list-sort-note {
+  color: var(--zen-muted);
+  font-size: 14px;
+  margin: 16px 0 0;
+}
+
 @media (max-width: 767px) {
   .zen-page {
     padding: 16px;
@@ -662,5 +930,112 @@ h1 {
     grid-column: 1;
     grid-row: 2;
     white-space: normal;
+  }
+
+  .zen-list-heading {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .zen-list-heading .zen-button {
+    width: 100%;
+  }
+
+  .zen-ticket-toolbar {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .zen-list-search {
+    grid-column: auto;
+  }
+
+  .zen-clear-filters {
+    width: 100%;
+  }
+
+  .zen-ticket-table-wrap {
+    display: none;
+  }
+
+  .zen-ticket-card-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .zen-ticket-card {
+    background: var(--zen-surface);
+    border: 1px solid var(--zen-border);
+    border-radius: 10px;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .zen-ticket-card-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .zen-ticket-card h2 {
+    font-size: 18px;
+    line-height: 1.35;
+    margin: 14px 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zen-ticket-card-details {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr;
+    margin: 0;
+  }
+
+  .zen-ticket-card-details div {
+    min-width: 0;
+  }
+
+  .zen-ticket-card-details dt {
+    color: var(--zen-muted);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .zen-ticket-card-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zen-ticket-open-button {
+    margin-top: 16px;
+    width: 100%;
+  }
+
+  .zen-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .zen-pagination-controls {
+    justify-content: space-between;
+  }
+
+  .zen-pagination-controls .zen-button {
+    flex: 1;
+  }
+
+  .zen-pagination-controls label {
+    flex-basis: 100%;
+  }
+
+  .zen-pagination select {
+    flex: 1;
+  }
+
+  .zen-callout-warning .zen-small-button {
+    display: block;
+    margin: 12px 0 0;
   }
 }

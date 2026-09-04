@@ -11,7 +11,12 @@ import {
 } from "./attachments.js";
 import { ApiError, sendApiError } from "./errors.js";
 import { getPrisma } from "./prisma.js";
-import { createTicket, serializeTicket } from "./ticket-service.js";
+import {
+  createTicket,
+  listTickets,
+  serializeTicket,
+} from "./ticket-service.js";
+import { parseTicketListQuery } from "./ticket-query.js";
 import {
   normalizeCreateTicketInput,
   validateIdempotencyKey,
@@ -167,6 +172,24 @@ app.post("/api/tickets", async (req: Request, res: Response) => {
       data: serializeTicket(result.ticket),
       meta: { idempotentReplay: result.idempotentReplay },
     });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Issue 5 - requester-owned Ticket list
+// ---------------------------------------------------------------------------
+app.get("/api/tickets", async (req: Request, res: Response) => {
+  const parsedQuery = parseTicketListQuery(req.query as Record<string, unknown>);
+  if (!parsedQuery.ok) {
+    sendApiError(res, parsedQuery.error);
+    return;
+  }
+
+  try {
+    const result = await listTickets(getPrisma(), parsedQuery.value);
+    res.status(200).json(result);
   } catch (error) {
     sendApiError(res, error);
   }

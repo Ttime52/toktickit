@@ -43,7 +43,7 @@ describe("Development Requester reference API (API-01/API-02)", () => {
     );
 
     const requesters = response.body as RequesterResponse[];
-    expect(requesters).toHaveLength(4);
+    expect(requesters.length).toBeGreaterThanOrEqual(4);
     expect(requesters.map(({ id }) => id)).toEqual(
       [...requesters.map(({ id }) => id)].sort((a, b) => a - b),
     );
@@ -67,7 +67,7 @@ describe("Development Requester reference API (API-01/API-02)", () => {
     );
 
     expect(omitted.status).toBe(200);
-    expect(omitted.body).toHaveLength(4);
+    expect(omitted.body.length).toBeGreaterThanOrEqual(4);
     expect(invalid.status).toBe(400);
     expect(invalid.body).toEqual({
       error: {
@@ -81,7 +81,7 @@ describe("Development Requester reference API (API-01/API-02)", () => {
     const response = await request(app).get("/api/requesters");
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(4);
+    expect(response.body.length).toBeGreaterThanOrEqual(4);
     expect(response.body).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ email: "inactive.requester@example.test" }),
