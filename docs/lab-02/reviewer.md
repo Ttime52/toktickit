@@ -163,3 +163,8 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/35
 - Partner's response: I will fix it . (fix: validate attachment size on client)
 - My comment: Looks good now. The 5 MB attachment size limit is validated on the client before upload, and there is also a test confirming that oversized files are rejected without calling the upload API. This now matches the Lab 2 contract.
 
+feature/15-final-ux-accessibility
+https://github.com/KwanchanokThungsuk/toktickit/pull/36
+
+- My comment: Looks good. The responsive layouts cover the required desktop, tablet, and mobile viewports. The test and screenshot look fine to me.
+- Partner's response: Merged.
