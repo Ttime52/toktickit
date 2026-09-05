@@ -147,6 +147,8 @@ export default function TicketDetail({
   const [uploadRows, setUploadRows] = useState<UploadRow[]>([]);
   const [removeDialog, setRemoveDialog] = useState<RemoveDialogState | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const attachmentRowRefs = useRef(new Map<number, HTMLLIElement>());
+  const focusAttachmentIdRef = useRef<number | null>(null);
   const removeReasonRef = useRef<HTMLTextAreaElement>(null);
   const removeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const fileInputId = `detail-attachment-${useId().replace(/:/gu, "")}`;
@@ -190,6 +192,17 @@ export default function TicketDetail({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [removeDialog, removingId]);
+
+  useEffect(() => {
+    const attachmentId = focusAttachmentIdRef.current;
+    if (attachmentId === null || ticket === null) return;
+
+    const row = attachmentRowRefs.current.get(attachmentId);
+    if (row === undefined) return;
+
+    row.focus();
+    focusAttachmentIdRef.current = null;
+  }, [ticket]);
 
   function goBack() {
     onNavigate?.("my-tickets");
@@ -321,9 +334,9 @@ export default function TicketDetail({
         requesterId,
         reason,
       );
+      focusAttachmentIdRef.current = attachmentId;
       setTicket((current) => updateAttachment(current, removed));
       setRemoveDialog(null);
-      removeTriggerRef.current?.focus();
     } catch (removeError: unknown) {
       setRemoveDialog((current) =>
         current === null
@@ -358,6 +371,14 @@ export default function TicketDetail({
       <li
         className={`zen-attachment-row zen-detail-attachment-row is-${attachment.state}`}
         key={attachment.id}
+        ref={(element) => {
+          if (element === null) {
+            attachmentRowRefs.current.delete(attachment.id);
+          } else {
+            attachmentRowRefs.current.set(attachment.id, element);
+          }
+        }}
+        tabIndex={-1}
       >
         <div className="zen-attachment-details">
           <strong>{attachment.originalFilename}</strong>
