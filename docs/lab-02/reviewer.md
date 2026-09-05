@@ -11,7 +11,7 @@
 |  #25  | feature/7-requester-context | Approved |
 |  #26  | feature/8-create-ticket | Request changes and Approved |
 |  #27  | feature/9-my-tickets | Approved |
-|  #28  | feature/10-ticket-detail-attachments |  |
+|  #28  | feature/10-ticket-detail-attachments | Request changes and Approved |
 |  #29  | feature/11-e2e-visual-qa |  |
 |  #30  | feature/12-docs-release |  |
 
@@ -66,7 +66,23 @@ PR #28 feature/10-ticket-detail-attachments
 https://github.com/Ttime52/toktickit/pull/28
 
 - Reviewer comment I received: Tested the PR locally. All 56 tests passed, and the Ticket Detail and Attachment lifecycle flows are working as expected. The only issue I found is that View Ticket still shows “Ticket Detail is outside Issue 4” instead of navigating to the Ticket Detail page. Please update this flow; everything else looks good.
-- How I responded: I will fix that.
+- How I responded: I will fix that. (
+fix: fix navigate ticket detail)
+- Reviewer comment I received: Tested the latest changes locally. Everything is working correctly now, including the View Ticket navigation to the Ticket Detail page. All 56 tests passed. Looks good to me
+- How I responded: Thanks reviewer.
+
+PR #29 feature/11-e2e-visual-qa
+https://github.com/Ttime52/toktickit/pull/29
+
+- Reviewer comment I received: 
+- How I responded: 
+
+PR #30 feature/12-docs-release
+https://github.com/Ttime52/toktickit/pull/30
+
+- Reviewer comment I received: 
+- How I responded: 
+
 
 
 ## Pull Requests I reviewed for my partner
@@ -132,3 +148,9 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/33
 
 - My comment: Everything looks good. The main requirements for search, filters, sorting, pagination, requester switching, and the different UI states are covered.
 - Partner's response: Merged.
+
+feature/13-ticket-detail
+https://github.com/KwanchanokThungsuk/toktickit/pull/34
+
+- My comment: The ticket detail logic looks good and the ownership / 403 / 404 cases are covered, but this PR adds several .js and .jsx files even though the Lab 2 project is using TypeScript (.ts / .tsx). For example, RequesterTicketDetail.jsx and tickets.detail.get.js also import .ts files directly. Please change these new files to the TypeScript format used by the rest of the project before merging.
+- Partner's response:

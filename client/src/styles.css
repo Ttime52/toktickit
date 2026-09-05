@@ -299,7 +299,13 @@ h1 {
   display: flex;
   gap: 12px;
   margin-left: auto;
+  min-width: 0;
   text-align: right;
+}
+
+.zen-requester-context > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .zen-change-button {
@@ -1024,6 +1030,17 @@ h1 {
 }
 
 @media (max-width: 991px) {
+  .zen-ticket-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .zen-ticket-table th,
+  .zen-ticket-table td {
+    overflow-wrap: anywhere;
+    padding: 12px 8px;
+  }
+
   .zen-ticket-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
