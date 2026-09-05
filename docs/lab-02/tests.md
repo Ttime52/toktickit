@@ -84,10 +84,10 @@ is recorded in Sections 3 and 6.
 | UI-10 | UI component | BR-13, BR-14 / AC-16, AC-17, AC-18 | Select valid, invalid, oversized, and limit-reaching files. | Valid row uploads; invalid rows show immediate messages without API calls; active/removed count is communicated. | `client/tests/lab-02/CreateTicket.test.tsx`, `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
 | UI-11 | UI component | FR-08 / AC-11, AC-12, AC-13 | Render owned rows/cards and use search, filters, sorting, Clear Filters, and Open. | Controls update the documented query; only current Requester rows render; badges and open action are readable. | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
 | UI-12 | UI component | BR-21, BR-22 / AC-14 | Render list loading, first-use empty, no-results, failure, and pagination states. | Empty and no-results copy differs; Clear Filters/Retry/Create actions are usable; page controls reflect metadata. | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
-| UI-13 | UI component | FR-09 / AC-15 | Render owned Ticket Detail and inspect edit/comment/status controls. | Ticket fields are read-only; attachment section exists; excluded workflow controls are absent. | `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
-| UI-14 | UI component | FR-10, FR-11 / AC-18, AC-19, AC-20, AC-21 | Render active/uploading/failed/removed/unavailable file rows; confirm Remove and use Download/Preview. | Actions match state; reason is required; removed metadata remains and Download/Preview are hidden or disabled. | `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
-| UI-15 | UI component | BR-07 / AC-22 | Render `403` and `404` detail/attachment responses. | Safe ownership/missing message appears with Back/Retry; no other Requester's data is rendered. | `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
-| UI-16 | UI/style | FR-12, FR-13 / AC-23 | Inspect labels, `aria-*`, keyboard focus, required markers, alert roles, disabled/busy controls, and dialog focus. | Every required control is accessible by keyboard and screen-reader semantics; errors are adjacent and non-color-only. | `client/tests/lab-02/RequesterSelection.test.tsx`, `client/tests/lab-02/CreateTicket.test.tsx`, `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
+| UI-13 | UI component | FR-09 / AC-15 | Render owned Ticket Detail and inspect edit/comment/status controls. | Ticket fields are read-only; attachment section exists; excluded workflow controls are absent. | `client/tests/lab-02/RequesterTicketDetail.test.tsx`, `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
+| UI-14 | UI component | FR-10, FR-11 / AC-18, AC-19, AC-20, AC-21 | Render active/uploading/failed/removed/unavailable file rows; confirm Remove and use Download/Preview. | Actions match state; reason is required; removed metadata remains and Download/Preview are hidden or disabled. | `client/tests/lab-02/AttachmentSection.test.tsx`, `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
+| UI-15 | UI component | BR-07 / AC-22 | Render `403` and `404` detail/attachment responses. | Safe ownership/missing message appears with Back/Retry; no other Requester's data is rendered. | `client/tests/lab-02/RequesterTicketDetail.test.tsx`, `client/tests/lab-02/TicketDetail.test.tsx` | Pass |
+| UI-16 | UI/style | FR-12, FR-13 / AC-23 | Inspect labels, `aria-*`, keyboard focus, required markers, alert roles, disabled/busy controls, and dialog focus. | Every required control is accessible by keyboard and screen-reader semantics; errors are adjacent and non-color-only. | `client/tests/lab-02/RequesterSelection.test.tsx`, `client/tests/lab-02/CreateTicket.test.tsx`, `client/tests/lab-02/RequesterTicketDetail.test.tsx`, `client/tests/lab-02/AttachmentSection.test.tsx` | Pass |
 | RESP-01 | Responsive | FR-13 / AC-24 | Open all four screens at 1440x900. | Requester Selection is centered and readable; Create/Detail use multi-column layout, My Tickets has a readable desktop table, and no clipping/overflow occurs. | `e2e/lab-02/responsive-layout.spec.ts` | Pass |
 | RESP-02 | Responsive | FR-13 / AC-24 | Open all four screens at 1024x768. | Requester Selection remains usable; other screens use practical two-column/wrapped layouts, Summary/Description retain width, toolbar wraps cleanly, and actions remain visible. | `e2e/lab-02/responsive-layout.spec.ts` | Pass |
 | RESP-03 | Responsive | FR-13 / AC-24 | Open all four screens at 390x844 and a 320 px content width. | Selection remains usable, fields stack, My Tickets uses cards, buttons are touch-friendly, and `scrollWidth` does not exceed viewport width. | `e2e/lab-02/responsive-layout.spec.ts` | Pass |
@@ -185,7 +185,7 @@ npm.cmd test                 # 12 files, 56 tests passed
 npm.cmd run build            # passed
 
 cd ..\client
-npm.cmd test                 # 6 files, 26 tests passed
+npm.cmd test                 # 8 files, 35 tests passed
 npm.cmd run build            # passed
 
 cd ..
@@ -206,7 +206,7 @@ start both services automatically. The browser project uses Chromium at
 | Evidence group | Executed evidence | Final result |
 |---|---|---|
 | Unit, API, and database | `server`: 12 test files / 56 tests | Pass |
-| UI and style | `client`: 6 test files / 26 tests | Pass |
+| UI and style | `client`: 8 test files / 35 tests | Pass |
 | Server build | `server/npm.cmd run build` | Pass |
 | Client build | `client/npm.cmd run build` | Pass |
 | Responsive | `responsive-layout.spec.ts`: desktop, tablet, mobile, 900px branch, and 320px smoke check | Pass |
