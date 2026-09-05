@@ -12,8 +12,8 @@
 |  #26  | feature/8-create-ticket | Request changes and Approved |
 |  #27  | feature/9-my-tickets | Approved |
 |  #28  | feature/10-ticket-detail-attachments | Request changes and Approved |
-|  #29  | feature/11-e2e-visual-qa |  |
-|  #30  | feature/12-docs-release |  |
+|  #29  | feature/11-e2e-visual-qa | Approved |
+|  #30  | feature/12-docs-release | Approved |
 
 PR #23 feature/5-specification-docs
 https://github.com/Ttime52/toktickit/pull/23
@@ -74,14 +74,14 @@ fix: fix navigate ticket detail)
 PR #29 feature/11-e2e-visual-qa
 https://github.com/Ttime52/toktickit/pull/29
 
-- Reviewer comment I received: 
-- How I responded: 
+- Reviewer comment I received: Tested locally. All server/client tests and builds passed, and Playwright E2E passed 9/9 across desktop, tablet, and mobile. Responsive and visual QA also look good. AC-01 to AC-26 are covered. Everything looks good to me.
+- How I responded: Thank you kub.
 
 PR #30 feature/12-docs-release
 https://github.com/Ttime52/toktickit/pull/30
 
 - Reviewer comment I received: 
-- How I responded: 
+- How I responded: Thank you.
 
 
 
@@ -153,6 +153,13 @@ feature/13-ticket-detail
 https://github.com/KwanchanokThungsuk/toktickit/pull/34
 
 - My comment: The ticket detail logic looks good and the ownership / 403 / 404 cases are covered, but this PR adds several .js and .jsx files even though the Lab 2 project is using TypeScript (.ts / .tsx). For example, RequesterTicketDetail.jsx and tickets.detail.get.js also import .ts files directly. Please change these new files to the TypeScript format used by the rest of the project before merging.
-- Partner's response: 
-fix: convert ticket detail to TypeScript
+- Partner's response: fix: convert ticket detail to TypeScript
 - My comment: The file type are correct now. Very good.
+
+feature/14-attachment-lifecycle
+https://github.com/KwanchanokThungsuk/toktickit/pull/35
+
+- My comment: The attachment lifecycle looks good overall, but I found one thing that doesn't match the Lab 2 contract. BR-24 says the 5 MB attachment size limit must be enforced on both the client and server. The server validates it correctly, but adding an attachment from Ticket Detail currently sends the file directly to the API without checking file.size on the client first. Please add client-side attachment validation before uploading.
+- Partner's response: I will fix it . (fix: validate attachment size on client)
+- My comment: Looks good now. The 5 MB attachment size limit is validated on the client before upload, and there is also a test confirming that oversized files are rejected without calling the upload API. This now matches the Lab 2 contract.
+

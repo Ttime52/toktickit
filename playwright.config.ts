@@ -17,7 +17,10 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
   },
-  reporter: [["list"]],
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "artifacts/lab-02/playwright-report", open: "never" }],
+  ],
   use: {
     baseURL: "http://127.0.0.1:5173",
     trace: "retain-on-failure",
