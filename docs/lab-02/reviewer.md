@@ -80,7 +80,7 @@ https://github.com/Ttime52/toktickit/pull/29
 PR #30 feature/12-docs-release
 https://github.com/Ttime52/toktickit/pull/30
 
-- Reviewer comment I received: 
+- Reviewer comment I received: Checked the README instructions and verified the installation, database setup, application startup, tests, builds, and Playwright commands. Everything works as documented.
 - How I responded: Thank you.
 
 
@@ -167,4 +167,9 @@ feature/15-final-ux-accessibility
 https://github.com/KwanchanokThungsuk/toktickit/pull/36
 
 - My comment: Looks good. The responsive layouts cover the required desktop, tablet, and mobile viewports. The test and screenshot look fine to me.
+- Partner's response: Merged.
+
+feature/16-final-documentation
+https://github.com/KwanchanokThungsuk/toktickit/pull/38
+- My comment: Looks great kub. The README.md file is up to date.
 - Partner's response: Merged.
