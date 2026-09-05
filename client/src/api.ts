@@ -5,9 +5,430 @@ export interface Category {
   name: string;
 }
 
+export interface DevelopmentRequester {
+  id: number;
+  displayName: string;
+  email: string;
+}
+
+export type RequestedPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
+export interface RelatedSystem {
+  id: number;
+  name: string;
+}
+
+export interface TicketAttachment {
+  id: number;
+  ticketId: number;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  state: "active" | "removed" | "unavailable";
+  removedAt: string | null;
+  unavailableAt: string | null;
+  unavailableReason: string | null;
+  removalReason: string | null;
+  previewable: boolean;
+  downloadUrl: string | null;
+}
+
+export interface Ticket {
+  id: number;
+  ticketNumber: string;
+  ticketDate: string;
+  requester: DevelopmentRequester;
+  category: Category;
+  relatedSystem: RelatedSystem;
+  summary: string;
+  requestedPriority: RequestedPriority;
+  itPriority: RequestedPriority | null;
+  description: string;
+  currentStatus: "NEW";
+  attachments: TicketAttachment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TicketSortField =
+  | "ticketNumber"
+  | "ticketDate"
+  | "updatedAt"
+  | "requestedPriority"
+  | "currentStatus"
+  | "category";
+
+export type TicketSortOrder = "asc" | "desc";
+export type TicketPageSize = 10 | 20 | 50;
+
+export interface TicketListItem {
+  id: number;
+  ticketNumber: string;
+  ticketDate: string;
+  summary: string;
+  category: Category;
+  relatedSystem: RelatedSystem;
+  requestedPriority: RequestedPriority;
+  itPriority: RequestedPriority | null;
+  currentStatus: "NEW";
+  attachmentCount: number;
+  updatedAt: string;
+}
+
+export interface TicketListQuery {
+  requesterId: number;
+  search: string;
+  categoryId: number | null;
+  relatedSystemId: number | null;
+  requestedPriority: RequestedPriority | null;
+  currentStatus: "NEW" | null;
+  sortBy: TicketSortField;
+  sortOrder: TicketSortOrder;
+  page: number;
+  pageSize: TicketPageSize;
+}
+
+export interface TicketListMeta {
+  page: number;
+  pageSize: TicketPageSize;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface TicketListResult {
+  data: TicketListItem[];
+  meta: TicketListMeta;
+}
+
+export interface CreateTicketInput {
+  requesterId: number;
+  categoryId: number;
+  relatedSystemId: number;
+  summary: string;
+  requestedPriority?: RequestedPriority;
+  description: string;
+}
+
+export interface CreateTicketResult {
+  ticket: Ticket;
+  idempotentReplay: boolean;
+}
+
+export class ApiRequestError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly fields: Record<string, string>;
+
+  constructor(
+    message: string,
+    status = 0,
+    code = "API_ERROR",
+    fields: Record<string, string> = {},
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.code = code;
+    this.fields = fields;
+  }
+}
+
 export interface SystemStatus {
   online: boolean;
   categories: Category[];
+}
+
+const REQUESTER_API_PATH = `${API_URL}/api/development-requesters?active=true`;
+
+export async function fetchDevelopmentRequesters(
+  signal?: AbortSignal,
+): Promise<DevelopmentRequester[]> {
+  const response = signal
+    ? await fetch(REQUESTER_API_PATH, { signal })
+    : await fetch(REQUESTER_API_PATH);
+
+  if (!response.ok) {
+    throw new Error("Unable to load Development Requesters");
+  }
+
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) {
+    throw new Error("Invalid Development Requester response");
+  }
+
+  return body.filter(isDevelopmentRequester);
+}
+
+function isDevelopmentRequester(value: unknown): value is DevelopmentRequester {
+  if (typeof value !== "object" || value === null) return false;
+
+  const requester = value as Record<string, unknown>;
+  return (
+    Number.isInteger(requester.id) &&
+    typeof requester.displayName === "string" &&
+    typeof requester.email === "string" &&
+    (requester.isActive === undefined || requester.isActive === true)
+  );
+}
+
+function isReference(value: unknown): value is Category | RelatedSystem {
+  if (typeof value !== "object" || value === null) return false;
+  const reference = value as Record<string, unknown>;
+  return (
+    Number.isInteger(reference.id) &&
+    typeof reference.name === "string" &&
+    (reference.isActive === undefined || reference.isActive === true)
+  );
+}
+
+async function fetchReferenceList<T extends Category | RelatedSystem>(
+  path: string,
+  label: string,
+  signal?: AbortSignal,
+): Promise<T[]> {
+  const response = signal
+    ? await fetch(path, { signal })
+    : await fetch(path);
+
+  if (!response.ok) {
+    throw new ApiRequestError(`Unable to load ${label}.`, response.status);
+  }
+
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) {
+    throw new ApiRequestError(`Invalid ${label} response.`);
+  }
+
+  return body.filter(isReference) as T[];
+}
+
+export function fetchCategories(signal?: AbortSignal): Promise<Category[]> {
+  return fetchReferenceList<Category>(
+    `${API_URL}/api/categories?active=true`,
+    "Categories",
+    signal,
+  );
+}
+
+export function fetchRelatedSystems(
+  signal?: AbortSignal,
+): Promise<RelatedSystem[]> {
+  return fetchReferenceList<RelatedSystem>(
+    `${API_URL}/api/related-systems?active=true`,
+    "Related Systems",
+    signal,
+  );
+}
+
+async function readApiBody(response: Response): Promise<Record<string, unknown>> {
+  try {
+    const body: unknown = await response.json();
+    return typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function throwApiResponseError(
+  response: Response,
+  body: Record<string, unknown>,
+  fallbackMessage: string,
+): never {
+  const errorBody = body.error;
+  const error =
+    typeof errorBody === "object" && errorBody !== null
+      ? (errorBody as Record<string, unknown>)
+      : {};
+  const fields =
+    typeof error.fields === "object" && error.fields !== null
+      ? Object.fromEntries(
+          Object.entries(error.fields).filter(
+            ([, value]) => typeof value === "string",
+          ),
+        )
+      : {};
+
+  throw new ApiRequestError(
+    typeof error.message === "string" ? error.message : fallbackMessage,
+    response.status,
+    typeof error.code === "string" ? error.code : "API_ERROR",
+    fields,
+  );
+}
+
+export async function createTicket(
+  input: CreateTicketInput,
+  idempotencyKey: string,
+): Promise<CreateTicketResult> {
+  const response = await fetch(`${API_URL}/api/tickets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify(input),
+  });
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to create Ticket.");
+  }
+
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Ticket response.", response.status);
+  }
+
+  const meta =
+    typeof body.meta === "object" && body.meta !== null
+      ? (body.meta as Record<string, unknown>)
+      : {};
+  return {
+    ticket: body.data as Ticket,
+    idempotentReplay: meta.idempotentReplay === true,
+  };
+}
+
+export async function fetchTickets(
+  query: TicketListQuery,
+  signal?: AbortSignal,
+): Promise<TicketListResult> {
+  const params = new URLSearchParams({
+    requesterId: String(query.requesterId),
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+
+  if (query.search.trim().length > 0) params.set("search", query.search.trim());
+  if (query.categoryId !== null) params.set("categoryId", String(query.categoryId));
+  if (query.relatedSystemId !== null) {
+    params.set("relatedSystemId", String(query.relatedSystemId));
+  }
+  if (query.requestedPriority !== null) {
+    params.set("requestedPriority", query.requestedPriority);
+  }
+  if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+
+  const response = await fetch(`${API_URL}/api/tickets?${params.toString()}`, signal
+    ? { signal }
+    : undefined);
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load My Tickets.");
+  }
+
+  if (
+    !Array.isArray(body.data) ||
+    typeof body.meta !== "object" ||
+    body.meta === null
+  ) {
+    throw new ApiRequestError("Invalid My Tickets response.", response.status);
+  }
+
+  return {
+    data: body.data as TicketListItem[],
+    meta: body.meta as TicketListMeta,
+  };
+}
+
+export async function fetchTicket(
+  ticketId: number,
+  requesterId: number,
+  signal?: AbortSignal,
+): Promise<Ticket> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`,
+    signal ? { signal } : undefined,
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Ticket Detail.");
+  }
+
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Ticket Detail response.", response.status);
+  }
+
+  return body.data as Ticket;
+}
+
+export function getAttachmentDownloadUrl(
+  ticketId: number,
+  attachmentId: number,
+  requesterId: number,
+): string {
+  return `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}/download?requesterId=${requesterId}`;
+}
+
+export function getAttachmentPreviewUrl(
+  ticketId: number,
+  attachmentId: number,
+  requesterId: number,
+): string {
+  return `${getAttachmentDownloadUrl(ticketId, attachmentId, requesterId)}&disposition=inline`;
+}
+
+export async function uploadAttachment(
+  ticketId: number,
+  requesterId: number,
+  file: File,
+): Promise<TicketAttachment> {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/attachments?requesterId=${requesterId}`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to upload Attachment.");
+  }
+
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Attachment response.", response.status);
+  }
+
+  return body.data as TicketAttachment;
+}
+
+export async function removeAttachment(
+  ticketId: number,
+  attachmentId: number,
+  requesterId: number,
+  reason: string,
+): Promise<TicketAttachment> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}?requesterId=${requesterId}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    },
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to remove Attachment.");
+  }
+
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Attachment removal response.", response.status);
+  }
+
+  return body.data as TicketAttachment;
 }
 
 // Issue 2 + Issue 4 — call the backend.

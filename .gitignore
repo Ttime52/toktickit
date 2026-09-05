@@ -9,6 +9,10 @@ dist/
 build/
 # prisma
 server/prisma/*.db
+# local attachment bytes (metadata stays in PostgreSQL)
+server/.data/
 # logs & OS
 *.log
 .DS_Store
+# pdf
+*.pdf

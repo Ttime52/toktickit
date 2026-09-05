@@ -81,9 +81,13 @@ cd toktickit
 
 ### 2. Install Dependencies
 
-Install dependencies for both client and server:
+Install the root Playwright runner and the dependencies for both client and
+server:
 
 ```bash
+# From the project root: Playwright E2E runner
+npm install
+
 # Install server dependencies
 cd server
 npm install
@@ -96,35 +100,47 @@ npm install
 cd ..
 ```
 
+Install the Chromium browser used by the desktop, tablet, and mobile E2E
+projects:
+
+```bash
+npx playwright install chromium
+```
+
+On PowerShell, use `npm.cmd`/`npx.cmd` if the shell blocks the npm PowerShell
+shims.
+
 ### 3. Environment Configuration
 
 Create a `.env` file in the `server/` directory with your database configuration:
 
 ```bash
-cd server
-cp .env.example .env  # if .env.example exists
-# or create .env manually
+# macOS/Linux
+cp server/.env.example server/.env
+
+# PowerShell
+Copy-Item server\.env.example server\.env
 ```
 
-Edit `server/.env` and add your PostgreSQL connection string:
+Edit `server/.env` if your PostgreSQL credentials differ from the example:
 
 ```
-DATABASE_URL="postgresql://[username]:[password]@localhost:5432/toktickit"
+DATABASE_URL="postgresql://toktickit:toktickit@localhost:5432/toktickit?schema=public"
+PORT=3000
 ```
 
-**Example with default PostgreSQL credentials:**
+The example expects a PostgreSQL role named `toktickit` with password
+`toktickit` and a database named `toktickit`. You may use another local role
+and database by updating `DATABASE_URL`.
 
-```
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/toktickit"
-```
-
-**Steps to create the database:**
+If the database does not exist, create it before running Prisma:
 
 ```bash
 # Connect to PostgreSQL
 psql -U postgres
 
-# Inside psql shell, create the database
+# Inside the psql shell, create the role/database as needed
+CREATE USER toktickit WITH PASSWORD 'toktickit';
 CREATE DATABASE toktickit;
 
 # Exit psql
@@ -141,14 +157,17 @@ cd server
 # Run database migrations
 npm run prisma:migrate
 
-# (Optional) Seed the database with initial data
+# Seed required Categories, Related Systems, and Requesters
 npm run prisma:seed
+
+cd ..
 ```
 
 This will:
 - Create all tables defined in `prisma/schema.prisma`
 - Generate the Prisma client
-- Populate the database with seed data (if seed.ts is configured)
+- Populate the database with idempotent seed data; rerunning the seed does not
+  duplicate records
 
 ## Running the Application
 
@@ -222,18 +241,80 @@ npm test
 
 Tests will run using Vitest. Test files are located in `server/tests/`.
 
-### Run All Tests
+### Build Checks
 
 ```bash
-# From project root
-cd server && npm test && cd ../client && npm test
+# Server
+cd server
+npm run build
+
+# Client
+cd ../client
+npm run build
+
+cd ..
 ```
+
+### Playwright E2E, Responsive, and Visual QA
+
+The checked-in Playwright config can start the server and client
+automatically. From the project root, run:
+
+```bash
+npm run test:e2e
+```
+
+To run against services started manually, use two terminals:
+
+```bash
+# Terminal 1
+cd server
+npm run dev
+
+# Terminal 2
+cd client
+npm run dev
+```
+
+Then, from the project root, set the external-server flag and run Playwright.
+PowerShell:
+
+```powershell
+$env:PLAYWRIGHT_EXTERNAL_SERVERS = "1"
+npm run test:e2e
+```
+
+macOS/Linux:
+
+```bash
+PLAYWRIGHT_EXTERNAL_SERVERS=1 npm run test:e2e
+```
+
+Useful E2E commands:
+
+```bash
+# Run one viewport project
+npm run test:e2e -- --project=desktop
+npm run test:e2e -- --project=tablet
+npm run test:e2e -- --project=mobile
+
+# Run with a visible browser
+npm run test:e2e:headed
+
+# Open the generated Playwright HTML report
+npm run test:e2e:report
+```
+
+The E2E suite covers the requester-to-ticket-to-attachment flow at desktop
+(`1440x900`), tablet (`1024x768`), and mobile (`390x844`) sizes. Responsive
+checks also exercise a `900px` tablet layout and a `320px` narrow viewport.
+Screenshots are stored in `artifacts/lab-02/screenshots/`.
 
 ## API Documentation
 
 The server exposes REST API endpoints. Key features include:
 
-- **Health Check**: `GET /health` - Verify server is running
+- **Health Check**: `GET /api/health` - Verify server is running
 - **Categories**: CRUD operations for IT request categories
   - `GET /api/categories` - Fetch all categories
   - `POST /api/categories` - Create a new category
@@ -242,6 +323,14 @@ The server exposes REST API endpoints. Key features include:
 Check the server source files in `server/src/` for the complete API specification.
 
 ## Available Scripts
+
+### Root Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run test:e2e` | Run all Playwright E2E, responsive, and visual tests |
+| `npm run test:e2e:headed` | Run Playwright with a visible browser |
+| `npm run test:e2e:report` | Open the generated Playwright HTML report |
 
 ### Client Scripts
 
@@ -294,7 +383,9 @@ If the default ports are already in use:
 Make sure you've installed all dependencies:
 
 ```bash
-cd server && npm install && cd ../client && npm install
+npm install
+cd server && npm install
+cd ../client && npm install
 ```
 
 ## License
