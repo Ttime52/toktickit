@@ -153,4 +153,6 @@ feature/13-ticket-detail
 https://github.com/KwanchanokThungsuk/toktickit/pull/34
 
 - My comment: The ticket detail logic looks good and the ownership / 403 / 404 cases are covered, but this PR adds several .js and .jsx files even though the Lab 2 project is using TypeScript (.ts / .tsx). For example, RequesterTicketDetail.jsx and tickets.detail.get.js also import .ts files directly. Please change these new files to the TypeScript format used by the rest of the project before merging.
-- Partner's response:
+- Partner's response: 
+fix: convert ticket detail to TypeScript
+- My comment: The file type are correct now. Very good.
