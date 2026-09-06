@@ -21,13 +21,52 @@ test.describe("Issue 7 visual QA checklist", () => {
     await openRequesterSelection(page);
     const tokens = await page.evaluate(() => {
       const styles = getComputedStyle(document.documentElement);
-      return {
-        primary: styles.getPropertyValue("--zen-primary").trim().toLowerCase(),
-        surface: styles.getPropertyValue("--zen-surface").trim().toLowerCase(),
-      };
+      return Object.fromEntries(
+        [
+          "primary",
+          "secondary",
+          "pale",
+          "page",
+          "surface",
+          "border",
+          "text",
+          "muted",
+          "readonly",
+          "error",
+          "error-bg",
+          "warning",
+          "warning-bg",
+          "success",
+          "danger",
+          "disabled-bg",
+          "disabled-text",
+          "focus",
+        ].map((name) => [
+          name,
+          styles.getPropertyValue(`--zen-${name}`).trim().toLowerCase(),
+        ]),
+      );
     });
-    expect(tokens.primary).toBe("#006b3c");
-    expect(tokens.surface).toBe("#ffffff");
+    expect(tokens).toEqual({
+      primary: "#006b3c",
+      secondary: "#0b7a46",
+      pale: "#eaf6ef",
+      page: "#f5f7f6",
+      surface: "#ffffff",
+      border: "#c7d3cd",
+      text: "#17352a",
+      muted: "#5c6f65",
+      readonly: "#eef3f0",
+      error: "#a12a2a",
+      "error-bg": "#fff1f1",
+      warning: "#9a6700",
+      "warning-bg": "#fff8e1",
+      success: "#0b7a46",
+      danger: "#b42318",
+      "disabled-bg": "#dde5e0",
+      "disabled-text": "#7b8981",
+      focus: "#0b7a46",
+    });
     await expect(page.getByText("This is not a login screen.", { exact: false })).toBeVisible();
 
     await selectFirstRequester(page);
@@ -42,6 +81,13 @@ test.describe("Issue 7 visual QA checklist", () => {
     );
     expect(editableFieldHeights.length).toBeGreaterThan(0);
     expect(Math.min(...editableFieldHeights)).toBeGreaterThanOrEqual(44);
+    const visibleButtonHeights = await page.locator(
+      ".zen-button:visible, .zen-text-button:visible",
+    ).evaluateAll((elements) =>
+      elements.map((element) => Math.round(element.getBoundingClientRect().height)),
+    );
+    expect(visibleButtonHeights.length).toBeGreaterThan(0);
+    expect(Math.min(...visibleButtonHeights)).toBeGreaterThanOrEqual(44);
 
     await navigateFromShell(page, "My Tickets");
     await expect(page.getByRole("heading", { name: "My Tickets" })).toBeVisible();

@@ -209,6 +209,14 @@ describe("Requester Ticket Detail (UI-13/UI-14/UI-15)", () => {
 
     await user.click(screen.getByRole("button", { name: "Remove" }));
     const dialog = screen.getByRole("dialog", { name: "Remove Attachment?" });
+    const removalReason = within(dialog).getByLabelText(/Removal reason/iu);
+    expect(removalReason).toHaveFocus();
+    await user.tab();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await user.tab();
+    expect(within(dialog).getByRole("button", { name: "Remove Attachment" })).toHaveFocus();
+    await user.tab();
+    expect(removalReason).toHaveFocus();
     await user.click(within(dialog).getByRole("button", { name: "Remove Attachment" }));
     expect(
       await within(dialog).findByText("Enter a removal reason from 3 to 200 characters."),

@@ -184,5 +184,11 @@ export async function waitForTicketInList(
   const openButton = page.locator(
     `[aria-label="Open ${ticketNumber}"]:visible`,
   );
+  // The local E2E database is intentionally persistent between runs. If a
+  // deterministic fixture has moved past the first page, use the supported
+  // search control instead of assuming it is still in the default page.
+  if (!(await openButton.isVisible())) {
+    await page.getByLabel("Search Tickets").fill(ticketNumber);
+  }
   await expect(openButton).toBeVisible();
 }

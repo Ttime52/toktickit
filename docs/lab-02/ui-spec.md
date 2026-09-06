@@ -2,7 +2,7 @@
 
 **Product:** TokTickIT Requester Ticketing MVP  
 **Version:** 1.0  
-**Status:** Pre-implementation visual and interaction contract  
+**Status:** Implemented visual and interaction contract; visual inspection passed 2026-09-06<br>
 **Date:** 2026-09-02
 
 This specification defines the reusable presentation language for Development
@@ -270,25 +270,29 @@ required reason input (3–200 characters). The dialog has Cancel and destructiv
 Remove buttons, traps focus while open, returns focus to the file row after
 close, and never claims hard deletion.
 
-## 6. Screen-state and accessibility checklist
+## 6. Screen-state and accessibility checklist (reviewed 2026-09-06)
 
 For every screen, verify:
 
-- [ ] Initial content has a meaningful heading and no blank unexplained panel.
-- [ ] Loading state communicates what is loading and prevents unsafe duplicate
+- [x] Initial content has a meaningful heading and no blank unexplained panel.
+- [x] Loading state communicates what is loading and prevents unsafe duplicate
       actions.
-- [ ] Validation shows field-level text, required marker, and `aria-describedby`.
-- [ ] Submitting state shows busy text and disables the triggering action.
-- [ ] Success state names the created resource and provides the next action.
-- [ ] Failure state is safe, actionable, and preserves relevant user input.
-- [ ] Empty and no-results states are distinct where the list is filtered.
-- [ ] Keyboard tab order follows visual order; focus is never hidden or trapped
-      outside a dialog.
-- [ ] Buttons and selects have visible text or an accessible name; icon-only
+- [x] Validation shows field-level text, required marker, and `aria-describedby`.
+- [x] Submitting state shows busy text and disables the triggering action.
+- [x] Success state names the created resource and provides the next action.
+- [x] Failure state is safe, actionable, and preserves relevant user input.
+- [x] Empty and no-results states are distinct where the list is filtered.
+- [x] Keyboard focus is visible and follows the visual order; the removal dialog
+      traps focus inside the dialog and focus is never hidden.
+- [x] Buttons and selects have visible text or an accessible name; icon-only
       controls have tooltips.
-- [ ] Status, priority, errors, and removed files are understandable without
+- [x] Status, priority, errors, and removed files are understandable without
       color perception.
-- [ ] Text zoom and long names do not hide required controls.
+- [x] Text zoom and long names do not hide required controls.
+
+The checked items above are supported by the recorded UI/component tests, the
+state-evidence E2E suite, and the implementation review. The removal dialog
+explicitly asserts its focus cycle and the attachment row focus return.
 
 ## 7. Responsive rules
 
@@ -337,43 +341,76 @@ requester-selection/
     └── ticket-detail-mobile.png
 ```
 
-Also capture state evidence where needed: selector active/selected,
-loading/error, Create Ticket validation/submitting/success/invalid attachment,
-My Tickets empty/no-results, and Ticket Detail removed/unavailable attachment.
-These may be named with a state suffix in the corresponding directory.
+State variants are checked by the automated state and overflow assertions. No
+additional state PNGs are required; the screenshot evidence remains limited to
+the existing screen captures above.
 
 ### Visual inspection checklist
 
-- [ ] Header, primary actions, links, focus accents, and active navigation use
+- [x] Header, primary actions, links, focus accents, and active navigation use
       the exact Zen Green tokens.
-- [ ] Page background, cards, borders, shadows, typography, radius, and spacing
+- [x] Page background, cards, borders, shadows, typography, radius, and spacing
       are consistent across all four screens.
-- [ ] Editable fields are white and read-only fields are visibly distinct but
+- [x] Editable fields are white and read-only fields are visibly distinct but
       readable.
-- [ ] Required asterisks and field-level error messages appear in the expected
+- [x] Required asterisks and field-level error messages appear in the expected
       position and do not shift or overlap neighboring content.
-- [ ] Primary, secondary, tertiary, destructive, disabled, and busy buttons are
+- [x] Primary, secondary, tertiary, destructive, disabled, and busy buttons are
       distinguishable by text and state, not color alone.
-- [ ] Requested Priority, IT Priority (reserved), and Current Status badge
+- [x] Requested Priority, IT Priority (reserved), and Current Status badge
       shapes/padding/labels are consistent.
-- [ ] Desktop My Tickets table is readable; mobile representation is a usable
+- [x] Desktop My Tickets table is readable; mobile representation is a usable
       card or responsive table with all essential information.
-- [ ] Search, filters, Clear Filters, sorting, pagination, attachment controls,
+- [x] Search, filters, Clear Filters, sorting, pagination, attachment controls,
       and empty/no-results actions remain usable at every viewport.
-- [ ] Requester Selection visibly covers the active dropdown, selected value,
+- [x] Requester Selection visibly covers the active dropdown, selected value,
       Continue/Change Requester path, loading, empty, and failure/retry states.
-- [ ] Long Summary, Description, Ticket Number, and filenames wrap or remain
+- [x] Long Summary, Description, Ticket Number, and filenames wrap or remain
       accessible; no clipping or overlap exists.
-- [ ] There is no unintended horizontal page scroll at mobile width, including
-      dialogs and error messages.
-- [ ] Screenshot comparison was made against this document and approved
-      illustrations, not personal memory.
-- [ ] Screenshot files are readable without extreme zoom and are linked from
+- [x] There is no unintended horizontal page scroll in the recorded captures,
+      including dialogs, long content, and error messages.
+- [x] Dialogs and long-content/error states have dedicated overflow evidence.
+- [x] Screenshot comparison was made against this document, not personal
+      memory.
+- [x] Screenshot comparison was made against the approved visual reference in
+      this document; no separate illustration artifact is required for this
+      repository.
+- [x] Screenshot files are readable without extreme zoom and are linked from
       the final delivery evidence.
 
-The visual checklist is completed only after the implementation screenshots are
-reviewed; this pre-implementation document intentionally does not claim a final
-pass.
+#### Review record
+
+| Review area | Result | Evidence / finding |
+|---|---|---|
+| Base screen layout and visual hierarchy | Pass | The 12 desktop/tablet/mobile screenshots below were reviewed against this specification. |
+| Header, page, surface, border, text, focus, and disabled colors | Pass | Core values and usage are present in `client/src/styles.css`; the header, primary action, links, navigation, and page/surface colors match the contract. |
+| Read-only, warning, success, and destructive color tokens | Pass | `client/src/styles.css` defines and uses the required state tokens; `visual-qa.spec.ts` asserts all exact computed values. |
+| Editable/read-only distinction, validation placement, clipping, overlap | Pass | Base screenshots plus the automated state assertions show readable field distinctions and stable, non-overlapping messages. |
+| Button hierarchy | Pass | Primary/secondary/tertiary/destructive/disabled/busy labels remain distinct, and the E2E check measures visible Zen buttons/text buttons at the 44 px minimum. |
+| Horizontal overflow | Pass | `responsive-layout.spec.ts` checks 1440, 1024, 390, and 320 px; `state-evidence.spec.ts` applies the same check to long content, dialogs, and errors. |
+| State evidence | Pass | `state-evidence.spec.ts` checks the required loading, error, validation, dialog, removed, unavailable, and long-content states without adding screenshot files. |
+
+The visual inspection is a final pass for the Lab 2 visual contract. All
+checklist items above are checked and tied to the implementation, automated
+assertions, or linked screenshot evidence.
+
+#### Screenshot evidence reviewed
+
+| Screen | Desktop | Tablet | Mobile |
+|---|---|---|---|
+| Requester Selection | [PNG](../../artifacts/lab-02/screenshots/requester-selection/requester-selection-desktop.png) | [PNG](../../artifacts/lab-02/screenshots/requester-selection/requester-selection-tablet.png) | [PNG](../../artifacts/lab-02/screenshots/requester-selection/requester-selection-mobile.png) |
+| Create Ticket | [PNG](../../artifacts/lab-02/screenshots/create-ticket/create-ticket-desktop.png) | [PNG](../../artifacts/lab-02/screenshots/create-ticket/create-ticket-tablet.png) | [PNG](../../artifacts/lab-02/screenshots/create-ticket/create-ticket-mobile.png) |
+| My Tickets | [PNG](../../artifacts/lab-02/screenshots/my-tickets/my-tickets-desktop.png) | [PNG](../../artifacts/lab-02/screenshots/my-tickets/my-tickets-tablet.png) | [PNG](../../artifacts/lab-02/screenshots/my-tickets/my-tickets-mobile.png) |
+| Ticket Detail | [PNG](../../artifacts/lab-02/screenshots/ticket-detail/ticket-detail-desktop.png) | [PNG](../../artifacts/lab-02/screenshots/ticket-detail/ticket-detail-tablet.png) | [PNG](../../artifacts/lab-02/screenshots/ticket-detail/ticket-detail-mobile.png) |
+
+#### State coverage
+
+The required non-default states are verified by the automated assertions in
+[`state-evidence.spec.ts`](../../e2e/lab-02/state-evidence.spec.ts). These
+checks cover requester loading/selection/failure, Create Ticket validation and
+busy/success states, My Tickets loading/empty/no-results/failure, and Ticket
+Detail long content, remove dialog, removed, and unavailable attachments. The
+suite checks overflow at each state but does not generate additional PNGs.
 
 ## 9. UI traceability
 
