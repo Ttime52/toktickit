@@ -19,6 +19,14 @@ import {
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ACTIVE_ATTACHMENTS = 5;
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 const ACCEPTED_MIME_BY_EXTENSION: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -151,6 +159,7 @@ export default function TicketDetail({
   const focusAttachmentIdRef = useRef<number | null>(null);
   const removeReasonRef = useRef<HTMLTextAreaElement>(null);
   const removeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const fileInputId = `detail-attachment-${useId().replace(/:/gu, "")}`;
   const removeReasonId = `${fileInputId}-reason`;
 
@@ -183,10 +192,45 @@ export default function TicketDetail({
   useEffect(() => {
     if (removeDialog === null) return;
 
+    const dialog = dialogRef.current;
+    if (dialog === null) return;
+    const dialogElement = dialog;
+
     removeReasonRef.current?.focus();
+
+    function getFocusableElements() {
+      return Array.from(
+        dialogElement.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && removingId === null) {
         closeRemoveDialog();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (first === undefined || last === undefined) return;
+
+      if (!dialogElement.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
@@ -576,6 +620,7 @@ export default function TicketDetail({
         <div className="zen-dialog-backdrop">
           <section
             className="zen-dialog"
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${fileInputId}-remove-title`}

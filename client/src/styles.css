@@ -11,9 +11,13 @@
   --zen-border: #c7d3cd;
   --zen-text: #17352a;
   --zen-muted: #5c6f65;
+  --zen-readonly: #eef3f0;
   --zen-error: #a12a2a;
   --zen-error-bg: #fff1f1;
+  --zen-warning: #9a6700;
   --zen-warning-bg: #fff8e1;
+  --zen-success: #0b7a46;
+  --zen-danger: #b42318;
   --zen-focus: #0b7a46;
   --zen-disabled-bg: #dde5e0;
   --zen-disabled-text: #7b8981;
@@ -101,7 +105,7 @@ h1 {
 .zen-callout-warning {
   background: var(--zen-warning-bg);
   border-color: #e1c77a;
-  color: #6f4e00;
+  color: var(--zen-warning);
 }
 
 .zen-callout-error {
@@ -210,10 +214,13 @@ h1 {
 }
 
 .zen-button {
+  align-items: center;
   border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
+  display: inline-flex;
   font-weight: 600;
+  justify-content: center;
   min-height: 44px;
   padding: 8px 16px;
 }
@@ -394,7 +401,7 @@ h1 {
 }
 
 .zen-read-only-item {
-  background: #f0f4f1;
+  background: var(--zen-readonly);
   border: 1px solid var(--zen-border);
   border-radius: 6px;
   min-width: 0;
@@ -457,13 +464,13 @@ h1 {
 
 .zen-reference-state .zen-button {
   margin-left: 12px;
-  min-height: 36px;
-  padding: 4px 12px;
+  min-height: 44px;
+  padding: 8px 12px;
 }
 
 .zen-success-panel {
   background: var(--zen-pale);
-  border: 2px solid var(--zen-secondary);
+  border: 2px solid var(--zen-success);
   border-radius: 10px;
   margin-bottom: 24px;
   padding: 24px;
@@ -563,8 +570,8 @@ h1 {
 }
 
 .zen-small-button {
-  min-height: 36px;
-  padding: 4px 12px;
+  min-height: 44px;
+  padding: 8px 12px;
 }
 
 .zen-text-button {
@@ -573,8 +580,8 @@ h1 {
   color: var(--zen-secondary);
   cursor: pointer;
   font-weight: 600;
-  min-height: 36px;
-  padding: 4px 8px;
+  min-height: 44px;
+  padding: 8px 8px;
   text-decoration: underline;
 }
 
@@ -706,7 +713,7 @@ h1 {
 }
 
 .zen-ticket-table th {
-  background: #f0f4f1;
+  background: var(--zen-readonly);
   color: var(--zen-text);
   font-size: 14px;
   font-weight: 700;
@@ -728,8 +735,8 @@ h1 {
   color: inherit;
   cursor: pointer;
   font-weight: inherit;
-  min-height: 32px;
-  padding: 4px 0;
+  min-height: 44px;
+  padding: 8px 0;
   text-align: left;
 }
 
@@ -766,7 +773,7 @@ h1 {
 }
 
 .zen-badge-status {
-  background: #f0f4f1;
+  background: var(--zen-readonly);
   border-color: var(--zen-border);
   color: var(--zen-text);
 }
@@ -915,7 +922,7 @@ h1 {
 }
 
 .zen-read-only-text {
-  background: #f0f4f1;
+  background: var(--zen-readonly);
   border: 1px solid var(--zen-border);
   border-radius: 6px;
   min-width: 0;
@@ -961,14 +968,15 @@ h1 {
 }
 
 .zen-button-danger {
-  background: #9d2b2b;
-  border-color: #9d2b2b;
+  background: var(--zen-danger);
+  border-color: var(--zen-danger);
   color: white;
 }
 
 .zen-button-danger:not(:disabled):hover,
 .zen-button-danger:not(:disabled):focus-visible {
-  background: #7f2020;
+  background: var(--zen-danger);
+  border-color: var(--zen-danger);
 }
 
 .zen-dialog-backdrop {
