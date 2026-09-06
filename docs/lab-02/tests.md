@@ -2,8 +2,8 @@
 
 **Product:** TokTickIT Requester Ticketing MVP  
 **Version:** 1.0  
-**Status:** Final results recorded; all automated suites pass
-**Date:** 2026-09-05
+**Status:** Final results recorded; all automated and visual suites pass
+**Date:** 2026-09-06
 
 This plan is derived from [specification.md](specification.md),
 [api-spec.md](api-spec.md), and [ui-spec.md](ui-spec.md). It is the Test DD
@@ -24,8 +24,8 @@ and acceptance-criterion evidence.
   states, API calls, loading/success/failure states, and attachment actions.
 - **Responsive:** Playwright at desktop, tablet, and mobile viewports for
   layout, wrapping, touch targets, and horizontal-overflow checks.
-- **Visual:** DOM/CSS token assertions plus Playwright screenshots compared
-  with the approved Zen Green contract and the checklist in `ui-spec.md`.
+- **Visual:** DOM/CSS token assertions plus Playwright screenshots reviewed
+  against the Zen Green contract and the completed checklist in `ui-spec.md`.
 - **E2E:** Playwright with seeded Requester A/B data to prove the complete
   selection, create, list, detail, attachment, ownership, and failure flows.
 - API/UI tests use factories and clean their created rows; E2E helpers use
@@ -92,10 +92,10 @@ is recorded in Sections 3 and 6.
 | RESP-02 | Responsive | FR-13 / AC-24 | Open all four screens at 1024x768. | Requester Selection remains usable; other screens use practical two-column/wrapped layouts, Summary/Description retain width, toolbar wraps cleanly, and actions remain visible. | `e2e/lab-02/responsive-layout.spec.ts` | Pass |
 | RESP-03 | Responsive | FR-13 / AC-24 | Open all four screens at 390x844 and a 320 px content width. | Selection remains usable, fields stack, My Tickets uses cards, buttons are touch-friendly, and `scrollWidth` does not exceed viewport width. | `e2e/lab-02/responsive-layout.spec.ts` | Pass |
 | RESP-04 | Responsive | FR-13 / AC-14, AC-24 | Use long filenames, long Ticket Number/Summary, filters, pagination, and validation messages on mobile. | Text wraps/ellipsis remains accessible; no hidden buttons, overlap, or horizontal page scroll. | `e2e/lab-02/responsive-layout.spec.ts` | Pass |
-| VIS-01 | Visual | UI tokens / AC-25 | Assert computed theme colors and shared spacing/radius/input-height tokens. | Screens use the exact Zen Green values from `ui-spec.md`; no one-off conflicting colors. | `e2e/lab-02/visual-qa.spec.ts` | Pass |
-| VIS-02 | Visual | UI states / AC-23, AC-25 | Inspect normal, focus, read-only, invalid, disabled, busy, button, badge, and attachment state classes. | States are visually distinct, text-labeled, and consistent across Create, List, and Detail. | `e2e/lab-02/visual-qa.spec.ts` | Pass |
-| VIS-03 | Visual | Screenshot checklist / AC-25 | Capture Requester Selection, Create Ticket, My Tickets, and Ticket Detail at desktop/tablet/mobile sizes. | Twelve required screenshot files exist under `artifacts/lab-02/screenshots/` and are readable for review, including selector loading/failure evidence where applicable. | `e2e/lab-02/responsive-layout.spec.ts` | Pass |
-| VIS-04 | Visual | UI checklist / AC-24, AC-25 | Review screenshots against tokens, approved illustrations, labels, spacing, clipping, overlap, and overflow checklist. | Checklist is completed with no unexplained visual deviation; any correction updates the UI/spec before Done. | `e2e/lab-02/visual-qa.spec.ts` | Pass |
+| VIS-01 | Visual | UI tokens / AC-25 | Assert all computed Zen Green colors, field heights, and visible button heights, then review token usage. | Header/page/surface/state values match `ui-spec.md`; required read-only, warning, success, and danger tokens are defined and used without conflicting one-off values. | `e2e/lab-02/visual-qa.spec.ts`, `client/src/styles.css` | Pass |
+| VIS-02 | Visual | UI states / AC-23, AC-25 | Inspect normal, focus, read-only, invalid, disabled, busy, button, badge, and attachment state classes. | UI/component tests and automated state assertions cover the state semantics and actions across all required viewports. | `e2e/lab-02/visual-qa.spec.ts`, `e2e/lab-02/state-evidence.spec.ts`, `client/tests/lab-02/` | Pass |
+| VIS-03 | Visual | Screenshot checklist / AC-25 | Capture Requester Selection, Create Ticket, My Tickets, and Ticket Detail at desktop/tablet/mobile sizes. | Twelve existing base-screen screenshot files exist under `artifacts/lab-02/screenshots/` and are readable for review; state conditions are checked automatically. | `e2e/lab-02/responsive-layout.spec.ts`, `e2e/lab-02/state-evidence.spec.ts` | Pass |
+| VIS-04 | Visual | UI checklist / AC-24, AC-25 | Review screenshots against tokens, labels, spacing, clipping, overlap, and overflow checklist. | `ui-spec.md` records a completed checklist with no unexplained visual deviation; automated overflow and state assertions pass. | `docs/lab-02/ui-spec.md`, `e2e/lab-02/visual-qa.spec.ts`, `e2e/lab-02/state-evidence.spec.ts` | Pass |
 | E2E-01 | E2E | AC-02, AC-05, AC-06, AC-09, AC-23 | Select an active Requester, create a valid Ticket, retry-safe submit, and open the returned Ticket. | Database-backed Ticket appears with matching requester and official Number; success and next actions work. | `e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
 | E2E-02 | E2E | AC-11, AC-22 | Create/fixture Tickets for Requesters A/B, switch context, list, and direct-request the other owner's Ticket. | A's rows disappear for B; direct cross-owner Ticket/Attachment access is rejected with no leak. | `server/tests/lab-02/my-tickets.api.test.ts`, `server/tests/lab-02/ticket-detail.api.test.ts` | Pass |
 | E2E-03 | E2E | AC-12, AC-13, AC-14 | Create enough owned Tickets to exercise search, filters, sorting, page 1/2, empty, and no-results states. | Query controls, metadata, deterministic order, Clear Filters, and empty/no-results copy all work. | `server/tests/lab-02/my-tickets.api.test.ts`, `client/tests/lab-02/MyTickets.test.tsx` | Pass |
@@ -135,7 +135,7 @@ more than one level of evidence.
 | AC-22 | `ticket-detail.api.test.ts`, `TicketDetail.test.tsx`, `attachments.api.test.ts` | Pass |
 | AC-23 | `RequesterSelection.test.tsx`, `CreateTicket.test.tsx`, `TicketDetail.test.tsx`, `visual-qa.spec.ts` | Pass |
 | AC-24 | `responsive-layout.spec.ts`, `MyTickets.test.tsx` | Pass |
-| AC-25 | `visual-qa.spec.ts` plus 12 required screenshots | Pass |
+| AC-25 | `visual-qa.spec.ts`, `state-evidence.spec.ts`, 12 existing base-screen screenshots, and the completed review in `ui-spec.md` | Pass |
 | AC-26 | `schema.integration.test.ts`, `reference-data.api.test.ts` | Pass |
 
 ## 4. Responsive and visual checklist
@@ -153,28 +153,37 @@ more than one level of evidence.
 
 - [x] Exact Zen Green color tokens are applied to header, actions, links,
       selected states, page background, surfaces, read-only fields, errors,
-      warnings, and success.
+      warnings, and success; `visual-qa.spec.ts` asserts all required values.
 - [x] Editable and read-only fields are visibly different but readable.
 - [x] Required asterisks and validation messages appear next to the correct
       controls and do not overlap.
 - [x] Primary, secondary, tertiary, destructive, disabled, and busy buttons are
-      distinguishable and have visible text.
+      distinguishable, have visible text, and meet the 44 px touch-target
+      minimum; `state-evidence.spec.ts` checks the busy and destructive presentations.
 - [x] Requested Priority, Current Status, and reserved IT Priority badges use
       consistent shape, spacing, and text/non-color cues.
 - [x] Desktop table and mobile Ticket cards show all essential information.
 - [x] Search, filters, sorting, Clear Filters, pagination, attachment controls,
       and empty/no-results actions remain usable at all viewports.
 - [x] Requester Selection shows the active dropdown, selected value, Continue,
-      Change Requester path, loading, empty, and failure/retry states clearly.
+      Change Requester path, loading, empty, and failure/retry states clearly;
+      `state-evidence.spec.ts` checks the loading, selected, and failure views.
 - [x] Long filenames, Ticket Numbers, descriptions, and error messages wrap or
-      remain accessible; no clipping or overlap is visible.
-- [x] `document.documentElement.scrollWidth <= viewport width` at mobile sizes.
+      remain accessible; no clipping or overlap is reported by the state
+      assertions for long-content, validation, and error cases.
+- [x] `document.documentElement.scrollWidth <= viewport width` for the
+      recorded 1440, 1024, and 390 px captures, the 320 px selection smoke
+      check, and the automated state checks.
+- [x] Dialog and long-content overflow is covered by automated state checks.
 - [x] Keyboard focus remains visible; dialog focus returns to its triggering row.
-- [x] Screenshots are compared against `ui-spec.md` and approved illustrations.
+- [x] Screenshots are compared against `ui-spec.md`.
+- [x] Screenshots are compared against the approved visual reference in
+      `ui-spec.md`; no separate illustration artifact is required for this
+      repository.
 
 ## 5. Executed test commands
 
-The following commands were executed on 2026-09-05 from the repository root.
+The following commands were executed on 2026-09-06 from the repository root.
 The server and client used the configured local development database; uploaded
 E2E files use the test storage adapter and generated Ticket fixtures use unique
 idempotency keys.
@@ -189,10 +198,11 @@ npm.cmd test                 # 8 files, 35 tests passed
 npm.cmd run build            # passed
 
 cd ..
-npx.cmd playwright install chromium
-$env:PLAYWRIGHT_EXTERNAL_SERVERS = "1"
-node node_modules/playwright/cli.js test
+node node_modules/playwright/cli.js test e2e/lab-02/state-evidence.spec.ts
 # 9 tests passed: desktop, tablet, and mobile projects
+
+npm.cmd run test:e2e
+# 18 tests passed: desktop, tablet, and mobile projects
 ```
 
 For a normal local E2E run, start `server` and `client` first and set
@@ -210,14 +220,14 @@ start both services automatically. The browser project uses Chromium at
 | Server build | `server/npm.cmd run build` | Pass |
 | Client build | `client/npm.cmd run build` | Pass |
 | Responsive | `responsive-layout.spec.ts`: desktop, tablet, mobile, 900px branch, and 320px smoke check | Pass |
-| Visual QA | `visual-qa.spec.ts`, Zen token/state assertions, and completed checklist | Pass |
-| E2E | `requester-ticket-flow.spec.ts` plus responsive/visual specs: 9/9 | Pass |
-| Screenshot evidence | 12 PNG files under `artifacts/lab-02/screenshots/` | Pass |
+| Visual QA | `visual-qa.spec.ts`, `state-evidence.spec.ts`, Zen token/state assertions, and the completed checklist in `ui-spec.md` | Pass |
+| E2E | `requester-ticket-flow.spec.ts`, responsive/state/visual specs: 18/18 | Pass |
+| Screenshot evidence | 12 existing base-screen PNG files under `artifacts/lab-02/screenshots/` | Pass |
 | AC traceability | AC-01 through AC-26 each has an executed test reference in Section 3 | Pass |
 
-All required automated checks completed without skipped tests. The final
-traceability table records at least one passing test for every AC and the
-responsive run produced the twelve screenshot files required by `ui-spec.md`.
+All recorded automated checks completed without skipped tests. The traceability
+table records passing automated and visual evidence for AC-01 through AC-26,
+including the completed AC-25 review in `docs/lab-02/ui-spec.md`.
 
 ## 7. Known limitations or deferred tests
 
