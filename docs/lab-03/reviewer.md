@@ -6,7 +6,7 @@
 ## Pull Requests I authored (reviewed by my partner)
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
-|  #  | feature/13-specification-docs-lab3 |  |
+|  #44  | feature/13-specification-docs-lab3 |  |
 |  #  | feature/14-user-model-migration |  |
 |  #  | feature/15-auth-foundation |  |
 |  #  | feature/16-requester-regression |  |
@@ -19,7 +19,15 @@
 PR # feature/13-specification-docs-lab3
 
 - Reviewer comment I received: 
-- How I responded: 
+1. Create User activation state mismatch
+UI Spec allows selecting Active/Inactive when creating a user, but POST /api/admin/users does not define an active request field and currently defaults to active. Please make the UI/API contract consistent.
+
+2. Create User acceptance/test coverage
+AC-28 currently verifies creation and one-role assignment, but does not explicitly cover the required initial password and activation state. Please update the AC and add corresponding tests/traceability.
+
+Overall review:
+I reviewed the other parts of the Lab 3 specification, API specification, UI specification, and test plan against the Lab 3 requirements. The remaining sections look consistent and cover the required functionality. I only found the two issues above that need clarification/update.
+- How I responded: thx. I will fix it.
 
 ## Pull Requests I reviewed for my partner
 

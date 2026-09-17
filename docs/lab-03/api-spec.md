@@ -6,6 +6,11 @@ check, all protected endpoints require the session described below. This
 contract supersedes only the requester-context part of Lab 2; its Ticket
 Number, validation and Attachment contracts remain.
 
+The User Management routes are therefore `/api/users`, not an additional
+`/api/admin/users` namespace; Administrator authorization is enforced by the
+matrix and on every request. In particular, `POST /api/users` and
+`POST /users` below refer to the same endpoint.
+
 ## 1. Authentication, session and safe errors
 
 This section is the implementation contract for the labsheet's session/token
@@ -389,13 +394,33 @@ an empty/no-results response is still `200` with `data:[]`.
 Each item is the user shape plus `createdAt` and `updatedAt`, never a hash.
 
 `POST /users` accepts `{displayName,email,role,isActive,initialPassword}`.
-`displayName` is required after trim and is 2–120 characters; `email` is
-normalized as in BR-01; `role` is exactly one of `REQUESTER|IT_STAFF|
-ADMINISTRATOR`; `isActive` is boolean; and `initialPassword` is 12–128
+All five fields are required; in particular, `isActive` is a boolean supplied
+by the caller and an omitted field returns `400 VALIDATION_ERROR`—the server
+does not default a new User to active. `displayName` is required after trim and
+is 2–120 characters; `email` is normalized as in BR-01; `role` is exactly one
+of `REQUESTER|IT_STAFF|ADMINISTRATOR`; and `initialPassword` is 12–128
 characters. The client may ask for a password confirmation, but it is checked
 client-side and never sent as a second password field. On success, the server
-stores only an Argon2id hash, sets `mustChangePassword=true`, and never echoes
-the password; an inactive User remains unable to log in until activated.
+stores only an Argon2id hash, preserves the requested `isActive` state, sets
+`mustChangePassword=true`, and never echoes the password; an inactive User
+remains unable to log in until activated.
+
+Example create request (the `false` value is intentional and must be
+preserved):
+
+```json
+{
+  "displayName": "Narin Example",
+  "email": "narin@example.test",
+  "role": "REQUESTER",
+  "isActive": false,
+  "initialPassword": "temporary-Password-42!"
+}
+```
+
+The response contains `isActive:false` and `mustChangePassword:true`; it never
+contains `initialPassword` or the password hash.
+
 `PATCH /users/:userId` accepts only `displayName`, `email`, `role`, and
 `isActive`. `POST /users/:userId/reset-password` accepts
 `{initialPassword}` and atomically hashes it, marks `mustChangePassword=true`

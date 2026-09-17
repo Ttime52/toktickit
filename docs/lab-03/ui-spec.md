@@ -202,9 +202,12 @@ action. No pagination, bulk selection, delete, import, export or sorting
 controls.
 
 Create/Edit is a labelled dialog or page with display name, email, one Role
-select, active/inactive switch with text state, initial password on create or
-reset plus a client-only confirmation field, and save/cancel. Edit presents a
-Reset Initial Password action rather
+select, an active/inactive switch with a visible text state, initial password
+on create or reset plus a client-only confirmation field, and save/cancel. On
+create, the selected switch state is required and the submit payload MUST
+include the matching boolean `isActive` (there is no implicit active default);
+the UI also sends the required `initialPassword` and never sends the
+confirmation field. Edit presents a Reset Initial Password action rather
 than a password value. Surface duplicate email, invalid role, self-deactivation,
 last-active-administrator and assigned-Ticket-owner safety errors next to the
 relevant control. A confirmation is required before deactivation; an
