@@ -18,7 +18,6 @@ export type TicketSortOrder = "asc" | "desc";
 export type TicketPageSize = 10 | 20 | 50;
 
 const TICKET_QUERY_PARAMETERS = new Set([
-  "requesterId",
   "search",
   "categoryId",
   "relatedSystemId",
@@ -93,26 +92,12 @@ function optionalPositiveInteger(
 
 export function parseTicketListQuery(
   query: Record<string, unknown>,
+  requesterId: number,
 ): TicketListQueryResult {
   for (const field of Object.keys(query)) {
     if (!TICKET_QUERY_PARAMETERS.has(field)) {
       return invalidParameter(field, `Unknown query parameter: ${field}.`);
     }
-  }
-
-  const requesterIdValue = singleValue(query, "requesterId");
-  if (typeof requesterIdValue !== "string") {
-    return invalidParameter(
-      "requesterId",
-      "requesterId must be a positive integer.",
-    );
-  }
-  const requesterId = positiveInteger(requesterIdValue);
-  if (requesterId === null) {
-    return invalidParameter(
-      "requesterId",
-      "requesterId must be a positive integer.",
-    );
   }
 
   const searchValue = singleValue(query, "search");

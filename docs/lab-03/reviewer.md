@@ -6,15 +6,15 @@
 ## Pull Requests I authored (reviewed by my partner)
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
-|  #44  | feature/13-specification-docs-lab3 |  |
-|  #  | feature/14-user-model-migration |  |
-|  #  | feature/15-auth-foundation |  |
-|  #  | feature/16-requester-regression |  |
-|  #  | feature/17-staff-ticket-queue |  |
-|  #  | feature/18-staff-ticket-operations |  |
-|  #  | feature/19-admin-user-management |  |
-|  #  | feature/20-e2e-regression-qa |  |
-|  #  | feature/21-docs-release-lab3 |  |
+|  #44  | feature/13-specification-docs-lab3 | Request changes and Approved |
+|  #45  | feature/14-user-model-migration | Request changes and Approved |
+|  #46  | feature/15-auth-foundation | Request changes and Approved |
+|  #47  | feature/16-requester-regression |  |
+|  #48  | feature/17-staff-ticket-queue |  |
+|  #49  | feature/18-staff-ticket-operations |  |
+|  #50  | feature/19-admin-user-management |  |
+|  #51  | feature/20-e2e-regression-qa |  |
+|  #52  | feature/21-docs-release-lab3 |  |
 
 PR #44 feature/13-specification-docs-lab3
 https://github.com/Ttime52/toktickit/pull/44
@@ -34,8 +34,32 @@ I reviewed the other parts of the Lab 3 specification, API specification, UI spe
 PR #45 feature/14-user-model-migration
 https://github.com/Ttime52/toktickit/pull/45
 
+- Reviewer comment I received: I found one blocking issue regarding AC-09: the PR does not include the migration-regression.integration.test.ts referenced by docs/lab-03/tests.md for MIG-01 and MIG-02.
+Please add the referenced migration/seed regression test, or update the test documentation to reflect the actual test evidence. The AC-09 coverage should demonstrate preservation of existing IDs/ownership/history, Ticket and Attachment relationships, itPriority backfill, required seed data, and safe/idempotent seed reruns without duplicate dat
+- How I responded: Already add the migration.integration.test.ts. Pls recheck the PR.
+- Reviewer comment I received: Everything looks good! Approved. 👍🏻
+
+PR #46 feature/15-auth-foundation
+https://github.com/Ttime52/toktickit/pull/46
+
+- Reviewer comment I received: I reviewed the authentication flow and found a few things that need to be updated:
+
+Requester identity
+The client is still sending requesterId in the ticket/attachment flows. According to the Lab 3 spec, requester identity should come from the authenticated session and should not be provided by the client. Could you please update this flow to use the logged-in user's ID instead?
+
+Legacy requester selection
+The legacy requester-selection flow is still active in the client (RequesterContext, RequesterSelection, and fetchDevelopmentRequesters), and requester screens still use requesterId. Since Lab 3 replaces the Development Requester selector with authenticated identity, could you please remove or replace this flow so the requester is determined by the logged-in user?
+
+Change Password validation
+The Change Password UI currently says “At least 8 characters,” but the Lab 3 spec requires passwords to be 12–128 characters. Could you please update the client-side validation and displayed requirement to match the spec?
+- How I responded: fixed it. Please review again kub.
+
+PR #47 feature/16-requester-regression
+https://github.com/Ttime52/toktickit/pull/47
+
 - Reviewer comment I received: 
 - How I responded:
+
 
 ## Pull Requests I reviewed for my partner
 
@@ -59,5 +83,13 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/52
 1. The Logout button is missing from the authenticated application shell. Lab 3 requires a Logout action that removes authenticated access. Please add the Logout button back and verify that after logout, protected pages/API cannot be accessed.
 2. One authorization issue still needs to be addressed before approval. The Requester ticket and attachment endpoints currently use the authenticated user ID as the requester ID, but they do not verify that the authenticated user actually has the REQUESTER role. As a result, an IT Staff or Administrator account could call Requester APIs such as POST /api/tickets.
 Lab 3 requires server-side role-based authorization, so please add a backend role check for Requester-only ticket/attachment operations and tests confirming that IT Staff and Administrator users receive 403 Forbidden.
-- Partner's response: 
-- My comment:
+- Partner's response: Fixed the remaining review feedback for Issue #18.
+Added Logout and enforced REQUESTER-only authorization for requester ticket/attachment APIs. 🤤
+- My comment: Things all fixed. Great jobbb👽
+
+feature/19-staff-ticket-queue
+https://github.com/KwanchanokThungsuk/toktickit/pull/53
+- My comment: The Ticket Queue status filter does not include all Lab 3 ticket statuses. StaffTicketStatus and the Status dropdown currently only include NEW, OPEN, IN_PROGRESS, RESOLVED, and CLOSED, while Lab 3 requires WAITING_FOR_REQUESTER, REOPENED, and CANCELLED as well.
+
+Please update the Queue status type/filter to support all required Lab 3 statuses and add/update the corresponding tests.
+- Partner's response: fixed. pls recheck jubb🫪

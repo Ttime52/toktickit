@@ -1,11 +1,22 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
+export type UserRole = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
+
+export interface AuthUser {
+  id: number;
+  displayName: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  mustChangePassword: boolean;
+}
+
 export interface Category {
   id: number;
   name: string;
 }
 
-export interface DevelopmentRequester {
+export interface TicketRequester {
   id: number;
   displayName: string;
   email: string;
@@ -38,7 +49,7 @@ export interface Ticket {
   id: number;
   ticketNumber: string;
   ticketDate: string;
-  requester: DevelopmentRequester;
+  requester: TicketRequester;
   category: Category;
   relatedSystem: RelatedSystem;
   summary: string;
@@ -77,7 +88,6 @@ export interface TicketListItem {
 }
 
 export interface TicketListQuery {
-  requesterId: number;
   search: string;
   categoryId: number | null;
   relatedSystemId: number | null;
@@ -104,7 +114,6 @@ export interface TicketListResult {
 }
 
 export interface CreateTicketInput {
-  requesterId: number;
   categoryId: number;
   relatedSystemId: number;
   summary: string;
@@ -136,42 +145,101 @@ export class ApiRequestError extends Error {
   }
 }
 
+function withCredentials(init?: RequestInit): RequestInit {
+  return { ...init, credentials: "include" };
+}
+
 export interface SystemStatus {
   online: boolean;
   categories: Category[];
 }
 
-const REQUESTER_API_PATH = `${API_URL}/api/development-requesters?active=true`;
-
-export async function fetchDevelopmentRequesters(
+export async function fetchCurrentUser(
   signal?: AbortSignal,
-): Promise<DevelopmentRequester[]> {
-  const response = signal
-    ? await fetch(REQUESTER_API_PATH, { signal })
-    : await fetch(REQUESTER_API_PATH);
-
+): Promise<AuthUser> {
+  const response = await fetch(
+    `${API_URL}/api/auth/me`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
   if (!response.ok) {
-    throw new Error("Unable to load Development Requesters");
+    throwApiResponseError(response, body, "Unable to load the current session.");
   }
-
-  const body: unknown = await response.json();
-  if (!Array.isArray(body)) {
-    throw new Error("Invalid Development Requester response");
+  const user =
+    typeof body.data === "object" && body.data !== null &&
+    typeof (body.data as Record<string, unknown>).user === "object" &&
+    (body.data as Record<string, unknown>).user !== null
+      ? (body.data as { user: AuthUser }).user
+      : null;
+  if (user === null) {
+    throw new ApiRequestError("Invalid authentication response.", response.status);
   }
-
-  return body.filter(isDevelopmentRequester);
+  return user;
 }
 
-function isDevelopmentRequester(value: unknown): value is DevelopmentRequester {
-  if (typeof value !== "object" || value === null) return false;
-
-  const requester = value as Record<string, unknown>;
-  return (
-    Number.isInteger(requester.id) &&
-    typeof requester.displayName === "string" &&
-    typeof requester.email === "string" &&
-    (requester.isActive === undefined || requester.isActive === true)
+export async function login(
+  email: string,
+  password: string,
+): Promise<AuthUser> {
+  const response = await fetch(
+    `${API_URL}/api/auth/login`,
+    withCredentials({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }),
   );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to sign in.");
+  }
+  const data = body.data;
+  const user =
+    typeof data === "object" && data !== null &&
+    typeof (data as Record<string, unknown>).user === "object" &&
+    (data as Record<string, unknown>).user !== null
+      ? (data as { user: AuthUser }).user
+      : null;
+  if (user === null) throw new ApiRequestError("Invalid sign-in response.", response.status);
+  return user;
+}
+
+export async function logout(): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/api/auth/logout`,
+    withCredentials({ method: "POST" }),
+  );
+  const body = response.status === 204 ? {} : await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to sign out.");
+  }
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<AuthUser> {
+  const response = await fetch(
+    `${API_URL}/api/auth/change-password`,
+    withCredentials({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to change password.");
+  }
+  const data = body.data;
+  const user =
+    typeof data === "object" && data !== null &&
+    typeof (data as Record<string, unknown>).user === "object" &&
+    (data as Record<string, unknown>).user !== null
+      ? (data as { user: AuthUser }).user
+      : null;
+  if (user === null) throw new ApiRequestError("Invalid password response.", response.status);
+  return user;
 }
 
 function isReference(value: unknown): value is Category | RelatedSystem {
@@ -190,8 +258,8 @@ async function fetchReferenceList<T extends Category | RelatedSystem>(
   signal?: AbortSignal,
 ): Promise<T[]> {
   const response = signal
-    ? await fetch(path, { signal })
-    : await fetch(path);
+    ? await fetch(path, withCredentials({ signal }))
+    : await fetch(path, withCredentials());
 
   if (!response.ok) {
     throw new ApiRequestError(`Unable to load ${label}.`, response.status);
@@ -265,14 +333,14 @@ export async function createTicket(
   input: CreateTicketInput,
   idempotencyKey: string,
 ): Promise<CreateTicketResult> {
-  const response = await fetch(`${API_URL}/api/tickets`, {
+  const response = await fetch(`${API_URL}/api/tickets`, withCredentials({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify(input),
-  });
+  }));
   const body = await readApiBody(response);
 
   if (!response.ok) {
@@ -298,7 +366,6 @@ export async function fetchTickets(
   signal?: AbortSignal,
 ): Promise<TicketListResult> {
   const params = new URLSearchParams({
-    requesterId: String(query.requesterId),
     page: String(query.page),
     pageSize: String(query.pageSize),
     sortBy: query.sortBy,
@@ -315,9 +382,9 @@ export async function fetchTickets(
   }
   if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
 
-  const response = await fetch(`${API_URL}/api/tickets?${params.toString()}`, signal
+  const response = await fetch(`${API_URL}/api/tickets?${params.toString()}`, withCredentials(signal
     ? { signal }
-    : undefined);
+    : undefined));
   const body = await readApiBody(response);
 
   if (!response.ok) {
@@ -340,12 +407,11 @@ export async function fetchTickets(
 
 export async function fetchTicket(
   ticketId: number,
-  requesterId: number,
   signal?: AbortSignal,
 ): Promise<Ticket> {
   const response = await fetch(
-    `${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`,
-    signal ? { signal } : undefined,
+    `${API_URL}/api/tickets/${ticketId}`,
+    withCredentials(signal ? { signal } : undefined),
   );
   const body = await readApiBody(response);
 
@@ -363,33 +429,30 @@ export async function fetchTicket(
 export function getAttachmentDownloadUrl(
   ticketId: number,
   attachmentId: number,
-  requesterId: number,
 ): string {
-  return `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}/download?requesterId=${requesterId}`;
+  return `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}/download`;
 }
 
 export function getAttachmentPreviewUrl(
   ticketId: number,
   attachmentId: number,
-  requesterId: number,
 ): string {
-  return `${getAttachmentDownloadUrl(ticketId, attachmentId, requesterId)}&disposition=inline`;
+  return `${getAttachmentDownloadUrl(ticketId, attachmentId)}?disposition=inline`;
 }
 
 export async function uploadAttachment(
   ticketId: number,
-  requesterId: number,
   file: File,
 ): Promise<TicketAttachment> {
   const formData = new FormData();
   formData.append("file", file, file.name);
 
   const response = await fetch(
-    `${API_URL}/api/tickets/${ticketId}/attachments?requesterId=${requesterId}`,
-    {
+    `${API_URL}/api/tickets/${ticketId}/attachments`,
+    withCredentials({
       method: "POST",
       body: formData,
-    },
+    }),
   );
   const body = await readApiBody(response);
 
@@ -407,16 +470,15 @@ export async function uploadAttachment(
 export async function removeAttachment(
   ticketId: number,
   attachmentId: number,
-  requesterId: number,
   reason: string,
 ): Promise<TicketAttachment> {
   const response = await fetch(
-    `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}?requesterId=${requesterId}`,
-    {
+    `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}`,
+    withCredentials({
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason }),
-    },
+    }),
   );
   const body = await readApiBody(response);
 
@@ -440,10 +502,10 @@ export async function checkSystem(): Promise<SystemStatus> {
   // TODO(Issue 2 & 4): implement the two fetch calls described above.
   // throw new Error("checkSystem not implemented yet");
   
-  const healthRes = await fetch(`${API_URL}/api/health`);
+  const healthRes = await fetch(`${API_URL}/api/health`, withCredentials());
   if (!healthRes.ok) throw new Error("Backend health check failed");
   
-  const catRes = await fetch(`${API_URL}/api/categories`);
+  const catRes = await fetch(`${API_URL}/api/categories`, withCredentials());
   if (!catRes.ok) throw new Error("Failed to load categories");
   const categories: Category[] = await catRes.json();
 
