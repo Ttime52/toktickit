@@ -138,8 +138,8 @@ async function listActiveDevelopmentRequesters(req: Request, res: Response) {
   }
 
   try {
-    const requesters = await getPrisma().developmentRequester.findMany({
-      where: { isActive: true },
+    const requesters = await getPrisma().user.findMany({
+      where: { isActive: true, role: "REQUESTER" },
       select: { id: true, displayName: true, email: true },
       orderBy: { id: "asc" },
     });
@@ -457,7 +457,7 @@ app.post(
         const attachment = await prisma.attachment.create({
           data: {
             ticketId,
-            uploadedByRequesterId: requesterId,
+            uploadedByUserId: requesterId,
             originalFilename: validation.value.originalFilename,
             storageKey,
             mimeType: validation.value.mimeType,

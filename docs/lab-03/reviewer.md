@@ -16,7 +16,8 @@
 |  #  | feature/20-e2e-regression-qa |  |
 |  #  | feature/21-docs-release-lab3 |  |
 
-PR # feature/13-specification-docs-lab3
+PR #44 feature/13-specification-docs-lab3
+https://github.com/Ttime52/toktickit/pull/44
 
 - Reviewer comment I received: 
 1. Create User activation state mismatch
@@ -28,6 +29,13 @@ AC-28 currently verifies creation and one-role assignment, but does not explicit
 Overall review:
 I reviewed the other parts of the Lab 3 specification, API specification, UI specification, and test plan against the Lab 3 requirements. The remaining sections look consistent and cover the required functionality. I only found the two issues above that need clarification/update.
 - How I responded: thx. I will fix it.
+- Reviewer comment I received: Checked the requested changes. Everything looks good now. The two review issues have been addressed. Approved
+
+PR #45 feature/14-user-model-migration
+https://github.com/Ttime52/toktickit/pull/45
+
+- Reviewer comment I received: 
+- How I responded:
 
 ## Pull Requests I reviewed for my partner
 
@@ -39,3 +47,17 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/51
 - Public Comment and Internal Note maximum lengths are referenced but not actually defined. The Lab sheet requires justified length limits to be specified.
 - Partner's response: docs: finalize lab 3 engineering contract
 - My comment: The specification, API contract, ui-spec, and test traceability are now consistent with the required Lab 3 scope.
+
+feature/18-authentication
+https://github.com/KwanchanokThungsuk/toktickit/pull/52
+- My comment: Authentication implementation is heading in the right direction, but I found a couple of issues that should be resolved before approval:
+1. App.tsx still appears to contain the old RequesterProvider / RequesterSelection flow together with the new authenticated-user flow. Lab 3 requires the Development Requester selector and Change Requester behavior to be removed completely, with Requester identity coming from the authenticated account.
+2. CreateTicket.tsx still performs the ticket POST directly and does not appear to include the authenticated credentials/CSRF mechanism used by the new API helpers. Please make this consistent with the Lab 3 authentication contract.
+3. Please verify that the authentication tests cover the required negative/security cases such as invalid credentials, inactive users, mandatory first-password change, logout invalidation, and authenticated Requester ownership.
+- Partner's response: Updated the implementation and tests based on the review feedback. All tests are passing. Please re-check the PR.
+- My comment: Problems that should fix.
+1. The Logout button is missing from the authenticated application shell. Lab 3 requires a Logout action that removes authenticated access. Please add the Logout button back and verify that after logout, protected pages/API cannot be accessed.
+2. One authorization issue still needs to be addressed before approval. The Requester ticket and attachment endpoints currently use the authenticated user ID as the requester ID, but they do not verify that the authenticated user actually has the REQUESTER role. As a result, an IT Staff or Administrator account could call Requester APIs such as POST /api/tickets.
+Lab 3 requires server-side role-based authorization, so please add a backend role check for Requester-only ticket/attachment operations and tests confirming that IT Staff and Administrator users receive 403 Forbidden.
+- Partner's response: 
+- My comment:

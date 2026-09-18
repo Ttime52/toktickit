@@ -1,6 +1,7 @@
 import type {
   Prisma,
   PrismaClient,
+  ItPriority,
   RequestedPriority,
 } from "@prisma/client";
 
@@ -136,12 +137,12 @@ export async function assertActiveRequester(
   prisma: PrismaClient,
   requesterId: number,
 ) {
-  const requester = await prisma.developmentRequester.findUnique({
+  const requester = await prisma.user.findUnique({
     where: { id: requesterId },
-    select: { id: true, isActive: true },
+    select: { id: true, isActive: true, role: true },
   });
 
-  if (requester === null || !requester.isActive) {
+  if (requester === null || !requester.isActive || requester.role !== "REQUESTER") {
     throw new ApiError(
       400,
       "REQUESTER_CONTEXT_INVALID",
@@ -420,9 +421,9 @@ export async function createTicket(
   if (replay !== null) return replay;
 
   const [requester, category, relatedSystem] = await Promise.all([
-    prisma.developmentRequester.findUnique({
+    prisma.user.findUnique({
       where: { id: input.requesterId },
-      select: { id: true, displayName: true, email: true, isActive: true },
+      select: { id: true, displayName: true, email: true, isActive: true, role: true },
     }),
     prisma.category.findUnique({
       where: { id: input.categoryId },
@@ -434,7 +435,7 @@ export async function createTicket(
     }),
   ]);
 
-  if (requester === null || !requester.isActive) {
+  if (requester === null || !requester.isActive || requester.role !== "REQUESTER") {
     throw new ApiError(
       400,
       "REQUESTER_CONTEXT_INVALID",
@@ -490,6 +491,7 @@ export async function createTicket(
           summary: input.summary,
           description: input.description,
           requestedPriority: input.requestedPriority as RequestedPriority,
+          itPriority: input.requestedPriority as unknown as ItPriority,
           currentStatus: "NEW",
           idempotencyKey,
         },
