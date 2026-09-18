@@ -24,7 +24,6 @@ import {
 type AppPage = "my-tickets" | "create-ticket";
 
 interface MyTicketsProps {
-  requesterId: number;
   requesterName: string;
   onNavigate?: (page: AppPage) => void;
   onOpenTicket?: (ticketId: number) => void;
@@ -117,7 +116,6 @@ function getPageSummary(meta: TicketListMeta): string {
 }
 
 export default function MyTickets({
-  requesterId,
   requesterName,
   onNavigate,
   onOpenTicket,
@@ -141,7 +139,6 @@ export default function MyTickets({
 
   const query = useMemo<TicketListQuery>(
     () => ({
-      requesterId,
       search: filters.search,
       categoryId: filters.categoryId === "" ? null : Number(filters.categoryId),
       relatedSystemId:
@@ -154,7 +151,7 @@ export default function MyTickets({
       page,
       pageSize,
     }),
-    [filters, page, pageSize, requesterId],
+    [filters, page, pageSize],
   );
   const queryKey = JSON.stringify(query);
 

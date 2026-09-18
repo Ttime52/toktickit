@@ -109,12 +109,10 @@ function AuthenticatedApp() {
           ) : currentPage === "ticket-detail" && ticketId !== null ? (
             <TicketDetail
               ticketId={ticketId}
-              requesterId={user.id}
               onNavigate={() => navigateTo("/my-tickets")}
             />
           ) : (
             <MyTickets
-              requesterId={user.id}
               requesterName={user.displayName}
               onNavigate={(page) => navigateTo(pathForPage(page))}
               onOpenTicket={(openedTicketId) =>

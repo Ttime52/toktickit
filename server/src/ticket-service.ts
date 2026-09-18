@@ -144,10 +144,9 @@ export async function assertActiveRequester(
 
   if (requester === null || !requester.isActive || requester.role !== "REQUESTER") {
     throw new ApiError(
-      400,
+      403,
       "REQUESTER_CONTEXT_INVALID",
-      "The selected Development Requester is not active.",
-      { requesterId: "Select an active Development Requester." },
+      "The authenticated requester is not active.",
     );
   }
 
@@ -171,11 +170,7 @@ export async function assertOwnedTicket(
   }
 
   if (ticket.requesterId !== requesterId) {
-    throw new ApiError(
-      403,
-      "OWNERSHIP_FORBIDDEN",
-      "This Ticket is not available for the selected Requester.",
-    );
+    throw new ApiError(404, "TICKET_NOT_FOUND", "Ticket was not found.");
   }
 
   return ticket;
@@ -437,10 +432,9 @@ export async function createTicket(
 
   if (requester === null || !requester.isActive || requester.role !== "REQUESTER") {
     throw new ApiError(
-      400,
+      403,
       "REQUESTER_CONTEXT_INVALID",
-      "The selected Development Requester is not active.",
-      { requesterId: "Select an active Development Requester." },
+      "The authenticated requester is not active.",
     );
   }
 

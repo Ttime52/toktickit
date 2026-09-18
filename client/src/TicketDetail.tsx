@@ -53,7 +53,6 @@ interface RemoveDialogState {
 
 interface TicketDetailProps {
   ticketId: number;
-  requesterId: number;
   onNavigate?: (page: "my-tickets") => void;
 }
 
@@ -145,7 +144,6 @@ function ReadOnlyValue({ label, value }: { label: string; value: string }) {
 
 export default function TicketDetail({
   ticketId,
-  requesterId,
   onNavigate,
 }: TicketDetailProps) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -168,7 +166,7 @@ export default function TicketDetail({
     setState("loading");
     setError(null);
 
-    fetchTicket(ticketId, requesterId, controller.signal)
+    fetchTicket(ticketId, controller.signal)
       .then((loadedTicket) => {
         setTicket(loadedTicket);
         setState("success");
@@ -187,7 +185,7 @@ export default function TicketDetail({
       });
 
     return () => controller.abort();
-  }, [requesterId, retry, ticketId]);
+  }, [retry, ticketId]);
 
   useEffect(() => {
     if (removeDialog === null) return;
@@ -262,7 +260,7 @@ export default function TicketDetail({
     );
 
     try {
-      const uploaded = await uploadAttachment(ticketId, requesterId, row.file);
+      const uploaded = await uploadAttachment(ticketId, row.file);
       setTicket((current) => updateAttachment(current, uploaded));
       setUploadRows((current) => current.filter((candidate) => candidate.id !== row.id));
     } catch (uploadError: unknown) {
@@ -375,7 +373,6 @@ export default function TicketDetail({
       const removed = await removeAttachment(
         ticketId,
         attachmentId,
-        requesterId,
         reason,
       );
       focusAttachmentIdRef.current = attachmentId;
@@ -403,12 +400,10 @@ export default function TicketDetail({
     const downloadUrl = getAttachmentDownloadUrl(
       ticketId,
       attachment.id,
-      requesterId,
     );
     const previewUrl = getAttachmentPreviewUrl(
       ticketId,
       attachment.id,
-      requesterId,
     );
 
     return (

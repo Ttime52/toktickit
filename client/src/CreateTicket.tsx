@@ -44,7 +44,7 @@ type FormValues = {
 };
 
 type FormErrors = Partial<
-  Record<keyof FormValues | "requesterId" | "idempotencyKey", string>
+  Record<keyof FormValues | "idempotencyKey", string>
 >;
 
 type FileRowState = "selected" | "uploading" | "uploaded" | "invalid" | "failed";
@@ -272,7 +272,7 @@ export default function CreateTicket({
   async function uploadOneFile(row: SelectedFileRow, ticket: Ticket) {
     updateFileRow(row.id, { state: "uploading", error: undefined });
     try {
-      await uploadAttachment(ticket.id, ticket.requester.id, row.file);
+      await uploadAttachment(ticket.id, row.file);
       updateFileRow(row.id, { state: "uploaded", error: undefined });
     } catch (error) {
       updateFileRow(row.id, {
@@ -306,7 +306,6 @@ export default function CreateTicket({
     try {
       const result = await createTicket(
         {
-          requesterId: requester.id,
           categoryId: Number(form.categoryId),
           relatedSystemId: Number(form.relatedSystemId),
           summary: form.summary.trim(),

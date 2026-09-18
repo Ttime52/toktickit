@@ -4,7 +4,7 @@ import { ApiRequestError } from "./api.js";
 import { useAuth } from "./AuthContext.js";
 
 const PASSWORD_RULES = [
-  { label: "At least 8 characters", test: (value: string) => value.length >= 8 },
+  { label: "12–128 characters", test: (value: string) => value.length >= 12 && value.length <= 128 },
   { label: "One uppercase letter", test: (value: string) => /[A-Z]/u.test(value) },
   { label: "One lowercase letter", test: (value: string) => /[a-z]/u.test(value) },
   { label: "One number", test: (value: string) => /[0-9]/u.test(value) },

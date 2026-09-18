@@ -73,13 +73,30 @@ function parsePositiveInteger(value: unknown): number | null {
 type TicketScope = { ticketId: number; requesterId: number };
 type AttachmentScope = TicketScope & { attachmentId: number };
 
+function rejectRequesterIdQuery(req: Request, res: Response): boolean {
+  if (!Object.prototype.hasOwnProperty.call(req.query, "requesterId")) {
+    return false;
+  }
+
+  sendApiError(
+    res,
+    new ApiError(
+      400,
+      "INVALID_QUERY_PARAMETER",
+      "requesterId is not accepted; authentication determines the requester.",
+      { requesterId: "Remove requesterId and use the authenticated session." },
+    ),
+  );
+  return true;
+}
+
 function parseTicketScope(req: Request, res: Response): TicketScope | null {
+  if (rejectRequesterIdQuery(req, res)) return null;
+
   const ticketId = parsePositiveInteger(req.params.ticketId);
-  const requesterId = parsePositiveInteger(req.query.requesterId);
   const fields: Record<string, string> = {};
 
   if (ticketId === null) fields.ticketId = "A positive integer is required.";
-  if (requesterId === null) fields.requesterId = "A positive integer is required.";
 
   if (Object.keys(fields).length > 0) {
     sendApiError(
@@ -87,28 +104,28 @@ function parseTicketScope(req: Request, res: Response): TicketScope | null {
       new ApiError(
         400,
         "VALIDATION_ERROR",
-        "Ticket ID and requesterId must be positive integers.",
+        "Ticket ID must be a positive integer.",
         fields,
       ),
     );
     return null;
   }
 
-  return { ticketId: ticketId as number, requesterId: requesterId as number };
+  return { ticketId: ticketId as number, requesterId: req.auth!.user.id };
 }
 
 function parseAttachmentScope(
   req: Request,
   res: Response,
 ): AttachmentScope | null {
+  if (rejectRequesterIdQuery(req, res)) return null;
+
   const ticketId = parsePositiveInteger(req.params.ticketId);
   const attachmentId = parsePositiveInteger(req.params.attachmentId);
-  const requesterId = parsePositiveInteger(req.query.requesterId);
   const fields: Record<string, string> = {};
 
   if (ticketId === null) fields.ticketId = "A positive integer is required.";
   if (attachmentId === null) fields.attachmentId = "A positive integer is required.";
-  if (requesterId === null) fields.requesterId = "A positive integer is required.";
 
   if (Object.keys(fields).length > 0) {
     sendApiError(
@@ -116,7 +133,7 @@ function parseAttachmentScope(
       new ApiError(
         400,
         "VALIDATION_ERROR",
-        "Ticket ID, Attachment ID, and requesterId must be positive integers.",
+        "Ticket ID and Attachment ID must be positive integers.",
         fields,
       ),
     );
@@ -126,7 +143,7 @@ function parseAttachmentScope(
   return {
     ticketId: ticketId as number,
     attachmentId: attachmentId as number,
-    requesterId: requesterId as number,
+    requesterId: req.auth!.user.id,
   };
 }
 
@@ -234,7 +251,7 @@ app.post("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Re
     return;
   }
 
-  const normalized = normalizeCreateTicketInput(req.body);
+  const normalized = normalizeCreateTicketInput(req.body, req.auth!.user.id);
   if (!normalized.ok) {
     sendApiError(res, normalized.error);
     return;
@@ -260,7 +277,7 @@ app.post("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Re
 // Issue 5 - requester-owned Ticket list
 // ---------------------------------------------------------------------------
 app.get("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
-  const parsedQuery = parseTicketListQuery(req.query as Record<string, unknown>);
+  const parsedQuery = parseTicketListQuery(req.query as Record<string, unknown>, req.auth!.user.id);
   if (!parsedQuery.ok) {
     sendApiError(res, parsedQuery.error);
     return;
@@ -400,21 +417,17 @@ app.post(
   requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const ticketId = parsePositiveInteger(req.params.ticketId);
-    const requesterId = parsePositiveInteger(req.query.requesterId);
 
-    if (ticketId === null || requesterId === null) {
+    if (rejectRequesterIdQuery(req, res)) return;
+
+    if (ticketId === null) {
       sendApiError(
         res,
         new ApiError(
           400,
           "VALIDATION_ERROR",
-          "Ticket ID and requesterId must be positive integers.",
-          {
-            ...(ticketId === null ? { ticketId: "A positive integer is required." } : {}),
-            ...(requesterId === null
-              ? { requesterId: "A positive integer is required." }
-              : {}),
-          },
+          "Ticket ID must be a positive integer.",
+          ticketId === null ? { ticketId: "A positive integer is required." } : {},
         ),
       );
       return;
@@ -422,7 +435,7 @@ app.post(
 
     try {
       const prisma = getPrisma();
-      await assertOwnedTicket(prisma, ticketId, requesterId);
+      await assertOwnedTicket(prisma, ticketId, req.auth!.user.id);
 
       const upload = await parseSingleMultipartFile(req);
       const validation = validateAttachmentFile(upload);
@@ -469,7 +482,7 @@ app.post(
         const attachment = await prisma.attachment.create({
           data: {
             ticketId,
-            uploadedByUserId: requesterId,
+            uploadedByUserId: req.auth!.user.id,
             originalFilename: validation.value.originalFilename,
             storageKey,
             mimeType: validation.value.mimeType,
@@ -492,7 +505,7 @@ app.post(
         });
 
         res.status(201).json({
-          data: serializeAttachmentMetadata(attachment, requesterId),
+          data: serializeAttachmentMetadata(attachment, req.auth!.user.id),
         });
       } catch (error) {
         if (storageKey !== null) {

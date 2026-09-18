@@ -16,7 +16,7 @@ export interface Category {
   name: string;
 }
 
-export interface DevelopmentRequester {
+export interface TicketRequester {
   id: number;
   displayName: string;
   email: string;
@@ -49,7 +49,7 @@ export interface Ticket {
   id: number;
   ticketNumber: string;
   ticketDate: string;
-  requester: DevelopmentRequester;
+  requester: TicketRequester;
   category: Category;
   relatedSystem: RelatedSystem;
   summary: string;
@@ -88,7 +88,6 @@ export interface TicketListItem {
 }
 
 export interface TicketListQuery {
-  requesterId: number;
   search: string;
   categoryId: number | null;
   relatedSystemId: number | null;
@@ -115,7 +114,6 @@ export interface TicketListResult {
 }
 
 export interface CreateTicketInput {
-  requesterId: number;
   categoryId: number;
   relatedSystemId: number;
   summary: string;
@@ -244,39 +242,6 @@ export async function changePassword(
   return user;
 }
 
-const REQUESTER_API_PATH = `${API_URL}/api/development-requesters?active=true`;
-
-export async function fetchDevelopmentRequesters(
-  signal?: AbortSignal,
-): Promise<DevelopmentRequester[]> {
-  const response = signal
-    ? await fetch(REQUESTER_API_PATH, withCredentials({ signal }))
-    : await fetch(REQUESTER_API_PATH, withCredentials());
-
-  if (!response.ok) {
-    throw new Error("Unable to load Development Requesters");
-  }
-
-  const body: unknown = await response.json();
-  if (!Array.isArray(body)) {
-    throw new Error("Invalid Development Requester response");
-  }
-
-  return body.filter(isDevelopmentRequester);
-}
-
-function isDevelopmentRequester(value: unknown): value is DevelopmentRequester {
-  if (typeof value !== "object" || value === null) return false;
-
-  const requester = value as Record<string, unknown>;
-  return (
-    Number.isInteger(requester.id) &&
-    typeof requester.displayName === "string" &&
-    typeof requester.email === "string" &&
-    (requester.isActive === undefined || requester.isActive === true)
-  );
-}
-
 function isReference(value: unknown): value is Category | RelatedSystem {
   if (typeof value !== "object" || value === null) return false;
   const reference = value as Record<string, unknown>;
@@ -401,7 +366,6 @@ export async function fetchTickets(
   signal?: AbortSignal,
 ): Promise<TicketListResult> {
   const params = new URLSearchParams({
-    requesterId: String(query.requesterId),
     page: String(query.page),
     pageSize: String(query.pageSize),
     sortBy: query.sortBy,
@@ -443,11 +407,10 @@ export async function fetchTickets(
 
 export async function fetchTicket(
   ticketId: number,
-  requesterId: number,
   signal?: AbortSignal,
 ): Promise<Ticket> {
   const response = await fetch(
-    `${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`,
+    `${API_URL}/api/tickets/${ticketId}`,
     withCredentials(signal ? { signal } : undefined),
   );
   const body = await readApiBody(response);
@@ -466,29 +429,26 @@ export async function fetchTicket(
 export function getAttachmentDownloadUrl(
   ticketId: number,
   attachmentId: number,
-  requesterId: number,
 ): string {
-  return `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}/download?requesterId=${requesterId}`;
+  return `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}/download`;
 }
 
 export function getAttachmentPreviewUrl(
   ticketId: number,
   attachmentId: number,
-  requesterId: number,
 ): string {
-  return `${getAttachmentDownloadUrl(ticketId, attachmentId, requesterId)}&disposition=inline`;
+  return `${getAttachmentDownloadUrl(ticketId, attachmentId)}?disposition=inline`;
 }
 
 export async function uploadAttachment(
   ticketId: number,
-  requesterId: number,
   file: File,
 ): Promise<TicketAttachment> {
   const formData = new FormData();
   formData.append("file", file, file.name);
 
   const response = await fetch(
-    `${API_URL}/api/tickets/${ticketId}/attachments?requesterId=${requesterId}`,
+    `${API_URL}/api/tickets/${ticketId}/attachments`,
     withCredentials({
       method: "POST",
       body: formData,
@@ -510,11 +470,10 @@ export async function uploadAttachment(
 export async function removeAttachment(
   ticketId: number,
   attachmentId: number,
-  requesterId: number,
   reason: string,
 ): Promise<TicketAttachment> {
   const response = await fetch(
-    `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}?requesterId=${requesterId}`,
+    `${API_URL}/api/tickets/${ticketId}/attachments/${attachmentId}`,
     withCredentials({
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
