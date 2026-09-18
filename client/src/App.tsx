@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import ApplicationShell, { type AppPage } from "./ApplicationShell.js";
+import { AuthProvider, useAuth } from "./AuthContext.js";
+import ChangePassword from "./ChangePassword.js";
 import CreateTicket from "./CreateTicket.js";
+import Login from "./Login.js";
 import MyTickets from "./MyTickets.js";
-import RequesterSelection from "./RequesterSelection.js";
 import TicketDetail from "./TicketDetail.js";
-import {
-  RequesterProvider,
-  useRequesterContext,
-} from "./RequesterContext.js";
-import { checkSystem, type Category } from "./api.js";
 import "./styles.css";
-
-const REQUESTER_SELECTION_PATH = "/select-requester";
 
 function pageFromPath(pathname: string): AppPage {
   if (pathname === "/create-ticket") return "create-ticket";
@@ -20,7 +15,7 @@ function pageFromPath(pathname: string): AppPage {
   return "my-tickets";
 }
 
-function pathForPage(page: AppPage) {
+function pathForPage(page: AppPage): string {
   return page === "create-ticket" ? "/create-ticket" : "/my-tickets";
 }
 
@@ -31,62 +26,44 @@ function ticketIdFromPath(pathname: string): number | null {
   return Number.isSafeInteger(ticketId) ? ticketId : null;
 }
 
-function LabOneDiagnostic() {
-  const [state, setState] = useState<"idle" | "loading" | "success" | "error">(
-    "idle",
-  );
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  async function handleCheckSystem() {
-    setState("loading");
-    try {
-      const result = await checkSystem();
-      setCategories(result.categories);
-      setState("success");
-    } catch {
-      setState("error");
-    }
-  }
-
+function SessionLoading() {
   return (
-    <div className="zen-legacy-diagnostic" hidden>
-      <button type="button" tabIndex={-1} onClick={handleCheckSystem}>
-        Check System
-      </button>
-      {state === "success" && (
-        <div>
-          System Status: <strong>Online</strong>
-          <ul>
-            {categories.map((category) => (
-              <li key={category.id}>{category.name}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {state === "error" && (
-        <div>
-          System Status: Offline
-          <span>Unable to connect to TokTickIT API</span>
-        </div>
-      )}
-    </div>
+    <main className="zen-page" aria-labelledby="session-loading-title">
+      <section className="zen-card zen-auth-card">
+        <p className="zen-eyebrow">TokTickIT</p>
+        <h1 id="session-loading-title">Loading your session</h1>
+        <p className="zen-status" role="status" aria-live="polite">
+          <span className="zen-spinner" aria-hidden="true" /> Checking authentication…
+        </p>
+      </section>
+    </main>
   );
 }
 
-function AppContent() {
-  const { selectedRequester, clearRequester, requesterRevision } =
-    useRequesterContext();
+function RoleLanding({ role }: { role: string }) {
+  return (
+    <section className="zen-placeholder" aria-labelledby="role-landing-title">
+      <p className="zen-eyebrow">Authenticated application</p>
+      <h1 id="role-landing-title">Your {role} workspace</h1>
+      <p>
+        Your role navigation is ready. The operational screen for this role is
+        delivered in the next Issue.
+      </p>
+    </section>
+  );
+}
+
+function AuthenticatedApp() {
+  const { user, logout } = useAuth();
   const [pathname, setPathname] = useState(
     () => window.location.pathname || "/my-tickets",
   );
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navigateTo = useCallback((path: string, replace = false) => {
     if (window.location.pathname !== path) {
-      if (replace) {
-        window.history.replaceState({}, "", path);
-      } else {
-        window.history.pushState({}, "", path);
-      }
+      if (replace) window.history.replaceState({}, "", path);
+      else window.history.pushState({}, "", path);
     }
     setPathname(path);
   }, []);
@@ -95,81 +72,73 @@ function AppContent() {
     function handlePopState() {
       setPathname(window.location.pathname || "/my-tickets");
     }
-
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  useEffect(() => {
-    if (selectedRequester === null && pathname !== REQUESTER_SELECTION_PATH) {
-      navigateTo(REQUESTER_SELECTION_PATH, true);
-      return;
-    }
-
-    if (
-      selectedRequester !== null &&
-      (pathname === REQUESTER_SELECTION_PATH || pathname === "/")
-    ) {
-      navigateTo("/my-tickets", true);
-    }
-  }, [navigateTo, pathname, selectedRequester]);
-
-  if (selectedRequester === null) {
-    return (
-      <>
-        <RequesterSelection onContinue={() => navigateTo("/my-tickets")} />
-        <LabOneDiagnostic />
-      </>
-    );
-  }
+  if (user === null) return null;
+  if (user.mustChangePassword) return <ChangePassword />;
 
   const currentPage = pageFromPath(pathname);
-  const requesterName = selectedRequester.displayName;
   const ticketId = ticketIdFromPath(pathname);
 
   return (
     <ApplicationShell
       currentPage={currentPage}
-      requesterName={requesterName}
+      user={user}
       onNavigate={(page) => navigateTo(pathForPage(page))}
-      onChangeRequester={() => {
-        clearRequester();
-        navigateTo(REQUESTER_SELECTION_PATH);
+      onChangePassword={() => setShowChangePassword(true)}
+      onLogout={() => {
+        void logout();
       }}
     >
-      <div key={requesterRevision}>
-        {currentPage === "create-ticket" ? (
-          <CreateTicket
-            onNavigate={(page) => navigateTo(pathForPage(page))}
-            onViewTicket={(createdTicketId) =>
-              navigateTo(`/tickets/${createdTicketId}`)
-            }
-          />
-        ) : currentPage === "ticket-detail" && ticketId !== null ? (
-          <TicketDetail
-            ticketId={ticketId}
-            requesterId={selectedRequester.id}
-            onNavigate={() => navigateTo("/my-tickets")}
-          />
-        ) : (
-          <MyTickets
-            requesterId={selectedRequester.id}
-            requesterName={requesterName}
-            onNavigate={(page) => navigateTo(pathForPage(page))}
-            onOpenTicket={(openedTicketId) =>
-              navigateTo(`/tickets/${openedTicketId}`)
-            }
-          />
-        )}
-      </div>
+      {showChangePassword ? (
+        <ChangePassword voluntary />
+      ) : user.role !== "REQUESTER" ? (
+        <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
+      ) : (
+        <div>
+          {currentPage === "create-ticket" ? (
+            <CreateTicket
+              requester={user}
+              onNavigate={(page) => navigateTo(pathForPage(page))}
+              onViewTicket={(createdTicketId) =>
+                navigateTo(`/tickets/${createdTicketId}`)
+              }
+            />
+          ) : currentPage === "ticket-detail" && ticketId !== null ? (
+            <TicketDetail
+              ticketId={ticketId}
+              requesterId={user.id}
+              onNavigate={() => navigateTo("/my-tickets")}
+            />
+          ) : (
+            <MyTickets
+              requesterId={user.id}
+              requesterName={user.displayName}
+              onNavigate={(page) => navigateTo(pathForPage(page))}
+              onOpenTicket={(openedTicketId) =>
+                navigateTo(`/tickets/${openedTicketId}`)
+              }
+            />
+          )}
+        </div>
+      )}
     </ApplicationShell>
   );
 }
 
+function AppRouter() {
+  const { state } = useAuth();
+  if (state === "loading") return <SessionLoading />;
+  if (state === "unauthenticated") return <Login />;
+  return <AuthenticatedApp />;
+}
+
 export default function App() {
   return (
-    <RequesterProvider>
-      <AppContent />
-    </RequesterProvider>
+    <AuthProvider>
+      <AppRouter />
+    </AuthProvider>
   );
 }

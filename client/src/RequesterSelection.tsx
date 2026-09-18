@@ -5,7 +5,6 @@ import { useRequesterContext } from "./RequesterContext.js";
 interface RequesterSelectionProps {
   onContinue?: () => void;
 }
-
 export default function RequesterSelection({
   onContinue,
 }: RequesterSelectionProps) {

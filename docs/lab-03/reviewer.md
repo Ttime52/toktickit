@@ -6,9 +6,9 @@
 ## Pull Requests I authored (reviewed by my partner)
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
-|  #44  | feature/13-specification-docs-lab3 |  |
-|  #  | feature/14-user-model-migration |  |
-|  #  | feature/15-auth-foundation |  |
+|  #44  | feature/13-specification-docs-lab3 | Request changes and Approved |
+|  #45  | feature/14-user-model-migration | Request changes and Approved |
+|  #46  | feature/15-auth-foundation |  |
 |  #  | feature/16-requester-regression |  |
 |  #  | feature/17-staff-ticket-queue |  |
 |  #  | feature/18-staff-ticket-operations |  |
@@ -34,8 +34,23 @@ I reviewed the other parts of the Lab 3 specification, API specification, UI spe
 PR #45 feature/14-user-model-migration
 https://github.com/Ttime52/toktickit/pull/45
 
+- Reviewer comment I received: I found one blocking issue regarding AC-09: the PR does not include the migration-regression.integration.test.ts referenced by docs/lab-03/tests.md for MIG-01 and MIG-02.
+Please add the referenced migration/seed regression test, or update the test documentation to reflect the actual test evidence. The AC-09 coverage should demonstrate preservation of existing IDs/ownership/history, Ticket and Attachment relationships, itPriority backfill, required seed data, and safe/idempotent seed reruns without duplicate dat
+- How I responded: Already add the migration.integration.test.ts. Pls recheck the PR.
+- Reviewer comment I received: Everything looks good! Approved. 👍🏻
+
+PR #46 feature/15-auth-foundation
+https://github.com/Ttime52/toktickit/pull/46
+
 - Reviewer comment I received: 
 - How I responded:
+
+PR #47 feature/16-requester-regression
+https://github.com/Ttime52/toktickit/pull/47
+
+- Reviewer comment I received: 
+- How I responded:
+
 
 ## Pull Requests I reviewed for my partner
 
@@ -59,5 +74,6 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/52
 1. The Logout button is missing from the authenticated application shell. Lab 3 requires a Logout action that removes authenticated access. Please add the Logout button back and verify that after logout, protected pages/API cannot be accessed.
 2. One authorization issue still needs to be addressed before approval. The Requester ticket and attachment endpoints currently use the authenticated user ID as the requester ID, but they do not verify that the authenticated user actually has the REQUESTER role. As a result, an IT Staff or Administrator account could call Requester APIs such as POST /api/tickets.
 Lab 3 requires server-side role-based authorization, so please add a backend role check for Requester-only ticket/attachment operations and tests confirming that IT Staff and Administrator users receive 403 Forbidden.
-- Partner's response: 
-- My comment:
+- Partner's response: Fixed the remaining review feedback for Issue #18.
+Added Logout and enforced REQUESTER-only authorization for requester ticket/attachment APIs. 🤤
+- My comment: Things all fixed. Great jobbb👽

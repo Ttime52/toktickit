@@ -311,7 +311,7 @@ export default function MyTickets({
           <p className="zen-eyebrow">Requester workspace</p>
           <h1>My Tickets</h1>
           <p className="zen-lead">
-            Review and manage Tickets for the selected Development Requester.
+            Review and manage Tickets submitted from your authenticated account.
           </p>
         </div>
         <button

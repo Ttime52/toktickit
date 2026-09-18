@@ -33,7 +33,6 @@ export interface RequesterContextValue {
   selectRequester: (requesterId: number) => boolean;
   clearRequester: () => void;
 }
-
 const RequesterContext = createContext<RequesterContextValue | undefined>(
   undefined,
 );

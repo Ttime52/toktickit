@@ -70,6 +70,28 @@ textarea:focus-visible {
   padding: 32px;
 }
 
+.zen-auth-card {
+  width: min(100%, 480px);
+}
+
+.zen-auth-actions {
+  margin-top: 20px;
+}
+
+.zen-password-rules {
+  color: var(--zen-muted);
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.zen-password-rules li.is-valid {
+  color: var(--zen-success);
+  font-weight: 600;
+}
+
 .zen-eyebrow {
   color: var(--zen-secondary);
   font-size: 14px;
@@ -589,8 +611,7 @@ h1 {
   background: var(--zen-pale);
 }
 
-/* Kept off-screen so the Lab 1 diagnostic test remains backwards compatible
-   while the Lab 2 requester selector is the only visible entry point. */
+/* Kept off-screen for the retained Lab 1 diagnostic endpoint. */
 .zen-legacy-diagnostic {
   height: 1px;
   left: -10000px;
@@ -979,6 +1000,66 @@ h1 {
   border-color: var(--zen-danger);
 }
 
+.zen-password-control {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.zen-password-control input {
+  flex: 1;
+  min-width: 0;
+}
+
+.zen-password-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.zen-user-context {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+  min-width: 0;
+  text-align: right;
+}
+
+.zen-user-identity {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.zen-user-identity span {
+  color: rgb(255 255 255 / 84%);
+  font-size: 13px;
+}
+
+.zen-role-badge {
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 999px;
+  color: var(--zen-text);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.zen-role-requester {
+  background: var(--zen-pale);
+}
+
+.zen-role-it_staff {
+  background: var(--zen-secondary);
+  color: white;
+}
+
+.zen-role-administrator {
+  background: var(--zen-warning-bg);
+  color: var(--zen-warning);
+}
+
 .zen-dialog-backdrop {
   align-items: center;
   background: rgb(23 53 42 / 48%);
@@ -1109,6 +1190,19 @@ h1 {
     flex-direction: column;
     margin-left: 0;
     padding: 4px 0 8px;
+    text-align: left;
+  }
+
+  .zen-user-context {
+    align-items: flex-start;
+    flex-basis: 100%;
+    flex-direction: column;
+    margin-left: 0;
+    padding: 4px 0 8px;
+    text-align: left;
+  }
+
+  .zen-user-context .zen-user-identity {
     text-align: left;
   }
 
