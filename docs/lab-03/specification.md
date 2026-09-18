@@ -262,6 +262,31 @@ deterministic natural keys (normalized emails and reference names plus reserved
 fixture keys for Tickets, Comments and Notes) and upserts rather than appending
 random rows, so running it twice creates no duplicates.
 
+### 7.1 Seed decisions
+
+- Seed credentials are supplied only through the local-development
+  `LAB3_SEED_INITIAL_PASSWORD` environment variable. The value must be 12–128
+  characters, is never committed or logged, and is hashed separately for each
+  account with Argon2id. Every provisioned account starts with
+  `mustChangePassword=true`; the seed verifies that no `passwordHash` is null
+  before applying the final `NOT NULL` constraint.
+- Existing Lab 2 requester rows are matched by normalized lowercase email and
+  updated in place. Their primary keys and historical Ticket/Attachment
+  references are preserved; no requester or operational record is copied or
+  re-keyed.
+- User, reference-data, Ticket, Public Comment, and Internal Note fixtures use
+  deterministic natural keys. User and reference-data rows use `upsert`; seed
+  Tickets use reserved idempotency keys, and comments/notes are checked by
+  their ticket, author, and content before insertion.
+- Ticket fixtures intentionally cover every `CurrentStatus` value, all
+  priority values, assigned and unassigned ownership, and both active IT Staff
+  and Administrator owners. Comment and Note examples contain operational
+  text only and no passwords, tokens, personal secrets, or attachment storage
+  data.
+- The seed may reset local fixture credentials and must-change state for
+  provisioned accounts, but never rewrites existing Ticket IDs, Ticket Numbers,
+  attachment metadata, storage keys, or stored attachment bytes.
+
 ## 8. API Specification Summary
 
 Every endpoint, request/response shape, query rule, error and cookie policy is

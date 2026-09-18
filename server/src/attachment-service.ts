@@ -155,7 +155,7 @@ export async function softRemoveOwnedAttachment(
     where: { id: attachmentId },
     data: {
       removedAt: new Date(),
-      removedByRequesterId: requesterId,
+      removedByUserId: requesterId,
       removalReason: normalizedReason,
     },
     select: attachmentMetadataSelect,

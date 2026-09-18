@@ -169,6 +169,39 @@ This will:
 - Populate the database with idempotent seed data; rerunning the seed does not
   duplicate records
 
+#### Local seed accounts
+
+The Lab 3 seed creates local-only accounts. Set
+`LAB3_SEED_INITIAL_PASSWORD` to a private 12–128-character value before
+running the seed. The value is hashed with Argon2id, is not stored in source
+code or logged, and every seeded account requires a first password change.
+
+PowerShell:
+
+```powershell
+$env:LAB3_SEED_INITIAL_PASSWORD = "<choose-a-local-password-of-12-or-more-characters>"
+cd server
+npm.cmd run prisma:seed
+```
+
+Seed account emails:
+
+| Role | Email | State |
+|---|---|---|
+| Requester | `arun.chaiyasit@example.test` | Active |
+| Requester | `boonmee.srisuk@example.test` | Active |
+| Requester | `chalida.wongsa@example.test` | Active |
+| Requester | `darin.phromma@example.test` | Active |
+| Requester | `inactive.requester@example.test` | Inactive |
+| IT Staff | `narin.staff@example.test` | Active |
+| IT Staff | `somchai.staff@example.test` | Active |
+| IT Staff | `pimchanok.staff@example.test` | Active |
+| IT Staff | `inactive.staff@example.test` | Inactive |
+| Administrator | `admin@example.test` | Active |
+
+Do not commit the shell history, `server/.env`, the chosen password, cookies,
+or generated password hashes.
+
 ## Running the Application
 
 ### Development Mode

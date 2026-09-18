@@ -23,20 +23,30 @@ model Category {
   @@map("categories")
 }
 
-model DevelopmentRequester {
-  id          Int      @id @default(autoincrement())
-  displayName String
-  email       String   @unique
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+model User {
+  id                 Int       @id @default(autoincrement())
+  displayName        String
+  email              String    @unique
+  passwordHash       String    @db.Text
+  role               UserRole  @default(REQUESTER)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
 
-  tickets             Ticket[]
-  uploadedAttachments Attachment[] @relation("AttachmentUploadedBy")
-  removedAttachments  Attachment[] @relation("AttachmentRemovedBy")
+  ticketsRequested      Ticket[]        @relation("TicketRequester")
+  ticketsOwned          Ticket[]        @relation("TicketOwner")
+  resolutionIndications Ticket[]        @relation("RequesterResolutionIndication")
+  uploadedAttachments   Attachment[]    @relation("AttachmentUploadedByUser")
+  removedAttachments    Attachment[]    @relation("AttachmentRemovedByUser")
+  publicComments        PublicComment[] @relation("PublicCommentAuthor")
+  internalNotes         InternalNote[]  @relation("InternalNoteAuthor")
+  sessions              Session[]
 
-  @@index([isActive, displayName])
-  @@map("development_requesters")
+  @@index([role, isActive, displayName])
+  @@index([role, isActive, email])
+  @@map("users")
 }
 
 model RelatedSystem {
@@ -53,31 +63,42 @@ model RelatedSystem {
 }
 
 model Ticket {
-  id                Int               @id @default(autoincrement())
-  ticketNumber      String            @unique
-  ticketDate        DateTime
-  requesterId       Int
-  categoryId        Int
-  relatedSystemId   Int
-  summary           String
-  description       String
-  requestedPriority RequestedPriority @default(MEDIUM)
-  itPriority        ItPriority?
-  currentStatus     CurrentStatus     @default(NEW)
-  idempotencyKey    String            @unique
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @default(now()) @updatedAt
+  id                                   Int               @id @default(autoincrement())
+  ticketNumber                         String            @unique
+  ticketDate                           DateTime
+  requesterId                          Int
+  categoryId                           Int
+  relatedSystemId                      Int
+  summary                              String
+  description                          String
+  requestedPriority                    RequestedPriority @default(MEDIUM)
+  itPriority                           ItPriority
+  currentStatus                        CurrentStatus     @default(NEW)
+  assignedToUserId                     Int?
+  assignedAt                           DateTime?
+  requesterResolutionIndicatedAt       DateTime?
+  requesterResolutionIndicatedByUserId Int?
+  idempotencyKey                       String            @unique
+  createdAt                            DateTime          @default(now())
+  updatedAt                            DateTime          @default(now()) @updatedAt
 
-  requester     DevelopmentRequester @relation(fields: [requesterId], references: [id], onDelete: Restrict)
-  category      Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  relatedSystem RelatedSystem        @relation(fields: [relatedSystemId], references: [id], onDelete: Restrict)
-  attachments   Attachment[]
+  requester             User            @relation("TicketRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  category              Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  relatedSystem         RelatedSystem   @relation(fields: [relatedSystemId], references: [id], onDelete: Restrict)
+  assignedTo            User?           @relation("TicketOwner", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  requesterResolutionBy User?           @relation("RequesterResolutionIndication", fields: [requesterResolutionIndicatedByUserId], references: [id], onDelete: SetNull)
+  attachments           Attachment[]
+  publicComments        PublicComment[]
+  internalNotes         InternalNote[]
 
   @@index([requesterId, updatedAt])
   @@index([requesterId, currentStatus])
   @@index([requesterId, categoryId])
   @@index([requesterId, relatedSystemId])
   @@index([requesterId, requestedPriority])
+  @@index([assignedToUserId, updatedAt])
+  @@index([currentStatus, updatedAt])
+  @@index([itPriority, updatedAt])
   @@map("tickets")
 }
 
@@ -89,28 +110,85 @@ model TicketNumberCounter {
 }
 
 model Attachment {
-  id                    Int                    @id @default(autoincrement())
-  ticketId              Int
-  uploadedByRequesterId Int
-  originalFilename      String
-  storageKey            String                 @unique
-  mimeType              String
-  sizeBytes             Int
-  uploadedAt            DateTime               @default(now())
-  availabilityState     AttachmentAvailability @default(AVAILABLE)
-  unavailableAt         DateTime?
-  unavailableReason     String?
-  removedAt             DateTime?
-  removedByRequesterId  Int?
-  removalReason         String?
+  id                Int                    @id @default(autoincrement())
+  ticketId          Int
+  uploadedByUserId  Int
+  originalFilename  String
+  storageKey        String                 @unique
+  mimeType          String
+  sizeBytes         Int
+  uploadedAt        DateTime               @default(now())
+  availabilityState AttachmentAvailability @default(AVAILABLE)
+  unavailableAt     DateTime?
+  unavailableReason String?
+  removedAt         DateTime?
+  removedByUserId   Int?
+  removalReason     String?
 
-  ticket              Ticket                @relation(fields: [ticketId], references: [id], onDelete: Restrict)
-  uploadedByRequester DevelopmentRequester  @relation("AttachmentUploadedBy", fields: [uploadedByRequesterId], references: [id], onDelete: Restrict)
-  removedByRequester  DevelopmentRequester? @relation("AttachmentRemovedBy", fields: [removedByRequesterId], references: [id], onDelete: SetNull)
+  ticket         Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  uploadedByUser User   @relation("AttachmentUploadedByUser", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  removedByUser  User?  @relation("AttachmentRemovedByUser", fields: [removedByUserId], references: [id], onDelete: SetNull)
 
   @@index([ticketId, removedAt])
   @@index([ticketId, uploadedAt])
   @@map("attachments")
+}
+
+model Session {
+  id         String    @id @db.VarChar(128)
+  userId     Int
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@map("sessions")
+}
+
+model LoginThrottleBucket {
+  keyHash       String   @id @db.VarChar(128)
+  failedCount   Int
+  firstFailedAt DateTime
+  blockedUntil  DateTime
+
+  @@map("login_throttle_buckets")
+}
+
+model PublicComment {
+  id           Int      @id @default(autoincrement())
+  ticketId     Int
+  authorUserId Int
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  author User   @relation("PublicCommentAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt, id])
+  @@map("public_comments")
+}
+
+model InternalNote {
+  id           Int      @id @default(autoincrement())
+  ticketId     Int
+  authorUserId Int
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  author User   @relation("InternalNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt, id])
+  @@map("internal_notes")
+}
+
+enum UserRole {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
 }
 
 enum RequestedPriority {
@@ -122,6 +200,13 @@ enum RequestedPriority {
 
 enum CurrentStatus {
   NEW
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_REQUESTER
+  RESOLVED
+  CLOSED
+  REOPENED
+  CANCELLED
 }
 
 enum ItPriority {
