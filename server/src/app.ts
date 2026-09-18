@@ -16,6 +16,13 @@ import {
   softRemoveOwnedAttachment,
 } from "./attachment-service.js";
 import { ApiError, sendApiError } from "./errors.js";
+import authRouter from "./auth-routes.js";
+import {
+  CLIENT_ORIGIN,
+  requireAuth,
+  requirePasswordChangeComplete,
+  requireRoles,
+} from "./auth-middleware.js";
 import { getPrisma } from "./prisma.js";
 import {
   assertOwnedTicket,
@@ -34,7 +41,13 @@ import {
 // Supertest can import `app` without opening a port.
 export const app = express();
 
-app.use(cors());
+app.set("trust proxy", 1);
+app.use(
+  cors({
+    origin: CLIENT_ORIGIN,
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 function hasValidActiveQuery(req: Request): boolean {
@@ -129,34 +142,28 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
-// Issue 3 - Development Requester selector
+// Issue 3 - Authentication and server-side authorization foundation
 // ---------------------------------------------------------------------------
-async function listActiveDevelopmentRequesters(req: Request, res: Response) {
-  if (!hasValidActiveQuery(req)) {
-    invalidActiveQuery(res);
-    return;
-  }
+app.use("/api/auth", authRouter);
 
-  try {
-    const requesters = await getPrisma().user.findMany({
-      where: { isActive: true, role: "REQUESTER" },
-      select: { id: true, displayName: true, email: true },
-      orderBy: { id: "asc" },
-    });
-
-    res.status(200).json(requesters);
-  } catch {
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Unable to load Development Requesters.",
-      },
-    });
-  }
+function retiredRequesterSelector(_req: Request, res: Response) {
+  res.status(410).json({
+    error: {
+      code: "ENDPOINT_RETIRED",
+      message: "Requester selectors are no longer available.",
+    },
+  });
 }
 
-app.get("/api/development-requesters", listActiveDevelopmentRequesters);
-app.get("/api/requesters", listActiveDevelopmentRequesters);
+// Retired selectors are deliberately public safe 410s so they cannot become
+// an accidental identity or authorization input for any caller.
+app.get("/api/development-requesters", retiredRequesterSelector);
+app.get("/api/requesters", retiredRequesterSelector);
+
+// Every route below this point is protected. The middleware re-loads the User
+// on every request, so logout, expiry, deactivation, role changes and the
+// mandatory password-change gate take effect without trusting the browser.
+app.use("/api", requireAuth, requirePasswordChangeComplete);
 
 // ---------------------------------------------------------------------------
 // Issue 4 - active reference data
@@ -212,7 +219,7 @@ app.get("/api/related-systems", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // Issue 4 - Ticket creation
 // ---------------------------------------------------------------------------
-app.post("/api/tickets", async (req: Request, res: Response) => {
+app.post("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
   const idempotencyKey = validateIdempotencyKey(req.get("Idempotency-Key"));
   if (idempotencyKey === null) {
     sendApiError(
@@ -252,7 +259,7 @@ app.post("/api/tickets", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // Issue 5 - requester-owned Ticket list
 // ---------------------------------------------------------------------------
-app.get("/api/tickets", async (req: Request, res: Response) => {
+app.get("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
   const parsedQuery = parseTicketListQuery(req.query as Record<string, unknown>);
   if (!parsedQuery.ok) {
     sendApiError(res, parsedQuery.error);
@@ -270,7 +277,7 @@ app.get("/api/tickets", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // Issue 6 - requester-owned Ticket Detail and Attachment lifecycle
 // ---------------------------------------------------------------------------
-app.get("/api/tickets/:ticketId", async (req: Request, res: Response) => {
+app.get("/api/tickets/:ticketId", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
   const scope = parseTicketScope(req, res);
   if (scope === null) return;
 
@@ -288,6 +295,7 @@ app.get("/api/tickets/:ticketId", async (req: Request, res: Response) => {
 
 app.get(
   "/api/tickets/:ticketId/attachments",
+  requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const scope = parseTicketScope(req, res);
     if (scope === null) return;
@@ -307,6 +315,7 @@ app.get(
 
 app.get(
   "/api/tickets/:ticketId/attachments/:attachmentId",
+  requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const scope = parseAttachmentScope(req, res);
     if (scope === null) return;
@@ -329,6 +338,7 @@ app.get(
 
 app.get(
   "/api/tickets/:ticketId/attachments/:attachmentId/download",
+  requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const scope = parseAttachmentScope(req, res);
     if (scope === null) return;
@@ -357,6 +367,7 @@ app.get(
 
 app.delete(
   "/api/tickets/:ticketId/attachments/:attachmentId",
+  requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const scope = parseAttachmentScope(req, res);
     if (scope === null) return;
@@ -386,6 +397,7 @@ app.delete(
 // ---------------------------------------------------------------------------
 app.post(
   "/api/tickets/:ticketId/attachments",
+  requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const ticketId = parsePositiveInteger(req.params.ticketId);
     const requesterId = parsePositiveInteger(req.query.requesterId);
