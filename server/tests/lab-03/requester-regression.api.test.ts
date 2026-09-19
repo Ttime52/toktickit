@@ -173,7 +173,7 @@ describe("Issue 4 requester regression (API-03)", () => {
     expect(duplicate.body.error.code).toBe("RESOLUTION_INDICATION_ALREADY_RECORDED");
   });
 
-  it("supports Public Comments while keeping foreign ownership and Administrator posting forbidden", async () => {
+  it("supports Public Comments while keeping Administrator read-only for communication", async () => {
     const owner = await login(
       (await prisma.user.findUniqueOrThrow({ where: { id: requesterId } })).email,
     );
@@ -219,6 +219,7 @@ describe("Issue 4 requester regression (API-03)", () => {
     expect(JSON.stringify(administratorPost.body)).not.toContain("Not allowed");
 
     const internalNotes = await administrator.get(`/api/tickets/${ticketId}/internal-notes`);
-    expect(internalNotes.status).toBe(404);
+    expect(internalNotes.status).toBe(200);
+    expect(internalNotes.body.data).toEqual([]);
   });
 });

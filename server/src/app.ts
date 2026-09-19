@@ -11,8 +11,11 @@ import {
 } from "./attachments.js";
 import {
   downloadOwnedAttachment,
+  downloadStaffAttachment,
   getOwnedAttachment,
+  getStaffAttachment,
   listOwnedAttachments,
+  listStaffAttachments,
   softRemoveOwnedAttachment,
 } from "./attachment-service.js";
 import { ApiError, sendApiError } from "./errors.js";
@@ -29,6 +32,11 @@ import {
   listPublicComments,
   validatePublicCommentBody,
 } from "./public-comment-service.js";
+import {
+  createInternalNote,
+  listInternalNotes,
+  validateInternalNoteBody,
+} from "./internal-note-service.js";
 import { recordProblemAppearsResolved } from "./requester-resolution-service.js";
 import { getPrisma } from "./prisma.js";
 import {
@@ -41,6 +49,12 @@ import {
 import { parseTicketListQuery } from "./ticket-query.js";
 import { parseStaffTicketQuery } from "./staff-ticket-query.js";
 import { listStaffTickets } from "./staff-ticket-service.js";
+import {
+  getStaffTicketDetail,
+  listStaffUserOptions,
+  updateStaffTicket,
+  validateStaffTicketUpdateBody,
+} from "./staff-ticket-detail-service.js";
 import {
   normalizeCreateTicketInput,
   validateIdempotencyKey,
@@ -267,6 +281,97 @@ app.get(
   },
 );
 
+app.get(
+  "/api/staff/users",
+  requireRoles("IT_STAFF"),
+  async (_req: Request, res: Response) => {
+    try {
+      const data = await listStaffUserOptions(getPrisma());
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/staff/tickets/:ticketId",
+  requireRoles("IT_STAFF"),
+  async (req: Request, res: Response) => {
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    try {
+      const data = await getStaffTicketDetail(getPrisma(), ticketId);
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+async function updateStaffTicketRoute(
+  req: Request,
+  res: Response,
+  mode: "full" | "owner",
+) {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  if (ticketId === null) {
+    sendApiError(
+      res,
+      new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+        ticketId: "A positive integer is required.",
+      }),
+    );
+    return;
+  }
+
+  const normalized = validateStaffTicketUpdateBody(req.body, mode);
+  if (!normalized.ok) {
+    sendApiError(res, normalized.error);
+    return;
+  }
+
+  try {
+    const data = await updateStaffTicket(
+      getPrisma(),
+      ticketId,
+      req.auth!.user.id,
+      req.auth!.user.role,
+      normalized.value,
+    );
+    res.status(200).json({ data });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+}
+
+app.patch(
+  "/api/staff/tickets/:ticketId/owner",
+  requireSameOrigin,
+  requireRoles("IT_STAFF"),
+  async (req: Request, res: Response) => {
+    await updateStaffTicketRoute(req, res, "owner");
+  },
+);
+
+app.patch(
+  "/api/staff/tickets/:ticketId",
+  requireSameOrigin,
+  requireRoles("IT_STAFF", "ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    await updateStaffTicketRoute(req, res, "full");
+  },
+);
+
 // ---------------------------------------------------------------------------
 // Issue 4 - Ticket creation
 // ---------------------------------------------------------------------------
@@ -420,6 +525,81 @@ app.post(
   },
 );
 
+async function listInternalNotesRoute(req: Request, res: Response) {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  if (ticketId === null) {
+    sendApiError(
+      res,
+      new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+        ticketId: "A positive integer is required.",
+      }),
+    );
+    return;
+  }
+
+  try {
+    const data = await listInternalNotes(
+      getPrisma(),
+      ticketId,
+      req.auth!.user.role,
+    );
+    res.status(200).json({ data });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+}
+
+async function createInternalNoteRoute(req: Request, res: Response) {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  if (ticketId === null) {
+    sendApiError(
+      res,
+      new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+        ticketId: "A positive integer is required.",
+      }),
+    );
+    return;
+  }
+
+  const normalized = validateInternalNoteBody(req.body);
+  if (normalized instanceof ApiError) {
+    sendApiError(res, normalized);
+    return;
+  }
+
+  try {
+    const data = await createInternalNote(
+      getPrisma(),
+      ticketId,
+      req.auth!.user.id,
+      req.auth!.user.role,
+      normalized.content,
+    );
+    res.status(201).json({ data });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+}
+
+app.get(
+  [
+    "/api/tickets/:ticketId/internal-notes",
+    "/api/tickets/:ticketId/notes",
+  ],
+  requireRoles("IT_STAFF", "ADMINISTRATOR"),
+  listInternalNotesRoute,
+);
+
+app.post(
+  [
+    "/api/tickets/:ticketId/internal-notes",
+    "/api/tickets/:ticketId/notes",
+  ],
+  requireSameOrigin,
+  requireRoles("IT_STAFF"),
+  createInternalNoteRoute,
+);
+
 // ---------------------------------------------------------------------------
 // Issue 5 - requester-owned Ticket list
 // ---------------------------------------------------------------------------
@@ -459,17 +639,24 @@ app.get("/api/tickets/:ticketId", requireRoles("REQUESTER"), async (req: Request
 
 app.get(
   "/api/tickets/:ticketId/attachments",
-  requireRoles("REQUESTER"),
+  requireRoles("REQUESTER", "IT_STAFF"),
   async (req: Request, res: Response) => {
-    const scope = parseTicketScope(req, res);
-    if (scope === null) return;
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
 
     try {
-      const data = await listOwnedAttachments(
-        getPrisma(),
-        scope.ticketId,
-        scope.requesterId,
-      );
+      const data = req.auth!.user.role === "IT_STAFF"
+        ? await listStaffAttachments(getPrisma(), ticketId)
+        : await listOwnedAttachments(getPrisma(), ticketId, req.auth!.user.id);
       res.status(200).json({ data });
     } catch (error) {
       sendApiError(res, error);
@@ -479,20 +666,28 @@ app.get(
 
 app.get(
   "/api/tickets/:ticketId/attachments/:attachmentId",
-  requireRoles("REQUESTER"),
+  requireRoles("REQUESTER", "IT_STAFF"),
   async (req: Request, res: Response) => {
-    const scope = parseAttachmentScope(req, res);
-    if (scope === null) return;
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    const attachmentId = parsePositiveInteger(req.params.attachmentId);
+    if (ticketId === null || attachmentId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID and Attachment ID must be positive integers.", {
+          ...(ticketId === null ? { ticketId: "A positive integer is required." } : {}),
+          ...(attachmentId === null ? { attachmentId: "A positive integer is required." } : {}),
+        }),
+      );
+      return;
+    }
 
     try {
-      const { attachment } = await getOwnedAttachment(
-        getPrisma(),
-        scope.ticketId,
-        scope.attachmentId,
-        scope.requesterId,
-      );
+      const { attachment } = req.auth!.user.role === "IT_STAFF"
+        ? await getStaffAttachment(getPrisma(), ticketId, attachmentId)
+        : await getOwnedAttachment(getPrisma(), ticketId, attachmentId, req.auth!.user.id);
       res.status(200).json({
-        data: serializeAttachmentMetadata(attachment, scope.requesterId),
+        data: serializeAttachmentMetadata(attachment, req.auth!.user.id),
       });
     } catch (error) {
       sendApiError(res, error);
@@ -502,18 +697,26 @@ app.get(
 
 app.get(
   "/api/tickets/:ticketId/attachments/:attachmentId/download",
-  requireRoles("REQUESTER"),
+  requireRoles("REQUESTER", "IT_STAFF"),
   async (req: Request, res: Response) => {
-    const scope = parseAttachmentScope(req, res);
-    if (scope === null) return;
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    const attachmentId = parsePositiveInteger(req.params.attachmentId);
+    if (ticketId === null || attachmentId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID and Attachment ID must be positive integers.", {
+          ...(ticketId === null ? { ticketId: "A positive integer is required." } : {}),
+          ...(attachmentId === null ? { attachmentId: "A positive integer is required." } : {}),
+        }),
+      );
+      return;
+    }
 
     try {
-      const { attachment, bytes } = await downloadOwnedAttachment(
-        getPrisma(),
-        scope.ticketId,
-        scope.attachmentId,
-        scope.requesterId,
-      );
+      const { attachment, bytes } = req.auth!.user.role === "IT_STAFF"
+        ? await downloadStaffAttachment(getPrisma(), ticketId, attachmentId)
+        : await downloadOwnedAttachment(getPrisma(), ticketId, attachmentId, req.auth!.user.id);
       res
         .status(200)
         .set("Content-Type", attachment.mimeType)

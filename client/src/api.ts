@@ -172,6 +172,42 @@ export interface StaffTicketListResult {
   meta: TicketListMeta;
 }
 
+export interface InternalNote {
+  id: number;
+  ticketId: number;
+  content: string;
+  author: {
+    id: number;
+    displayName: string;
+    role: UserRole;
+  };
+  createdAt: string;
+}
+
+export interface StaffUserOption {
+  id: number;
+  displayName: string;
+  role: "IT_STAFF" | "ADMINISTRATOR";
+}
+
+export interface StaffTicketDetail extends StaffTicket {
+  description: string;
+  attachments: TicketAttachment[];
+  publicComments: PublicComment[];
+  internalNotes: InternalNote[];
+  createdAt: string;
+}
+
+export type StaffTicketAction = "claim" | "assign" | "reassign";
+
+export interface StaffTicketUpdateInput {
+  action?: StaffTicketAction;
+  assignedToUserId?: number;
+  itPriority?: RequestedPriority;
+  currentStatus?: CurrentStatus;
+  confirmStatusChange?: boolean;
+}
+
 export interface PublicComment {
   id: number;
   ticketId: number;
@@ -513,6 +549,125 @@ export async function fetchStaffTickets(
     data: body.data as StaffTicket[],
     meta: body.meta as TicketListMeta,
   };
+}
+
+export async function fetchStaffUsers(
+  signal?: AbortSignal,
+): Promise<StaffUserOption[]> {
+  const response = await fetch(
+    `${API_URL}/api/staff/users`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Ticket Owner options.");
+  }
+  if (!Array.isArray(body.data)) {
+    throw new ApiRequestError("Invalid Ticket Owner response.", response.status);
+  }
+  return body.data as StaffUserOption[];
+}
+
+export async function fetchStaffTicket(
+  ticketId: number,
+  signal?: AbortSignal,
+): Promise<StaffTicketDetail> {
+  const response = await fetch(
+    `${API_URL}/api/staff/tickets/${ticketId}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Staff Ticket Detail.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Staff Ticket Detail response.", response.status);
+  }
+  return body.data as StaffTicketDetail;
+}
+
+export async function updateStaffTicket(
+  ticketId: number,
+  input: StaffTicketUpdateInput,
+): Promise<StaffTicketDetail> {
+  const response = await fetch(
+    `${API_URL}/api/staff/tickets/${ticketId}`,
+    withCredentials({
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to update Ticket.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Staff Ticket update response.", response.status);
+  }
+  return body.data as StaffTicketDetail;
+}
+
+export async function updateStaffTicketOwner(
+  ticketId: number,
+  input: Pick<StaffTicketUpdateInput, "action" | "assignedToUserId">,
+): Promise<StaffTicketDetail> {
+  const response = await fetch(
+    `${API_URL}/api/staff/tickets/${ticketId}/owner`,
+    withCredentials({
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to update Ticket Owner.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Ticket Owner response.", response.status);
+  }
+  return body.data as StaffTicketDetail;
+}
+
+export async function fetchInternalNotes(
+  ticketId: number,
+  signal?: AbortSignal,
+): Promise<InternalNote[]> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/internal-notes`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Internal Notes.");
+  }
+  if (!Array.isArray(body.data)) {
+    throw new ApiRequestError("Invalid Internal Notes response.", response.status);
+  }
+  return body.data as InternalNote[];
+}
+
+export async function postInternalNote(
+  ticketId: number,
+  content: string,
+): Promise<InternalNote> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/internal-notes`,
+    withCredentials({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to post Internal Note.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Internal Note response.", response.status);
+  }
+  return body.data as InternalNote;
 }
 
 export async function fetchTicket(
