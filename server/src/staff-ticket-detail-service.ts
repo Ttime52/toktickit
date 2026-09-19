@@ -42,7 +42,7 @@ export const STAFF_STATUS_TRANSITIONS: Record<
   RESOLVED: ["CLOSED", "REOPENED"],
   CLOSED: ["REOPENED"],
   REOPENED: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "CANCELLED"],
-  CANCELLED: [],
+  CANCELLED: ["REOPENED"],
 };
 
 const staffTicketDetailInclude = {

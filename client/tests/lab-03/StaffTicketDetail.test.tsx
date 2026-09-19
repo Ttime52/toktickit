@@ -165,4 +165,29 @@ describe("IT Staff Ticket Detail (UI-04)", () => {
       confirmStatusChange: true,
     });
   });
+
+  it("offers Reopened when the current status is Cancelled", async () => {
+    const cancelledDetail = { ...detail, currentStatus: "CANCELLED" as const };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/staff/tickets/101") && init?.method === "PATCH") {
+        return Promise.resolve(jsonResponse({ data: { ...cancelledDetail, currentStatus: "REOPENED" } }));
+      }
+      if (url.includes("/api/staff/tickets/101")) return Promise.resolve(jsonResponse({ data: cancelledDetail }));
+      if (url.includes("/api/staff/users")) return Promise.resolve(jsonResponse({ data: [{ id: 8, displayName: "Staff Example", role: "IT_STAFF" }] }));
+      return Promise.resolve(jsonResponse({ data: [] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<StaffTicketDetail ticketId={101} onBack={vi.fn()} />);
+    await screen.findByRole("heading", { name: "Ticket Detail" });
+
+    await user.selectOptions(screen.getByLabelText("Current Status"), "REOPENED");
+    await user.click(screen.getByRole("button", { name: "Save Work Changes" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(true));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({ currentStatus: "REOPENED" });
+  });
 });

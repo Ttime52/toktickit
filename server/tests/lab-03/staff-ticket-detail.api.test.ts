@@ -332,6 +332,24 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
     expect(closed.status).toBe(200);
     expect(closed.body.data.currentStatus).toBe("CLOSED");
 
+    const reopened = await sameOrigin(
+      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "REOPENED" }),
+    );
+    expect(reopened.status).toBe(200);
+    expect(reopened.body.data.currentStatus).toBe("REOPENED");
+
+    const cancelled = await sameOrigin(
+      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "CANCELLED" }),
+    );
+    expect(cancelled.status).toBe(200);
+    expect(cancelled.body.data.currentStatus).toBe("CANCELLED");
+
+    const reopenedFromCancelled = await sameOrigin(
+      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "REOPENED" }),
+    );
+    expect(reopenedFromCancelled.status).toBe(200);
+    expect(reopenedFromCancelled.body.data.currentStatus).toBe("REOPENED");
+
     const claimed = await sameOrigin(
       staff.patch(`/api/staff/tickets/${unassignedTicketId}/owner`).send({ action: "claim" }),
     );

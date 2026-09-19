@@ -36,7 +36,7 @@ const STATUS_TRANSITIONS: Record<CurrentStatus, CurrentStatus[]> = {
   RESOLVED: ["CLOSED", "REOPENED"],
   CLOSED: ["REOPENED"],
   REOPENED: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "CANCELLED"],
-  CANCELLED: [],
+  CANCELLED: ["REOPENED"],
 };
 
 function formatDate(value: string | null): string {
