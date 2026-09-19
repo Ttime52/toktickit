@@ -7,6 +7,7 @@ import CreateTicket from "./CreateTicket.js";
 import Login from "./Login.js";
 import MyTickets from "./MyTickets.js";
 import StaffTicketQueue from "./StaffTicketQueue.js";
+import StaffTicketDetail from "./StaffTicketDetail.js";
 import TicketDetail from "./TicketDetail.js";
 import "./styles.css";
 
@@ -117,12 +118,17 @@ function AuthenticatedApp() {
       {showChangePassword ? (
         <ChangePassword voluntary />
       ) : user.role !== "REQUESTER" ? (
-        currentPage === "staff-queue" && user.role !== "IT_STAFF" ? (
-          <ForbiddenState area="the IT Staff Ticket Queue" />
+        (currentPage === "staff-queue" || currentPage === "staff-ticket-detail") && user.role !== "IT_STAFF" ? (
+          <ForbiddenState
+            area={currentPage === "staff-ticket-detail" ? "the IT Staff Ticket Detail" : "the IT Staff Ticket Queue"}
+          />
         ) : user.role === "IT_STAFF" && currentPage === "staff-queue" ? (
           <StaffTicketQueue onOpenTicket={(openedTicketId) => navigateTo(`/staff/tickets/${openedTicketId}`)} />
         ) : user.role === "IT_STAFF" && currentPage === "staff-ticket-detail" && staffTicketId !== null ? (
-          <RoleLanding role="IT Staff Ticket Detail" />
+          <StaffTicketDetail
+            ticketId={staffTicketId}
+            onBack={() => navigateTo("/staff/tickets")}
+          />
         ) : (
           <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
         )

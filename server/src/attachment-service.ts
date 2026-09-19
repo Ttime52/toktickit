@@ -56,6 +56,54 @@ export async function getOwnedAttachment(
   return { attachment, requesterId };
 }
 
+async function assertStaffTicket(
+  prisma: PrismaClient,
+  ticketId: number,
+) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true },
+  });
+  if (ticket === null) {
+    throw new ApiError(404, "TICKET_NOT_FOUND", "Ticket was not found.");
+  }
+  return ticket;
+}
+
+export async function listStaffAttachments(
+  prisma: PrismaClient,
+  ticketId: number,
+) {
+  await assertStaffTicket(prisma, ticketId);
+  const attachments = await prisma.attachment.findMany({
+    where: { ticketId },
+    orderBy: { id: "asc" },
+    select: attachmentMetadataSelect,
+  });
+
+  return attachments.map((attachment) =>
+    serializeAttachmentMetadata(attachment, 0),
+  );
+}
+
+export async function getStaffAttachment(
+  prisma: PrismaClient,
+  ticketId: number,
+  attachmentId: number,
+): Promise<{ attachment: AttachmentMetadataRecord }> {
+  await assertStaffTicket(prisma, ticketId);
+  const attachment = await prisma.attachment.findUnique({
+    where: { id: attachmentId },
+    select: attachmentMetadataSelect,
+  });
+
+  if (attachment === null || attachment.ticketId !== ticketId) {
+    throw attachmentNotFound();
+  }
+
+  return { attachment };
+}
+
 export async function downloadOwnedAttachment(
   prisma: PrismaClient,
   ticketId: number,
@@ -69,6 +117,22 @@ export async function downloadOwnedAttachment(
     requesterId,
   );
 
+  return downloadAttachmentBytes(prisma, attachment);
+}
+
+export async function downloadStaffAttachment(
+  prisma: PrismaClient,
+  ticketId: number,
+  attachmentId: number,
+) {
+  const { attachment } = await getStaffAttachment(prisma, ticketId, attachmentId);
+  return downloadAttachmentBytes(prisma, attachment);
+}
+
+async function downloadAttachmentBytes(
+  prisma: PrismaClient,
+  attachment: AttachmentMetadataRecord,
+) {
   if (
     attachment.removedAt !== null ||
     attachment.availabilityState === "UNAVAILABLE"

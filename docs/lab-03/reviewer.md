@@ -10,7 +10,7 @@
 |  #45  | feature/14-user-model-migration | Request changes and Approved |
 |  #46  | feature/15-auth-foundation | Request changes and Approved |
 |  #47  | feature/16-requester-regression | Approved |
-|  #48  | feature/17-staff-ticket-queue |  |
+|  #48  | feature/17-staff-ticket-queue | Request changes and Approved |
 |  #49  | feature/18-staff-ticket-operations |  |
 |  #50  | feature/19-admin-user-management |  |
 |  #51  | feature/20-e2e-regression-qa |  |
@@ -66,6 +66,7 @@ https://github.com/Ttime52/toktickit/pull/48
 
 - Reviewer comment I received: The implementation appears aligned with the documented queue requirements. I only noticed one clarification point: the PR description states 15 server tests and 6 client tests, but the current staff-queue.api.test.ts and StaffTicketQueue.test.tsx contain 3 and 2 test cases respectively. If 15/6 refers to assertions or other coverage, could you clarify the counting? Otherwise, please update the test counts.
 - How I responded: Clarified the counts. The 15 server tests and 6 client tests refer to the complete Lab 3 test run: 5 server test files / 15 cases and 4 client test files / 6 cases. Issue 5 itself adds 3 server cases in `staff-queue.api.test.ts` and 2 client cases in `StaffTicketQueue.test.tsx`.
+- Reviewer comment I received: okayy i will merge 🫪
 
 PR #49 feature/18-staff-ticket-operations
 https://github.com/Ttime52/toktickit/pull/49
@@ -130,3 +131,8 @@ feature/20-staff-ticket-detail
 https://github.com/KwanchanokThungsuk/toktickit/pull/54
 - My comment: The ownership and Requester “Problem Appears Resolved” flows look aligned with the Lab 3 requirements, including backend authorization and negative-case coverage.
 - Partner's response: Merged.
+
+feature/21-priority-status-management
+https://github.com/KwanchanokThungsuk/toktickit/pull/55
+- My comment: 
+- Partner's response:

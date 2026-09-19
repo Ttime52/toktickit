@@ -1011,6 +1011,50 @@ h1 {
   padding-top: 28px;
 }
 
+.zen-staff-work-controls {
+  background: var(--zen-readonly);
+  border: 1px solid var(--zen-border);
+  border-radius: 8px;
+  margin-top: 28px;
+  padding: 20px;
+}
+
+.zen-staff-work-controls h2 {
+  margin-top: 0;
+}
+
+.zen-confirmation-check {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.zen-confirmation-check input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.zen-internal-notes {
+  background: var(--zen-warning-bg);
+  border-left: 5px solid var(--zen-warning);
+  margin-top: 28px;
+  padding: 24px 20px 20px;
+}
+
+.zen-internal-notes h2 {
+  color: var(--zen-warning);
+  margin-top: 0;
+}
+
+.zen-internal-notes .zen-comment-item {
+  background: var(--zen-surface);
+}
+
+.zen-staff-detail-page .zen-detail-card {
+  max-width: none;
+}
+
 .zen-resolution-confirmation {
   background: var(--zen-readonly);
   border: 1px solid var(--zen-border);
