@@ -799,6 +799,22 @@ h1 {
   color: var(--zen-text);
 }
 
+.zen-unassigned {
+  color: var(--zen-muted);
+  font-weight: 700;
+}
+
+.zen-owner-role {
+  color: var(--zen-muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.zen-staff-ticket-table {
+  min-width: 1280px;
+}
+
 .zen-ticket-card-list {
   display: none;
 }

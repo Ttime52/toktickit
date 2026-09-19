@@ -2,7 +2,12 @@ import { useRef, useState, type ReactNode } from "react";
 
 import type { AuthUser, UserRole } from "./api.js";
 
-export type AppPage = "my-tickets" | "create-ticket" | "ticket-detail";
+export type AppPage =
+  | "my-tickets"
+  | "create-ticket"
+  | "ticket-detail"
+  | "staff-queue"
+  | "staff-ticket-detail";
 
 interface ApplicationShellProps {
   currentPage: AppPage;
@@ -100,7 +105,25 @@ export default function ApplicationShell({
                 </a>
               </>
             ) : user.role === "IT_STAFF" ? (
-              <a href="/staff/tickets">Ticket Queue</a>
+              <a
+                href="/staff/tickets"
+                aria-current={
+                  currentPage === "staff-queue" || currentPage === "staff-ticket-detail"
+                    ? "page"
+                    : undefined
+                }
+                className={
+                  currentPage === "staff-queue" || currentPage === "staff-ticket-detail"
+                    ? "is-active"
+                    : ""
+                }
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate("staff-queue");
+                }}
+              >
+                Ticket Queue
+              </a>
             ) : (
               <a href="/admin/users">User Management</a>
             )}

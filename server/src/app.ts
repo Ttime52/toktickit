@@ -39,6 +39,8 @@ import {
   serializeTicket,
 } from "./ticket-service.js";
 import { parseTicketListQuery } from "./ticket-query.js";
+import { parseStaffTicketQuery } from "./staff-ticket-query.js";
+import { listStaffTickets } from "./staff-ticket-service.js";
 import {
   normalizeCreateTicketInput,
   validateIdempotencyKey,
@@ -239,6 +241,31 @@ app.get("/api/related-systems", async (req: Request, res: Response) => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Issue 5 - IT Staff Ticket Queue
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/staff/tickets",
+  requireRoles("IT_STAFF"),
+  async (req: Request, res: Response) => {
+    const parsedQuery = parseStaffTicketQuery(
+      req.query as Record<string, unknown>,
+      req.auth!.user.id,
+    );
+    if (!parsedQuery.ok) {
+      sendApiError(res, parsedQuery.error);
+      return;
+    }
+
+    try {
+      const result = await listStaffTickets(getPrisma(), parsedQuery.value);
+      res.status(200).json(result);
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Issue 4 - Ticket creation

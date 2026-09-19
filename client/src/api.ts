@@ -123,6 +123,55 @@ export interface TicketListResult {
   meta: TicketListMeta;
 }
 
+export type StaffAssignment = "all" | "assigned" | "unassigned" | "mine";
+export type StaffSortField =
+  | "ticketNumber"
+  | "ticketDate"
+  | "updatedAt"
+  | "requestedPriority"
+  | "itPriority"
+  | "currentStatus"
+  | "ticketOwner"
+  | "assignee"
+  | "category";
+
+export interface StaffTicket {
+  id: number;
+  ticketNumber: string;
+  ticketDate: string;
+  summary: string;
+  category: Category;
+  relatedSystem: RelatedSystem;
+  requester: TicketRequester;
+  ticketOwner: { id: number; displayName: string; role: UserRole } | null;
+  assignedTo: { id: number; displayName: string; role: UserRole } | null;
+  requestedPriority: RequestedPriority;
+  itPriority: RequestedPriority;
+  currentStatus: CurrentStatus;
+  requesterResolutionIndicatedAt: string | null;
+  attachmentCount: number;
+  updatedAt: string;
+}
+
+export interface StaffTicketQuery {
+  search: string;
+  categoryId: number | null;
+  relatedSystemId: number | null;
+  requestedPriority: RequestedPriority | null;
+  itPriority: RequestedPriority | null;
+  currentStatus: CurrentStatus | null;
+  assignment: StaffAssignment;
+  sortBy: StaffSortField;
+  sortOrder: TicketSortOrder;
+  page: number;
+  pageSize: TicketPageSize;
+}
+
+export interface StaffTicketListResult {
+  data: StaffTicket[];
+  meta: TicketListMeta;
+}
+
 export interface PublicComment {
   id: number;
   ticketId: number;
@@ -423,6 +472,45 @@ export async function fetchTickets(
 
   return {
     data: body.data as TicketListItem[],
+    meta: body.meta as TicketListMeta,
+  };
+}
+
+export async function fetchStaffTickets(
+  query: StaffTicketQuery,
+  signal?: AbortSignal,
+): Promise<StaffTicketListResult> {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+    assignment: query.assignment,
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+  if (query.search.trim().length > 0) params.set("search", query.search.trim());
+  if (query.categoryId !== null) params.set("categoryId", String(query.categoryId));
+  if (query.relatedSystemId !== null) {
+    params.set("relatedSystemId", String(query.relatedSystemId));
+  }
+  if (query.requestedPriority !== null) {
+    params.set("requestedPriority", query.requestedPriority);
+  }
+  if (query.itPriority !== null) params.set("itPriority", query.itPriority);
+  if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+
+  const response = await fetch(
+    `${API_URL}/api/staff/tickets?${params.toString()}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load the Ticket Queue.");
+  }
+  if (!Array.isArray(body.data) || typeof body.meta !== "object" || body.meta === null) {
+    throw new ApiRequestError("Invalid Ticket Queue response.", response.status);
+  }
+  return {
+    data: body.data as StaffTicket[],
     meta: body.meta as TicketListMeta,
   };
 }
