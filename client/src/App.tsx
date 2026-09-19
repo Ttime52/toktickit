@@ -6,21 +6,32 @@ import ChangePassword from "./ChangePassword.js";
 import CreateTicket from "./CreateTicket.js";
 import Login from "./Login.js";
 import MyTickets from "./MyTickets.js";
+import StaffTicketQueue from "./StaffTicketQueue.js";
 import TicketDetail from "./TicketDetail.js";
 import "./styles.css";
 
 function pageFromPath(pathname: string): AppPage {
   if (pathname === "/create-ticket") return "create-ticket";
+  if (pathname === "/staff/tickets") return "staff-queue";
+  if (/^\/staff\/tickets\/[1-9]\d*$/u.test(pathname)) return "staff-ticket-detail";
   if (/^\/tickets\/[1-9]\d*$/u.test(pathname)) return "ticket-detail";
   return "my-tickets";
 }
 
 function pathForPage(page: AppPage): string {
+  if (page === "staff-queue") return "/staff/tickets";
   return page === "create-ticket" ? "/create-ticket" : "/my-tickets";
 }
 
 function ticketIdFromPath(pathname: string): number | null {
   const match = /^\/tickets\/([1-9]\d*)$/u.exec(pathname);
+  if (match === null) return null;
+  const ticketId = Number(match[1]);
+  return Number.isSafeInteger(ticketId) ? ticketId : null;
+}
+
+function staffTicketIdFromPath(pathname: string): number | null {
+  const match = /^\/staff\/tickets\/([1-9]\d*)$/u.exec(pathname);
   if (match === null) return null;
   const ticketId = Number(match[1]);
   return Number.isSafeInteger(ticketId) ? ticketId : null;
@@ -53,6 +64,16 @@ function RoleLanding({ role }: { role: string }) {
   );
 }
 
+function ForbiddenState({ area }: { area: string }) {
+  return (
+    <section className="zen-empty-panel" aria-labelledby="forbidden-title">
+      <p className="zen-eyebrow">Access restricted</p>
+      <h1 id="forbidden-title">You cannot view {area}</h1>
+      <p>Your account is not permitted to access this screen.</p>
+    </section>
+  );
+}
+
 function AuthenticatedApp() {
   const { user, logout } = useAuth();
   const [pathname, setPathname] = useState(
@@ -81,6 +102,7 @@ function AuthenticatedApp() {
 
   const currentPage = pageFromPath(pathname);
   const ticketId = ticketIdFromPath(pathname);
+  const staffTicketId = staffTicketIdFromPath(pathname);
 
   return (
     <ApplicationShell
@@ -95,9 +117,19 @@ function AuthenticatedApp() {
       {showChangePassword ? (
         <ChangePassword voluntary />
       ) : user.role !== "REQUESTER" ? (
-        <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
+        currentPage === "staff-queue" && user.role !== "IT_STAFF" ? (
+          <ForbiddenState area="the IT Staff Ticket Queue" />
+        ) : user.role === "IT_STAFF" && currentPage === "staff-queue" ? (
+          <StaffTicketQueue onOpenTicket={(openedTicketId) => navigateTo(`/staff/tickets/${openedTicketId}`)} />
+        ) : user.role === "IT_STAFF" && currentPage === "staff-ticket-detail" && staffTicketId !== null ? (
+          <RoleLanding role="IT Staff Ticket Detail" />
+        ) : (
+          <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
+        )
       ) : (
-        <div>
+        currentPage === "staff-queue" || currentPage === "staff-ticket-detail" ? (
+          <ForbiddenState area="the IT Staff Ticket Queue" />
+        ) : <div>
           {currentPage === "create-ticket" ? (
             <CreateTicket
               requester={user}

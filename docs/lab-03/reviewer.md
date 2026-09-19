@@ -9,7 +9,7 @@
 |  #44  | feature/13-specification-docs-lab3 | Request changes and Approved |
 |  #45  | feature/14-user-model-migration | Request changes and Approved |
 |  #46  | feature/15-auth-foundation | Request changes and Approved |
-|  #47  | feature/16-requester-regression |  |
+|  #47  | feature/16-requester-regression | Approved |
 |  #48  | feature/17-staff-ticket-queue |  |
 |  #49  | feature/18-staff-ticket-operations |  |
 |  #50  | feature/19-admin-user-management |  |
@@ -58,17 +58,35 @@ The Change Password UI currently says “At least 8 characters,” but the Lab 3
 PR #47 feature/16-requester-regression
 https://github.com/Ttime52/toktickit/pull/47
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: Approve — Reviewed the implementation against the Lab 3 documentation and relevant ownership, Public Comment, and Problem Appears Resolved requirements. No blocking implementation issues were found. The local regression test could not be executed because the review environment's database migration history differs from the PR branch.
+- How I responded: Thx kub
 
 PR #48 feature/17-staff-ticket-queue
 https://github.com/Ttime52/toktickit/pull/48
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: The implementation appears aligned with the documented queue requirements. I only noticed one clarification point: the PR description states 15 server tests and 6 client tests, but the current staff-queue.api.test.ts and StaffTicketQueue.test.tsx contain 3 and 2 test cases respectively. If 15/6 refers to assertions or other coverage, could you clarify the counting? Otherwise, please update the test counts.
+- How I responded: Clarified the counts. The 15 server tests and 6 client tests refer to the complete Lab 3 test run: 5 server test files / 15 cases and 4 client test files / 6 cases. Issue 5 itself adds 3 server cases in `staff-queue.api.test.ts` and 2 client cases in `StaffTicketQueue.test.tsx`.
 
 PR #49 feature/18-staff-ticket-operations
 https://github.com/Ttime52/toktickit/pull/49
+
+- Reviewer comment I received: 
+- How I responded:
+
+PR #50 feature/19-admin-user-management
+https://github.com/Ttime52/toktickit/pull/50
+
+- Reviewer comment I received: 
+- How I responded:
+
+PR #51 feature/20-e2e-regression-qa
+https://github.com/Ttime52/toktickit/pull/51
+
+- Reviewer comment I received: 
+- How I responded:
+
+PR #52 feature/21-docs-release-lab3
+https://github.com/Ttime52/toktickit/pull/52
 
 - Reviewer comment I received: 
 - How I responded:
@@ -107,3 +125,8 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/53
 Please update the Queue status type/filter to support all required Lab 3 statuses and add/update the corresponding tests.
 - Partner's response: fixed. pls recheck jubb🫪
 - My comment: The previous issue with missing ticket statuses has been resolved. All good.
+
+feature/20-staff-ticket-detail
+https://github.com/KwanchanokThungsuk/toktickit/pull/54
+- My comment: The ownership and Requester “Problem Appears Resolved” flows look aligned with the Lab 3 requirements, including backend authorization and negative-case coverage.
+- Partner's response: Merged.
