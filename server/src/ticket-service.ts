@@ -66,6 +66,8 @@ export function serializeTicket(ticket: FullTicketRecord) {
     itPriority: ticket.itPriority,
     description: ticket.description,
     currentStatus: ticket.currentStatus,
+    requesterResolutionIndicatedAt:
+      ticket.requesterResolutionIndicatedAt?.toISOString() ?? null,
     attachments: ticket.attachments.map((attachment) =>
       serializeAttachmentMetadata(
         attachment as AttachmentMetadataRecord,

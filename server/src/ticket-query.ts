@@ -13,6 +13,19 @@ export const TICKET_SORT_FIELDS = [
   "category",
 ] as const;
 
+export const TICKET_STATUSES = [
+  "NEW",
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_REQUESTER",
+  "RESOLVED",
+  "CLOSED",
+  "REOPENED",
+  "CANCELLED",
+] as const;
+
+export type TicketStatusValue = (typeof TICKET_STATUSES)[number];
+
 export type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
 export type TicketSortOrder = "asc" | "desc";
 export type TicketPageSize = 10 | 20 | 50;
@@ -35,7 +48,7 @@ export interface TicketListQuery {
   categoryId: number | null;
   relatedSystemId: number | null;
   requestedPriority: RequestedPriorityValue | null;
-  currentStatus: "NEW" | null;
+  currentStatus: TicketStatusValue | null;
   sortBy: TicketSortField;
   sortOrder: TicketSortOrder;
   page: number;
@@ -136,11 +149,20 @@ export function parseTicketListQuery(
   }
 
   const currentStatusValue = singleValue(query, "currentStatus");
-  if (currentStatusValue === null ||
-      (currentStatusValue !== undefined && currentStatusValue !== "NEW")) {
-    return invalidParameter("currentStatus", "currentStatus must be NEW.");
+  if (
+    currentStatusValue === null ||
+    (currentStatusValue !== undefined &&
+      !TICKET_STATUSES.includes(currentStatusValue as TicketStatusValue))
+  ) {
+    return invalidParameter(
+      "currentStatus",
+      "currentStatus must be a valid Ticket status.",
+    );
   }
-  const currentStatus = currentStatusValue === undefined ? null : "NEW";
+  const currentStatus =
+    currentStatusValue === undefined
+      ? null
+      : (currentStatusValue as TicketStatusValue);
 
   const sortByValue = singleValue(query, "sortBy");
   if (

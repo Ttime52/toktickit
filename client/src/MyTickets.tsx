@@ -7,6 +7,7 @@ import {
 
 import {
   ApiRequestError,
+  type CurrentStatus,
   fetchCategories,
   fetchRelatedSystems,
   fetchTickets,
@@ -37,7 +38,7 @@ interface TicketFilters {
   categoryId: string;
   relatedSystemId: string;
   requestedPriority: "" | RequestedPriority;
-  currentStatus: "" | "NEW";
+  currentStatus: "" | CurrentStatus;
   sortBy: TicketSortField;
   sortOrder: TicketSortOrder;
 }
@@ -100,8 +101,18 @@ function priorityLabel(priority: RequestedPriority): string {
   return priority[0] + priority.slice(1).toLowerCase();
 }
 
-function statusLabel(status: "NEW"): string {
-  return status === "NEW" ? "New" : status;
+function statusLabel(status: CurrentStatus): string {
+  const labels: Record<CurrentStatus, string> = {
+    NEW: "New",
+    OPEN: "Open",
+    IN_PROGRESS: "In Progress",
+    WAITING_FOR_REQUESTER: "Waiting for Requester",
+    RESOLVED: "Resolved",
+    CLOSED: "Closed",
+    REOPENED: "Reopened",
+    CANCELLED: "Cancelled",
+  };
+  return labels[status];
 }
 
 function sortDirectionLabel(order: TicketSortOrder): string {
@@ -387,6 +398,13 @@ export default function MyTickets({
           >
             <option value="">All Current Statuses</option>
             <option value="NEW">New</option>
+            <option value="OPEN">Open</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="WAITING_FOR_REQUESTER">Waiting for Requester</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="CLOSED">Closed</option>
+            <option value="REOPENED">Reopened</option>
+            <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
 

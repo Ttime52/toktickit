@@ -9,10 +9,15 @@ import {
 import {
   ApiRequestError,
   fetchTicket,
+  fetchPublicComments,
   getAttachmentDownloadUrl,
   getAttachmentPreviewUrl,
+  postPublicComment,
+  recordProblemAppearsResolved,
   removeAttachment,
   uploadAttachment,
+  type CurrentStatus,
+  type PublicComment,
   type Ticket,
   type TicketAttachment,
 } from "./api.js";
@@ -80,6 +85,26 @@ function formatDate(value: string | null): string {
 
 function formatPriority(value: string | null): string {
   return value === null ? "Not assigned" : value[0] + value.slice(1).toLowerCase();
+}
+
+function formatStatus(value: CurrentStatus): string {
+  const labels: Record<CurrentStatus, string> = {
+    NEW: "New",
+    OPEN: "Open",
+    IN_PROGRESS: "In Progress",
+    WAITING_FOR_REQUESTER: "Waiting for Requester",
+    RESOLVED: "Resolved",
+    CLOSED: "Closed",
+    REOPENED: "Reopened",
+    CANCELLED: "Cancelled",
+  };
+  return labels[value];
+}
+
+function roleLabel(value: PublicComment["author"]["role"]): string {
+  if (value === "IT_STAFF") return "IT Staff";
+  if (value === "ADMINISTRATOR") return "Administrator";
+  return "Requester";
 }
 
 function formatFileSize(sizeBytes: number): string {
@@ -150,6 +175,17 @@ export default function TicketDetail({
   const [state, setState] = useState<"loading" | "success" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [comments, setComments] = useState<PublicComment[]>([]);
+  const [commentsState, setCommentsState] = useState<"loading" | "success" | "error">("loading");
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [commentsRetry, setCommentsRetry] = useState(0);
+  const [commentContent, setCommentContent] = useState("");
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [commentFormError, setCommentFormError] = useState<string | null>(null);
+  const [isConfirmingIndication, setIsConfirmingIndication] = useState(false);
+  const [isSendingIndication, setIsSendingIndication] = useState(false);
+  const [indicationError, setIndicationError] = useState<string | null>(null);
+  const [indicationSuccess, setIndicationSuccess] = useState(false);
   const [uploadRows, setUploadRows] = useState<UploadRow[]>([]);
   const [removeDialog, setRemoveDialog] = useState<RemoveDialogState | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
@@ -160,6 +196,7 @@ export default function TicketDetail({
   const dialogRef = useRef<HTMLElement>(null);
   const fileInputId = `detail-attachment-${useId().replace(/:/gu, "")}`;
   const removeReasonId = `${fileInputId}-reason`;
+  const commentInputId = `${fileInputId}-comment`;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -186,6 +223,27 @@ export default function TicketDetail({
 
     return () => controller.abort();
   }, [retry, ticketId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCommentsState("loading");
+    setCommentsError(null);
+
+    fetchPublicComments(ticketId, controller.signal)
+      .then((loadedComments) => {
+        setComments(loadedComments);
+        setCommentsState("success");
+      })
+      .catch((requestError: unknown) => {
+        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        setCommentsState("error");
+        setCommentsError(
+          safeErrorMessage(requestError, "Unable to load Public Comments. Please try again."),
+        );
+      });
+
+    return () => controller.abort();
+  }, [commentsRetry, ticketId]);
 
   useEffect(() => {
     if (removeDialog === null) return;
@@ -248,6 +306,49 @@ export default function TicketDetail({
 
   function goBack() {
     onNavigate?.("my-tickets");
+  }
+
+  async function submitComment() {
+    const content = commentContent.trim();
+    if (content.length < 1 || content.length > 2000) {
+      setCommentFormError("Comment must be 1 to 2,000 characters after trimming.");
+      return;
+    }
+
+    setIsPostingComment(true);
+    setCommentFormError(null);
+    try {
+      const created = await postPublicComment(ticketId, content);
+      setComments((current) => [...current, created]);
+      setCommentContent("");
+      setCommentsState("success");
+    } catch (postError: unknown) {
+      setCommentFormError(
+        safeErrorMessage(postError, "Unable to post Public Comment. Please try again."),
+      );
+    } finally {
+      setIsPostingComment(false);
+    }
+  }
+
+  async function sendResolutionIndication() {
+    setIsSendingIndication(true);
+    setIndicationError(null);
+    try {
+      const updatedTicket = await recordProblemAppearsResolved(ticketId);
+      setTicket(updatedTicket);
+      setIsConfirmingIndication(false);
+      setIndicationSuccess(true);
+    } catch (indicationRequestError: unknown) {
+      setIndicationError(
+        safeErrorMessage(
+          indicationRequestError,
+          "Unable to send the resolution indication. Please try again.",
+        ),
+      );
+    } finally {
+      setIsSendingIndication(false);
+    }
   }
 
   async function uploadOne(row: UploadRow) {
@@ -489,7 +590,7 @@ export default function TicketDetail({
           <h1>Ticket Detail</h1>
           {ticket !== null && (
             <p className="zen-detail-ticket-number">
-              {ticket.ticketNumber} · <span className="zen-badge zen-badge-status">{ticket.currentStatus === "NEW" ? "New" : ticket.currentStatus}</span>
+              {ticket.ticketNumber} · <span className="zen-badge zen-badge-status">{formatStatus(ticket.currentStatus)}</span>
             </p>
           )}
         </div>
@@ -534,7 +635,7 @@ export default function TicketDetail({
               <ReadOnlyValue label="Related System" value={ticket.relatedSystem.name} />
               <ReadOnlyValue label="Requested Priority" value={formatPriority(ticket.requestedPriority)} />
               <ReadOnlyValue label="IT Priority" value={formatPriority(ticket.itPriority)} />
-              <ReadOnlyValue label="Current Status" value={ticket.currentStatus === "NEW" ? "New" : ticket.currentStatus} />
+              <ReadOnlyValue label="Current Status" value={formatStatus(ticket.currentStatus)} />
             </dl>
             <div className="zen-detail-text-grid">
               <div className="zen-read-only-text">
@@ -607,6 +708,137 @@ export default function TicketDetail({
                 </ul>
               )}
             </div>
+          </section>
+
+          {(ticket.currentStatus === "IN_PROGRESS" ||
+            ticket.currentStatus === "WAITING_FOR_REQUESTER") &&
+            ticket.requesterResolutionIndicatedAt === null &&
+            !indicationSuccess && (
+              <section className="zen-form-section zen-resolution-indication" aria-labelledby="resolution-indication-heading">
+                <h2 id="resolution-indication-heading">Problem Appears Resolved</h2>
+                <p className="zen-field-help">
+                  Tell IT Staff that the problem appears resolved. This does not change the formal Ticket status.
+                </p>
+                {indicationError !== null && (
+                  <div className="zen-callout zen-callout-error" role="alert">{indicationError}</div>
+                )}
+                {!isConfirmingIndication ? (
+                  <button
+                    type="button"
+                    className="zen-button zen-button-secondary"
+                    onClick={() => {
+                      setIndicationError(null);
+                      setIsConfirmingIndication(true);
+                    }}
+                  >
+                    Problem Appears Resolved
+                  </button>
+                ) : (
+                  <div className="zen-resolution-confirmation" role="group" aria-label="Confirm resolution indication">
+                    <p>Confirm that the problem appears resolved. IT Staff will review this indication.</p>
+                    <div className="zen-action-row">
+                      <button
+                        type="button"
+                        className="zen-button zen-button-primary"
+                        onClick={() => void sendResolutionIndication()}
+                        disabled={isSendingIndication}
+                      >
+                        {isSendingIndication ? "Sending…" : "Confirm indication"}
+                      </button>
+                      <button
+                        type="button"
+                        className="zen-button zen-button-secondary"
+                        onClick={() => setIsConfirmingIndication(false)}
+                        disabled={isSendingIndication}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+          {(ticket.requesterResolutionIndicatedAt !== null || indicationSuccess) && (
+            <section className="zen-form-section" aria-labelledby="resolution-indication-sent-heading">
+              <div className="zen-callout zen-callout-info" role="status" id="resolution-indication-sent-heading">
+                Indication sent to IT Staff. The formal Ticket status remains {formatStatus(ticket.currentStatus)}.
+              </div>
+            </section>
+          )}
+
+          <section className="zen-form-section zen-public-comments" aria-labelledby="public-comments-heading">
+            <h2 id="public-comments-heading">Public Comments</h2>
+            <p className="zen-field-help">Visible to you and IT Staff.</p>
+
+            {commentsState === "loading" && (
+              <p className="zen-status" role="status" aria-live="polite">
+                <span className="zen-spinner" aria-hidden="true" /> Loading Public Comments…
+              </p>
+            )}
+            {commentsState === "error" && (
+              <div className="zen-callout zen-callout-error" role="alert">
+                <p>{commentsError ?? "Unable to load Public Comments."}</p>
+                <button
+                  type="button"
+                  className="zen-button zen-button-secondary zen-small-button"
+                  onClick={() => setCommentsRetry((value) => value + 1)}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {commentsState === "success" && comments.length === 0 && (
+              <p className="zen-empty-comments">No Public Comments yet.</p>
+            )}
+            {comments.length > 0 && (
+              <ol className="zen-comment-feed" aria-label="Public Comment history">
+                {comments.map((comment) => (
+                  <li className="zen-comment-item" key={comment.id}>
+                    <div className="zen-comment-meta">
+                      <strong>{comment.author.displayName}</strong>
+                      <span className="zen-badge zen-badge-role">{roleLabel(comment.author.role)}</span>
+                      <time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
+                    </div>
+                    <p>{comment.content}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            <form
+              className="zen-comment-composer"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitComment();
+              }}
+            >
+              <label htmlFor={commentInputId}>Add a Public Comment</label>
+              <textarea
+                id={commentInputId}
+                value={commentContent}
+                maxLength={2000}
+                rows={4}
+                aria-invalid={commentFormError !== null}
+                aria-describedby={commentFormError === null ? undefined : `${commentInputId}-error`}
+                onChange={(event) => {
+                  setCommentContent(event.target.value);
+                  setCommentFormError(null);
+                }}
+                disabled={isPostingComment}
+              />
+              <p className="zen-field-help">1–2,000 characters. Comments cannot be edited or deleted.</p>
+              {commentFormError !== null && (
+                <p id={`${commentInputId}-error`} className="zen-field-error" role="alert">{commentFormError}</p>
+              )}
+              <button
+                type="submit"
+                className="zen-button zen-button-primary"
+                disabled={isPostingComment || commentContent.trim().length === 0}
+              >
+                {isPostingComment ? "Posting…" : "Post Public Comment"}
+              </button>
+            </form>
           </section>
         </article>
       )}

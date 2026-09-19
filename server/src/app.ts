@@ -22,7 +22,14 @@ import {
   requireAuth,
   requirePasswordChangeComplete,
   requireRoles,
+  requireSameOrigin,
 } from "./auth-middleware.js";
+import {
+  createPublicComment,
+  listPublicComments,
+  validatePublicCommentBody,
+} from "./public-comment-service.js";
+import { recordProblemAppearsResolved } from "./requester-resolution-service.js";
 import { getPrisma } from "./prisma.js";
 import {
   assertOwnedTicket,
@@ -272,6 +279,119 @@ app.post("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Re
     sendApiError(res, error);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Issue 4 - requester resolution indication and Public Comments
+// ---------------------------------------------------------------------------
+app.post(
+  "/api/tickets/:ticketId/problem-appears-resolved",
+  requireSameOrigin,
+  requireRoles("REQUESTER"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    const body =
+      typeof req.body === "object" && req.body !== null && !Array.isArray(req.body)
+        ? (req.body as Record<string, unknown>)
+        : {};
+    const fields: Record<string, string> = {};
+
+    if (ticketId === null) fields.ticketId = "A positive integer is required.";
+    for (const key of Object.keys(body)) {
+      if (key !== "confirm") fields[key] = "This field is not accepted.";
+    }
+    if (body.confirm !== true) {
+      fields.confirm = "Confirmation must be true.";
+    }
+
+    if (Object.keys(fields).length > 0) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Request validation failed.", fields),
+      );
+      return;
+    }
+
+    try {
+      const ticket = await recordProblemAppearsResolved(
+        getPrisma(),
+        ticketId as number,
+        req.auth!.user.id,
+      );
+      res.status(200).json({ data: serializeTicket(ticket) });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/tickets/:ticketId/comments",
+  requireRoles("REQUESTER", "IT_STAFF", "ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    try {
+      const data = await listPublicComments(
+        getPrisma(),
+        ticketId,
+        req.auth!.user.id,
+        req.auth!.user.role,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/tickets/:ticketId/comments",
+  requireSameOrigin,
+  requireRoles("REQUESTER", "IT_STAFF"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    const normalized = validatePublicCommentBody(req.body);
+    if (normalized instanceof ApiError) {
+      sendApiError(res, normalized);
+      return;
+    }
+
+    try {
+      const data = await createPublicComment(
+        getPrisma(),
+        ticketId,
+        req.auth!.user.id,
+        req.auth!.user.role,
+        normalized.content,
+      );
+      res.status(201).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Issue 5 - requester-owned Ticket list
