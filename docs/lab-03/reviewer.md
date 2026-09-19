@@ -53,9 +53,22 @@ The legacy requester-selection flow is still active in the client (RequesterCont
 Change Password validation
 The Change Password UI currently says “At least 8 characters,” but the Lab 3 spec requires passwords to be 12–128 characters. Could you please update the client-side validation and displayed requirement to match the spec?
 - How I responded: fixed it. Please review again kub.
+- Reviewer comment I received: good good 😊 aprooved approved 🍎
 
 PR #47 feature/16-requester-regression
 https://github.com/Ttime52/toktickit/pull/47
+
+- Reviewer comment I received: 
+- How I responded:
+
+PR #48 feature/17-staff-ticket-queue
+https://github.com/Ttime52/toktickit/pull/48
+
+- Reviewer comment I received: 
+- How I responded:
+
+PR #49 feature/18-staff-ticket-operations
+https://github.com/Ttime52/toktickit/pull/49
 
 - Reviewer comment I received: 
 - How I responded:
@@ -93,3 +106,4 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/53
 
 Please update the Queue status type/filter to support all required Lab 3 statuses and add/update the corresponding tests.
 - Partner's response: fixed. pls recheck jubb🫪
+- My comment: The previous issue with missing ticket statuses has been resolved. All good.

@@ -23,6 +23,15 @@ export interface TicketRequester {
 }
 
 export type RequestedPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type CurrentStatus =
+  | "NEW"
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "WAITING_FOR_REQUESTER"
+  | "RESOLVED"
+  | "CLOSED"
+  | "REOPENED"
+  | "CANCELLED";
 
 export interface RelatedSystem {
   id: number;
@@ -56,7 +65,8 @@ export interface Ticket {
   requestedPriority: RequestedPriority;
   itPriority: RequestedPriority | null;
   description: string;
-  currentStatus: "NEW";
+  currentStatus: CurrentStatus;
+  requesterResolutionIndicatedAt: string | null;
   attachments: TicketAttachment[];
   createdAt: string;
   updatedAt: string;
@@ -82,7 +92,7 @@ export interface TicketListItem {
   relatedSystem: RelatedSystem;
   requestedPriority: RequestedPriority;
   itPriority: RequestedPriority | null;
-  currentStatus: "NEW";
+  currentStatus: CurrentStatus;
   attachmentCount: number;
   updatedAt: string;
 }
@@ -92,7 +102,7 @@ export interface TicketListQuery {
   categoryId: number | null;
   relatedSystemId: number | null;
   requestedPriority: RequestedPriority | null;
-  currentStatus: "NEW" | null;
+  currentStatus: CurrentStatus | null;
   sortBy: TicketSortField;
   sortOrder: TicketSortOrder;
   page: number;
@@ -111,6 +121,18 @@ export interface TicketListMeta {
 export interface TicketListResult {
   data: TicketListItem[];
   meta: TicketListMeta;
+}
+
+export interface PublicComment {
+  id: number;
+  ticketId: number;
+  content: string;
+  author: {
+    id: number;
+    displayName: string;
+    role: UserRole;
+  };
+  createdAt: string;
 }
 
 export interface CreateTicketInput {
@@ -423,6 +445,72 @@ export async function fetchTicket(
     throw new ApiRequestError("Invalid Ticket Detail response.", response.status);
   }
 
+  return body.data as Ticket;
+}
+
+export async function fetchPublicComments(
+  ticketId: number,
+  signal?: AbortSignal,
+): Promise<PublicComment[]> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/comments`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Public Comments.");
+  }
+  if (!Array.isArray(body.data)) {
+    throw new ApiRequestError("Invalid Public Comments response.", response.status);
+  }
+  return body.data as PublicComment[];
+}
+
+export async function postPublicComment(
+  ticketId: number,
+  content: string,
+): Promise<PublicComment> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/comments`,
+    withCredentials({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    }),
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to post Public Comment.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Public Comment response.", response.status);
+  }
+  return body.data as PublicComment;
+}
+
+export async function recordProblemAppearsResolved(ticketId: number): Promise<Ticket> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/problem-appears-resolved`,
+    withCredentials({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: true }),
+    }),
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(
+      response,
+      body,
+      "Unable to send the resolution indication.",
+    );
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid resolution indication response.", response.status);
+  }
   return body.data as Ticket;
 }
 
