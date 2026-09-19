@@ -7,7 +7,8 @@ export type AppPage =
   | "create-ticket"
   | "ticket-detail"
   | "staff-queue"
-  | "staff-ticket-detail";
+  | "staff-ticket-detail"
+  | "admin-users";
 
 interface ApplicationShellProps {
   currentPage: AppPage;
@@ -22,6 +23,12 @@ function roleLabel(role: UserRole): string {
   if (role === "IT_STAFF") return "IT Staff";
   if (role === "ADMINISTRATOR") return "Administrator";
   return "Requester";
+}
+
+function homePageForRole(role: UserRole): AppPage {
+  if (role === "IT_STAFF") return "staff-queue";
+  if (role === "ADMINISTRATOR") return "admin-users";
+  return "my-tickets";
 }
 
 export default function ApplicationShell({
@@ -47,10 +54,10 @@ export default function ApplicationShell({
         <div className="zen-header-inner">
           <a
             className="zen-brand"
-            href="/my-tickets"
+            href={user.role === "IT_STAFF" ? "/staff/tickets" : user.role === "ADMINISTRATOR" ? "/admin/users" : "/my-tickets"}
             onClick={(event) => {
               event.preventDefault();
-              navigate("my-tickets");
+              navigate(homePageForRole(user.role));
             }}
           >
             TokTickIT
@@ -125,7 +132,17 @@ export default function ApplicationShell({
                 Ticket Queue
               </a>
             ) : (
-              <a href="/admin/users">User Management</a>
+              <a
+                href="/admin/users"
+                aria-current={currentPage === "admin-users" ? "page" : undefined}
+                className={currentPage === "admin-users" ? "is-active" : ""}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate("admin-users");
+                }}
+              >
+                User Management
+              </a>
             )}
           </nav>
 

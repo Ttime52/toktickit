@@ -11,6 +11,31 @@ export interface AuthUser {
   mustChangePassword: boolean;
 }
 
+export interface ManagedUser extends AuthUser {
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUserQuery {
+  search: string;
+  role: UserRole | null;
+}
+
+export interface CreateAdminUserInput {
+  displayName: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  initialPassword: string;
+}
+
+export interface UpdateAdminUserInput {
+  displayName?: string;
+  email?: string;
+  role?: UserRole;
+  isActive?: boolean;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -566,6 +591,93 @@ export async function fetchStaffUsers(
     throw new ApiRequestError("Invalid Ticket Owner response.", response.status);
   }
   return body.data as StaffUserOption[];
+}
+
+export async function fetchAdminUsers(
+  query: AdminUserQuery,
+  signal?: AbortSignal,
+): Promise<ManagedUser[]> {
+  const params = new URLSearchParams();
+  if (query.search.trim().length > 0) params.set("search", query.search.trim());
+  if (query.role !== null) params.set("role", query.role);
+
+  const response = await fetch(
+    `${API_URL}/api/users?${params.toString()}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load User Management.");
+  }
+  if (!Array.isArray(body.data)) {
+    throw new ApiRequestError("Invalid User Management response.", response.status);
+  }
+  return body.data as ManagedUser[];
+}
+
+export async function createAdminUser(
+  input: CreateAdminUserInput,
+): Promise<ManagedUser> {
+  const response = await fetch(
+    `${API_URL}/api/users`,
+    withCredentials({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to create User.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid User creation response.", response.status);
+  }
+  return body.data as ManagedUser;
+}
+
+export async function updateAdminUser(
+  userId: number,
+  input: UpdateAdminUserInput,
+): Promise<ManagedUser> {
+  const response = await fetch(
+    `${API_URL}/api/users/${userId}`,
+    withCredentials({
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to update User.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid User update response.", response.status);
+  }
+  return body.data as ManagedUser;
+}
+
+export async function resetAdminUserPassword(
+  userId: number,
+  initialPassword: string,
+): Promise<ManagedUser> {
+  const response = await fetch(
+    `${API_URL}/api/users/${userId}/reset-password`,
+    withCredentials({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initialPassword }),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to reset the User password.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid User password response.", response.status);
+  }
+  return body.data as ManagedUser;
 }
 
 export async function fetchStaffTicket(

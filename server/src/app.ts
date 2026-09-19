@@ -56,6 +56,16 @@ import {
   validateStaffTicketUpdateBody,
 } from "./staff-ticket-detail-service.js";
 import {
+  createManagedUser,
+  listManagedUsers,
+  parseUserListQuery,
+  resetManagedUserPassword,
+  updateManagedUser,
+  validateCreateManagedUserBody,
+  validateResetManagedUserPasswordBody,
+  validateUpdateManagedUserBody,
+} from "./user-management-service.js";
+import {
   normalizeCreateTicketInput,
   validateIdempotencyKey,
 } from "./ticket-validation.js";
@@ -369,6 +379,115 @@ app.patch(
   requireRoles("IT_STAFF", "ADMINISTRATOR"),
   async (req: Request, res: Response) => {
     await updateStaffTicketRoute(req, res, "full");
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Issue 7 - Administrator User Management
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/users",
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const parsedQuery = parseUserListQuery(req.query as Record<string, unknown>);
+    if (!parsedQuery.ok) {
+      sendApiError(res, parsedQuery.error);
+      return;
+    }
+
+    try {
+      const data = await listManagedUsers(getPrisma(), parsedQuery.value);
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/users",
+  requireSameOrigin,
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const normalized = validateCreateManagedUserBody(req.body);
+    if (!normalized.ok) {
+      sendApiError(res, normalized.error);
+      return;
+    }
+
+    try {
+      const data = await createManagedUser(getPrisma(), normalized.value);
+      res.status(201).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+function parseUserId(req: Request, res: Response): number | null {
+  const userId = parsePositiveInteger(req.params.userId);
+  if (userId !== null) return userId;
+  sendApiError(
+    res,
+    new ApiError(400, "VALIDATION_ERROR", "User ID must be a positive integer.", {
+      userId: "A positive integer is required.",
+    }),
+  );
+  return null;
+}
+
+app.patch(
+  "/api/users/:userId",
+  requireSameOrigin,
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const userId = parseUserId(req, res);
+    if (userId === null) return;
+
+    const normalized = validateUpdateManagedUserBody(req.body);
+    if (!normalized.ok) {
+      sendApiError(res, normalized.error);
+      return;
+    }
+
+    try {
+      const data = await updateManagedUser(
+        getPrisma(),
+        userId,
+        req.auth!.user.id,
+        normalized.value,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/users/:userId/reset-password",
+  requireSameOrigin,
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const userId = parseUserId(req, res);
+    if (userId === null) return;
+
+    const normalized = validateResetManagedUserPasswordBody(req.body);
+    if (!normalized.ok) {
+      sendApiError(res, normalized.error);
+      return;
+    }
+
+    try {
+      const data = await resetManagedUserPassword(
+        getPrisma(),
+        userId,
+        normalized.value,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
   },
 );
 
