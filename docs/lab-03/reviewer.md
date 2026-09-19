@@ -64,8 +64,8 @@ https://github.com/Ttime52/toktickit/pull/47
 PR #48 feature/17-staff-ticket-queue
 https://github.com/Ttime52/toktickit/pull/48
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: The implementation appears aligned with the documented queue requirements. I only noticed one clarification point: the PR description states 15 server tests and 6 client tests, but the current staff-queue.api.test.ts and StaffTicketQueue.test.tsx contain 3 and 2 test cases respectively. If 15/6 refers to assertions or other coverage, could you clarify the counting? Otherwise, please update the test counts.
+- How I responded: Clarified the counts. The 15 server tests and 6 client tests refer to the complete Lab 3 test run: 5 server test files / 15 cases and 4 client test files / 6 cases. Issue 5 itself adds 3 server cases in `staff-queue.api.test.ts` and 2 client cases in `StaffTicketQueue.test.tsx`.
 
 PR #49 feature/18-staff-ticket-operations
 https://github.com/Ttime52/toktickit/pull/49
