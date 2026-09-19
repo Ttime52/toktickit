@@ -47,10 +47,11 @@ describe("Mandatory Change Password screen (UI-01)", () => {
     await userEventInstance.type(screen.getByLabelText(/Confirm new password/), "NewPassword2@");
     await userEventInstance.click(screen.getByRole("button", { name: "Change password" }));
 
-    expect(await screen.findByRole("heading", { name: "Your IT Staff workspace" })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "http://localhost:3000/api/auth/change-password",
-      expect.objectContaining({ credentials: "include" }),
+    expect(await screen.findByRole("heading", { name: "Ticket Queue" })).toBeInTheDocument();
+    const changePasswordCall = fetchMock.mock.calls.find(
+      ([url]) => url === "http://localhost:3000/api/auth/change-password",
     );
+    expect(changePasswordCall).toBeDefined();
+    expect(changePasswordCall?.[1]).toEqual(expect.objectContaining({ credentials: "include" }));
   });
 });

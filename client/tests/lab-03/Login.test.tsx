@@ -49,10 +49,9 @@ describe("Login screen (UI-01)", () => {
     expect(screen.getByText("narin@example.test")).toBeInTheDocument();
     expect(screen.getByText("IT Staff")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Logout" })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "http://localhost:3000/api/auth/login",
-      expect.objectContaining({ credentials: "include" }),
-    );
+    const loginCall = fetchMock.mock.calls.find(([url]) => url === "http://localhost:3000/api/auth/login");
+    expect(loginCall).toBeDefined();
+    expect(loginCall?.[1]).toEqual(expect.objectContaining({ credentials: "include" }));
   });
 
   it("uses a generic message for invalid or inactive accounts", async () => {

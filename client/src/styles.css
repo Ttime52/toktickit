@@ -819,6 +819,195 @@ h1 {
   display: none;
 }
 
+.zen-user-management {
+  min-width: 0;
+}
+
+.zen-user-management-heading {
+  align-items: flex-end;
+}
+
+.zen-user-toolbar {
+  align-items: end;
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(240px, 2fr) minmax(180px, 1fr) auto;
+  margin-bottom: 24px;
+  padding: 20px;
+}
+
+.zen-user-table-wrap {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.zen-user-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.zen-user-table th,
+.zen-user-table td {
+  border-bottom: 1px solid var(--zen-border);
+  padding: 14px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.zen-user-table th {
+  background: var(--zen-readonly);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zen-user-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.zen-user-table tbody tr:hover {
+  background: var(--zen-pale);
+}
+
+.zen-user-status {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.zen-user-status.is-active {
+  background: var(--zen-pale);
+  border-color: var(--zen-success);
+  color: var(--zen-success);
+}
+
+.zen-user-status.is-inactive {
+  background: var(--zen-disabled-bg);
+  border-color: var(--zen-border);
+  color: var(--zen-disabled-text);
+}
+
+.zen-user-card-list {
+  display: none;
+}
+
+.zen-user-card {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.zen-user-card h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+
+.zen-user-card dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.zen-user-card dt {
+  color: var(--zen-muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.zen-user-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.zen-user-card .zen-button {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.zen-user-drawer-backdrop {
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.zen-user-drawer {
+  background: var(--zen-surface);
+  border-left: 1px solid var(--zen-border);
+  box-shadow: -8px 0 32px rgb(23 53 42 / 24%);
+  height: 100%;
+  max-width: 560px;
+  overflow-y: auto;
+  padding: 32px;
+  width: 100%;
+}
+
+.zen-user-drawer-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.zen-user-drawer-heading h2 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.zen-form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.zen-user-activation-field {
+  margin-top: 24px;
+}
+
+.zen-switch-label,
+.zen-confirmation-check {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.zen-switch-label input,
+.zen-confirmation-check input {
+  height: 18px;
+  width: 18px;
+}
+
+.zen-user-form-actions {
+  border-top: 1px solid var(--zen-border);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+
+.zen-user-reset-section {
+  border-top: 1px solid var(--zen-border);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+
+.zen-user-reset-section h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
 .zen-ticket-skeleton {
   background: var(--zen-surface);
   border: 1px solid var(--zen-border);
@@ -1283,6 +1472,14 @@ h1 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .zen-user-toolbar {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  .zen-user-toolbar .zen-clear-filters {
+    grid-column: 1 / -1;
+  }
+
   .zen-list-search {
     grid-column: 1 / -1;
   }
@@ -1400,6 +1597,23 @@ h1 {
     padding: 16px;
   }
 
+  .zen-user-management-heading {
+    align-items: stretch;
+  }
+
+  .zen-user-management-heading .zen-button {
+    width: 100%;
+  }
+
+  .zen-user-toolbar {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .zen-user-toolbar .zen-clear-filters {
+    grid-column: auto;
+  }
+
   .zen-list-search {
     grid-column: auto;
   }
@@ -1410,6 +1624,15 @@ h1 {
 
   .zen-ticket-table-wrap {
     display: none;
+  }
+
+  .zen-user-table-wrap {
+    display: none;
+  }
+
+  .zen-user-card-list {
+    display: grid;
+    gap: 12px;
   }
 
   .zen-ticket-card-list {
@@ -1539,5 +1762,19 @@ h1 {
 
   .zen-dialog-actions .zen-button {
     flex: 1;
+  }
+
+  .zen-user-drawer {
+    max-width: none;
+    padding: 24px 16px;
+  }
+
+  .zen-user-drawer-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .zen-user-drawer-heading .zen-button {
+    width: 100%;
   }
 }
