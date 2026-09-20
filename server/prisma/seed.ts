@@ -6,6 +6,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { allocateTicketNumber } from "../src/ticket-number.js";
 import { getPrisma } from "../src/prisma.js";
+import { passwordCodePointLength } from "../src/auth-service.js";
 
 const CATEGORY_NAMES = ["Account and Access", "Hardware", "Software", "Network"];
 const RELATED_SYSTEM_NAMES = [
@@ -48,7 +49,8 @@ function normalizedEmail(email: string): string {
 
 function seedPassword(): string {
   const value = process.env.LAB3_SEED_INITIAL_PASSWORD;
-  if (value === undefined || value.length < 12 || value.length > 128) {
+  const length = value === undefined ? 0 : passwordCodePointLength(value);
+  if (value === undefined || length < 12 || length > 128) {
     throw new Error(
       "LAB3_SEED_INITIAL_PASSWORD must be set outside source control and contain 12 to 128 characters.",
     );

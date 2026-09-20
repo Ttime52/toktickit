@@ -9,6 +9,7 @@ import {
   type ManagedUser,
   type UserRole,
 } from "./api.js";
+import { passwordPolicyError } from "./password-policy.js";
 
 interface UserManagementProps {
   onSessionRefresh?: () => void;
@@ -67,17 +68,6 @@ function safeErrorMessage(error: unknown, fallback: string): string {
   )
     ? fallback
     : error.message;
-}
-
-function passwordPolicyError(value: string): string | null {
-  if (value.length < 12 || value.length > 128) {
-    return "Password must be 12 to 128 characters.";
-  }
-  if (!/[A-Z]/u.test(value)) return "Password must contain an uppercase letter.";
-  if (!/[a-z]/u.test(value)) return "Password must contain a lowercase letter.";
-  if (!/[0-9]/u.test(value)) return "Password must contain a number.";
-  if (!/[^A-Za-z0-9]/u.test(value)) return "Password must contain a special character.";
-  return null;
 }
 
 function isFiltered(search: string, role: "" | UserRole): boolean {

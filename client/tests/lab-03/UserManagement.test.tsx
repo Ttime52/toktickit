@@ -3,6 +3,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import UserManagement from "../../src/UserManagement.js";
+import {
+  passwordCodePointLength,
+  passwordPolicyError,
+} from "../../src/password-policy.js";
 
 function jsonResponse(body: unknown, status = 200) {
   return {
@@ -42,6 +46,22 @@ afterEach(() => {
 });
 
 describe("Administrator User Management (UI-05)", () => {
+  it("counts Unicode password boundaries by code point", () => {
+    const minimum = `Aa1!😀${"x".repeat(7)}`;
+    const belowMinimum = `Aa1!😀${"x".repeat(6)}`;
+    const maximum = `Aa1!😀${"x".repeat(123)}`;
+    const aboveMaximum = `Aa1!😀${"x".repeat(124)}`;
+
+    expect(passwordCodePointLength(minimum)).toBe(12);
+    expect(minimum.length).toBe(13);
+    expect(passwordPolicyError(minimum)).toBeNull();
+    expect(passwordPolicyError(belowMinimum)).toMatch(/12 to 128/u);
+    expect(passwordCodePointLength(maximum)).toBe(128);
+    expect(maximum.length).toBe(129);
+    expect(passwordPolicyError(maximum)).toBeNull();
+    expect(passwordPolicyError(aboveMaximum)).toMatch(/12 to 128/u);
+  });
+
   it("renders users, combines filters, requires deactivation confirmation and sends explicit activation", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

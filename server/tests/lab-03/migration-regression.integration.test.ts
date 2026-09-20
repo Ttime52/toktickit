@@ -1,13 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { seedDatabase } from "../../prisma/seed.js";
+import { passwordCodePointLength } from "../../src/auth-service.js";
 import { getPrisma } from "../../src/prisma.js";
 
 describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
   const prisma = getPrisma();
 
   beforeAll(async () => {
-    expect(process.env.LAB3_SEED_INITIAL_PASSWORD).toMatch(/^.{12,128}$/s);
+    const seedPassword = process.env.LAB3_SEED_INITIAL_PASSWORD ?? "";
+    expect(passwordCodePointLength(seedPassword)).toBeGreaterThanOrEqual(12);
+    expect(passwordCodePointLength(seedPassword)).toBeLessThanOrEqual(128);
     await prisma.$connect();
   });
 

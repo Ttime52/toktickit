@@ -2,9 +2,20 @@ import { useId, useMemo, useState, type FormEvent } from "react";
 
 import { ApiRequestError } from "./api.js";
 import { useAuth } from "./AuthContext.js";
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordCodePointLength,
+} from "./password-policy.js";
 
 const PASSWORD_RULES = [
-  { label: "12–128 characters", test: (value: string) => value.length >= 12 && value.length <= 128 },
+  {
+    label: "12–128 characters",
+    test: (value: string) => {
+      const length = passwordCodePointLength(value);
+      return length >= PASSWORD_MIN_LENGTH && length <= PASSWORD_MAX_LENGTH;
+    },
+  },
   { label: "One uppercase letter", test: (value: string) => /[A-Z]/u.test(value) },
   { label: "One lowercase letter", test: (value: string) => /[a-z]/u.test(value) },
   { label: "One number", test: (value: string) => /[0-9]/u.test(value) },
