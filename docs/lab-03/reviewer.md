@@ -11,7 +11,7 @@
 |  #46  | feature/15-auth-foundation | Request changes and Approved |
 |  #47  | feature/16-requester-regression | Approved |
 |  #48  | feature/17-staff-ticket-queue | Request changes and Approved |
-|  #49  | feature/18-staff-ticket-operations |  |
+|  #49  | feature/18-staff-ticket-operations | Request changes and Approved |
 |  #50  | feature/19-admin-user-management |  |
 |  #51  | feature/20-e2e-regression-qa |  |
 |  #52  | feature/21-docs-release-lab3 |  |
@@ -71,8 +71,11 @@ https://github.com/Ttime52/toktickit/pull/48
 PR #49 feature/18-staff-ticket-operations
 https://github.com/Ttime52/toktickit/pull/49
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: Overall, the implementation looks good and the other reviewed parts are okay. I only found one issue with the status transition workflow:
+
+The specification requires CANCELLED → REOPENED to be an allowed transition, but the current implementation has CANCELLED: [].
+- How I responded: I have fixed the issue. Pls review again
+- Reviewer comment I received: Okayy, I’ll merge it 😘
 
 PR #50 feature/19-admin-user-management
 https://github.com/Ttime52/toktickit/pull/50
@@ -134,5 +137,25 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/54
 
 feature/21-priority-status-management
 https://github.com/KwanchanokThungsuk/toktickit/pull/55
-- My comment: 
-- Partner's response:
+- My comment: The priority/status workflow looks aligned overall. Before approval, could you confirm that the status transition matrix implemented here matches the approved Lab 3 specification, and clarify how Administrator users can update IT Priority? The Lab 3 rules permit IT Priority changes by IT Staff or Administrator, while the current Staff Ticket Detail UI is IT Staff-only.
+- Partner's response: Thanks for the review. I confirmed that the implemented status transition matrix matches the approved Lab 3 specification:
+
+NEW → OPEN, CANCELLED
+OPEN → IN_PROGRESS, WAITING_FOR_REQUESTER, CANCELLED
+IN_PROGRESS → WAITING_FOR_REQUESTER, RESOLVED, CANCELLED
+WAITING_FOR_REQUESTER → IN_PROGRESS, RESOLVED, CANCELLED
+RESOLVED → CLOSED, REOPENED
+CLOSED → REOPENED
+REOPENED → IN_PROGRESS, WAITING_FOR_REQUESTER, CANCELLED
+CANCELLED → REOPENED
+For Administrator access, the backend already allows both IT Staff and Administrator to update itPriority, while only IT Staff can update ticket status.
+
+The current Staff Ticket Detail UI is intentionally IT Staff-only. The Administrator UI/context for ticket review is planned under Issue #24, so the Admin priority action will be exposed there rather than through the current Staff-only screen.
+
+Therefore, the authorization is enforced on the backend in this issue, while the Administrator-facing UI is deferred to Issue #24.
+- My comment: Thanks for the clarification. The transition matrix matches the approved specification, and the Administrator priority workflow is appropriately covered by the backend authorization with the Administrator-facing UI deferred to Issue #24. This resolves my concern.
+
+feature/22-public-comment-internal-note
+https://github.com/KwanchanokThungsuk/toktickit/pull/56
+- My comment: Public Comments and Internal Notes follow the required visibility rules, requester access to Internal Notes is protected, author/timestamp handling is backend-controlled, and the 2,000-character validation, Unicode handling, draft preservation, and responsive UI are covered with tests. Approved.
+- Partner's response: Merged.

@@ -9,19 +9,28 @@ import MyTickets from "./MyTickets.js";
 import StaffTicketQueue from "./StaffTicketQueue.js";
 import StaffTicketDetail from "./StaffTicketDetail.js";
 import TicketDetail from "./TicketDetail.js";
+import UserManagement from "./UserManagement.js";
 import "./styles.css";
 
 function pageFromPath(pathname: string): AppPage {
   if (pathname === "/create-ticket") return "create-ticket";
   if (pathname === "/staff/tickets") return "staff-queue";
   if (/^\/staff\/tickets\/[1-9]\d*$/u.test(pathname)) return "staff-ticket-detail";
+  if (pathname === "/admin/users") return "admin-users";
   if (/^\/tickets\/[1-9]\d*$/u.test(pathname)) return "ticket-detail";
   return "my-tickets";
 }
 
 function pathForPage(page: AppPage): string {
   if (page === "staff-queue") return "/staff/tickets";
+  if (page === "admin-users") return "/admin/users";
   return page === "create-ticket" ? "/create-ticket" : "/my-tickets";
+}
+
+function defaultPathForRole(role: string): string {
+  if (role === "IT_STAFF") return "/staff/tickets";
+  if (role === "ADMINISTRATOR") return "/admin/users";
+  return "/my-tickets";
 }
 
 function ticketIdFromPath(pathname: string): number | null {
@@ -76,9 +85,14 @@ function ForbiddenState({ area }: { area: string }) {
 }
 
 function AuthenticatedApp() {
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
   const [pathname, setPathname] = useState(
-    () => window.location.pathname || "/my-tickets",
+    () => {
+      const currentPath = window.location.pathname;
+      return currentPath === "/" || currentPath === "/my-tickets"
+        ? defaultPathForRole(user?.role ?? "REQUESTER")
+        : currentPath;
+    },
   );
   const [showChangePassword, setShowChangePassword] = useState(false);
 
@@ -118,7 +132,9 @@ function AuthenticatedApp() {
       {showChangePassword ? (
         <ChangePassword voluntary />
       ) : user.role !== "REQUESTER" ? (
-        (currentPage === "staff-queue" || currentPage === "staff-ticket-detail") && user.role !== "IT_STAFF" ? (
+        currentPage === "admin-users" && user.role !== "ADMINISTRATOR" ? (
+          <ForbiddenState area="Administrator User Management" />
+        ) : (currentPage === "staff-queue" || currentPage === "staff-ticket-detail") && user.role !== "IT_STAFF" ? (
           <ForbiddenState
             area={currentPage === "staff-ticket-detail" ? "the IT Staff Ticket Detail" : "the IT Staff Ticket Queue"}
           />
@@ -129,12 +145,14 @@ function AuthenticatedApp() {
             ticketId={staffTicketId}
             onBack={() => navigateTo("/staff/tickets")}
           />
+        ) : user.role === "ADMINISTRATOR" && currentPage === "admin-users" ? (
+          <UserManagement onSessionRefresh={() => void refresh()} />
         ) : (
           <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
         )
       ) : (
-        currentPage === "staff-queue" || currentPage === "staff-ticket-detail" ? (
-          <ForbiddenState area="the IT Staff Ticket Queue" />
+        currentPage === "staff-queue" || currentPage === "staff-ticket-detail" || currentPage === "admin-users" ? (
+          <ForbiddenState area={currentPage === "admin-users" ? "Administrator User Management" : "the IT Staff Ticket Queue"} />
         ) : <div>
           {currentPage === "create-ticket" ? (
             <CreateTicket

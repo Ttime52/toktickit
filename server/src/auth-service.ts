@@ -26,6 +26,10 @@ export type AuthSession = {
   user: AuthUserShape;
 };
 
+export function passwordCodePointLength(value: string): number {
+  return [...value].length;
+}
+
 type PrismaExecutor = PrismaClient | Prisma.TransactionClient;
 
 const USER_SHAPE_SELECT = {
@@ -66,7 +70,8 @@ export function isValidEmail(value: string): boolean {
 }
 
 export function passwordPolicyError(value: string): string | null {
-  if (value.length < PASSWORD_MIN_LENGTH || value.length > PASSWORD_MAX_LENGTH) {
+  const length = passwordCodePointLength(value);
+  if (length < PASSWORD_MIN_LENGTH || length > PASSWORD_MAX_LENGTH) {
     return `Password must be ${PASSWORD_MIN_LENGTH} to ${PASSWORD_MAX_LENGTH} characters.`;
   }
   if (!/[A-Z]/u.test(value)) return "Password must contain an uppercase letter.";
