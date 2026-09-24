@@ -108,11 +108,24 @@ describe("Issue 4 requester regression (API-03)", () => {
 
   afterAll(async () => {
     await prisma.publicComment.deleteMany({ where: { ticketId } });
+    await prisma.internalNote.deleteMany({ where: { ticketId } });
     await prisma.ticket.delete({ where: { id: ticketId } });
     await prisma.user.deleteMany({
       where: { id: { in: [requesterId, otherRequesterId, staffId, administratorId] } },
     });
     await prisma.$disconnect();
+  });
+
+  it("retires the legacy requester selector endpoints", async () => {
+    const [developmentRequester, requesterList] = await Promise.all([
+      request(app).get("/api/development-requesters"),
+      request(app).get("/api/requesters"),
+    ]);
+
+    for (const response of [developmentRequester, requesterList]) {
+      expect(response.status).toBe(410);
+      expect(response.body.error.code).toBe("ENDPOINT_RETIRED");
+    }
   });
 
   it("derives ownership from the session and ignores a spoofed requesterId body", async () => {
@@ -221,5 +234,39 @@ describe("Issue 4 requester regression (API-03)", () => {
     const internalNotes = await administrator.get(`/api/tickets/${ticketId}/internal-notes`);
     expect(internalNotes.status).toBe(200);
     expect(internalNotes.body.data).toEqual([]);
+  });
+
+  it("lets an Administrator inspect a Ticket through the shared detail route without Attachment data", async () => {
+    const staff = await login(
+      (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
+    );
+    const note = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/internal-notes`)
+        .send({ content: "Administrator inspection note." }),
+    );
+    expect(note.status).toBe(201);
+
+    const administrator = await login(
+      (await prisma.user.findUniqueOrThrow({ where: { id: administratorId } })).email,
+    );
+    const detail = await administrator.get(`/api/tickets/${ticketId}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.data).toMatchObject({
+      id: ticketId,
+      requester: { id: requesterId },
+      currentStatus: "IN_PROGRESS",
+      ticketOwner: null,
+      assignedTo: null,
+      assignedAt: null,
+    });
+    expect(detail.body.data).not.toHaveProperty("attachments");
+    expect(JSON.stringify(detail.body)).not.toContain("Administrator inspection note.");
+
+    const notes = await administrator.get(`/api/tickets/${ticketId}/internal-notes`);
+    expect(notes.status).toBe(200);
+    expect(notes.body.data).toEqual(
+      expect.arrayContaining([expect.objectContaining({ content: "Administrator inspection note." })]),
+    );
   });
 });

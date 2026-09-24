@@ -13,8 +13,8 @@
 | 6 | เปลี่ยนการเพิ่มเอกสารบัญชี local และวิธีตั้ง INITIAL_PASSWORD ใน ai-use.md ไปไว้ที่ไฟล์ readme.md และระบุ seed decisions | ทำการตรวจสอบไฟล์ที่บอกให้แก้ว่าได้แก้จริงไหม รวมถึงตรวจสอบความถูกต้อง |
 | 7 | check ว่าทำไมมี error StaffTicketDetail.test.tsx | อ่านและทำความเข้าใจว่า error เกิดจากอะไร และทำการบอก error message ให้กับ AI อีกครั้งเพื่อให้ AI วิเคราะห์เพิ่มเติมแล้วเราเช็คความถูกต้อง |
 | 8 | ที่หมายเหตุ: Full suite ที่รวม Lab 1/2 ยังมี test เก่าซึ่งถูกยกเลิกใน Lab 3 จึงยังไม่ผ่าน ตรงนี้ถ้าจะไม่รัน test เฉพาะ test เก่าที่ไม่ตรงตามแลปแล้วต้องทำไง | ทำการลองรันและดูโค้ดที่ให้มาว่าถูกต้องและสมเหตุสมผลไหม |
-| 9 |  |  |
-| 10 |  |  |
+| 9 | เช็ค E2E, Regression & Visual/Responsive QA ตาม Issue อีกรอบว่าตอนนี้ตรง criteria มั้ย | ตรวจสอบปัญหาที่พบเจอว่าเกิดจากอะไร พบว่า E2E รันไม่ผ่านเพราะพบว่ามีรหัสผ่านที่ค้างในระบบตั้งแต่เทสครั้งก่อน จึงทำการ reset datatbase ทำให e2e สามารถรันต่อได้ |
+| 10 | เช็ค 4 ไฟล์ specification.md, tests.md, ui-spec.md, and api-spec.md  ทำการอัพเดตให้ทุกอย่างผ่านตามที่เขียนไว้แล้วอัพเดตไฟล์ | ตรวจสอบไฟล์ที่อัพเดตว่าครบถ้วนและถูกต้องมั้ย พบว่ามีบาง test ไฟล์ยัง error อยู่จึงทำการแก้ไข |
 
 ## Reflection
 Two or three sentences: what made your prompts better, and one place you had to correct or reject what the agent produced.

@@ -43,8 +43,10 @@ import {
   assertOwnedTicket,
   createTicket,
   getOwnedTicket,
+  getTicketForInspection,
   listTickets,
   serializeTicket,
+  serializeTicketForInspection,
 } from "./ticket-service.js";
 import { parseTicketListQuery } from "./ticket-query.js";
 import { parseStaffTicketQuery } from "./staff-ticket-query.js";
@@ -740,21 +742,37 @@ app.get("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Res
 // ---------------------------------------------------------------------------
 // Issue 6 - requester-owned Ticket Detail and Attachment lifecycle
 // ---------------------------------------------------------------------------
-app.get("/api/tickets/:ticketId", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
-  const scope = parseTicketScope(req, res);
-  if (scope === null) return;
+app.get(
+  "/api/tickets/:ticketId",
+  requireRoles("REQUESTER", "ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
 
-  try {
-    const ticket = await getOwnedTicket(
-      getPrisma(),
-      scope.ticketId,
-      scope.requesterId,
-    );
-    res.status(200).json({ data: serializeTicket(ticket) });
-  } catch (error) {
-    sendApiError(res, error);
-  }
-});
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    try {
+      if (req.auth!.user.role === "ADMINISTRATOR") {
+        const ticket = await getTicketForInspection(getPrisma(), ticketId);
+        res.status(200).json({ data: serializeTicketForInspection(ticket) });
+        return;
+      }
+
+      const ticket = await getOwnedTicket(getPrisma(), ticketId, req.auth!.user.id);
+      res.status(200).json({ data: serializeTicket(ticket) });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
 
 app.get(
   "/api/tickets/:ticketId/attachments",

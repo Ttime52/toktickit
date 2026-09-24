@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "test:e2e": "playwright test",
+    "test:e2e:lab3": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report artifacts/lab-02/playwright-report"
+    "test:e2e:report": "playwright show-report artifacts/lab-03/playwright-report"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"

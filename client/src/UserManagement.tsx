@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
   ApiRequestError,
@@ -34,6 +34,14 @@ interface UserFormState {
 }
 
 const ROLES: UserRole[] = ["REQUESTER", "IT_STAFF", "ADMINISTRATOR"];
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 const EMPTY_FORM: UserFormState = {
   displayName: "",
@@ -92,6 +100,46 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const editorTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const editorRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (editor === null) return;
+
+    const dialog = editorRef.current;
+    if (dialog === null) return;
+    const dialogElement = dialog;
+
+    const getFocusableElements = () =>
+      Array.from(dialogElement.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (element) => element.getAttribute("aria-hidden") !== "true",
+      );
+
+    getFocusableElements()[0]?.focus();
+
+    function handleDialogKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Tab") return;
+
+      const focusableElements = getFocusableElements();
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (first === undefined || last === undefined) return;
+
+      if (!dialogElement.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => document.removeEventListener("keydown", handleDialogKeyDown);
+  }, [editor]);
 
   const queryKey = useMemo(
     () => JSON.stringify({ search: search.trim(), role: roleFilter }),
@@ -125,14 +173,16 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
     setRoleFilter("");
   }
 
-  function openCreate() {
+  function openCreate(trigger?: HTMLButtonElement) {
+    if (trigger !== undefined) editorTriggerRef.current = trigger;
     setEditor({ mode: "create", user: null });
     setForm(EMPTY_FORM);
     setFormErrors({});
     setFormError(null);
   }
 
-  function openEdit(user: ManagedUser) {
+  function openEdit(user: ManagedUser, trigger?: HTMLButtonElement) {
+    if (trigger !== undefined) editorTriggerRef.current = trigger;
     setEditor({ mode: "edit", user });
     setForm({
       displayName: user.displayName,
@@ -147,11 +197,17 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
     setFormError(null);
   }
 
-  function closeEditor() {
-    if (isSaving) return;
+  function dismissEditor() {
+    const trigger = editorTriggerRef.current;
     setEditor(null);
     setFormErrors({});
     setFormError(null);
+    window.setTimeout(() => trigger?.focus(), 0);
+  }
+
+  function closeEditor() {
+    if (isSaving) return;
+    dismissEditor();
   }
 
   function updateForm<K extends keyof UserFormState>(field: K, value: UserFormState[K]) {
@@ -229,9 +285,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
         });
         setSuccessMessage("User updated successfully.");
       }
-      setEditor(null);
-      setFormErrors({});
-      setFormError(null);
+      dismissEditor();
       setRetry((value) => value + 1);
       onSessionRefresh?.();
     } catch (error: unknown) {
@@ -253,9 +307,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
     try {
       await resetAdminUserPassword(editor.user.id, form.initialPassword);
       setSuccessMessage("Initial password reset successfully. The password was not displayed.");
-      setEditor(null);
-      setFormErrors({});
-      setFormError(null);
+      dismissEditor();
       setRetry((value) => value + 1);
       onSessionRefresh?.();
     } catch (error: unknown) {
@@ -267,7 +319,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
 
   function renderFieldError(field: string) {
     const message = formErrors[field];
-    return message === undefined ? null : <p className="zen-field-error" role="alert">{message}</p>;
+    return message === undefined ? null : <p id={`admin-user-${field}-error`} className="zen-field-error" role="alert">{message}</p>;
   }
 
   function renderUserStatus(user: ManagedUser) {
@@ -286,7 +338,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
           <h1 id="user-management-title">User Management</h1>
           <p className="zen-lead">Create and maintain one-role accounts for Requesters, IT Staff and Administrators.</p>
         </div>
-        <button type="button" className="zen-button zen-button-primary" onClick={openCreate}>Create User</button>
+        <button type="button" className="zen-button zen-button-primary" onClick={(event) => openCreate(event.currentTarget)}>Create User</button>
       </header>
 
       {successMessage !== null && (
@@ -324,7 +376,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
         <section className="zen-empty-panel" role="status">
           <h2>{isFiltered(search, roleFilter) ? "No Users match these filters" : "No Users yet"}</h2>
           <p>{isFiltered(search, roleFilter) ? "Try a different search or clear the filters." : "Create the first User to get started."}</p>
-          {!isFiltered(search, roleFilter) && <button type="button" className="zen-button zen-button-primary" onClick={openCreate}>Create User</button>}
+          {!isFiltered(search, roleFilter) && <button type="button" className="zen-button zen-button-primary" onClick={(event) => openCreate(event.currentTarget)}>Create User</button>}
         </section>
       ) : (
         <section className="zen-user-results" aria-live="polite">
@@ -339,7 +391,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
                     <td>{user.email}</td>
                     <td><span className={`zen-role-badge zen-role-${user.role.toLowerCase()}`}>{roleLabel(user.role)}</span></td>
                     <td>{renderUserStatus(user)}</td>
-                    <td><button type="button" className="zen-button zen-button-secondary zen-small-button" onClick={() => openEdit(user)}>Edit {user.displayName}</button></td>
+                    <td><button type="button" className="zen-button zen-button-secondary zen-small-button" onClick={(event) => openEdit(user, event.currentTarget)}>Edit {user.displayName}</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -354,7 +406,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
                   <div><dt>Role</dt><dd>{roleLabel(user.role)}</dd></div>
                   <div><dt>Status</dt><dd>{renderUserStatus(user)}</dd></div>
                 </dl>
-                <button type="button" className="zen-button zen-button-secondary" onClick={() => openEdit(user)}>Edit {user.displayName}</button>
+                <button type="button" className="zen-button zen-button-secondary" onClick={(event) => openEdit(user, event.currentTarget)}>Edit {user.displayName}</button>
               </article>
             ))}
           </div>
@@ -363,7 +415,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
 
       {editor !== null && (
         <div className="zen-dialog-backdrop zen-user-drawer-backdrop" role="presentation">
-          <aside className="zen-user-drawer" role="dialog" aria-modal="true" aria-labelledby="user-editor-title">
+          <aside ref={editorRef} className="zen-user-drawer" role="dialog" aria-modal="true" aria-labelledby="user-editor-title">
             <div className="zen-user-drawer-heading">
               <div>
                 <p className="zen-eyebrow">Administrator action</p>
@@ -376,17 +428,17 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
             <form onSubmit={(event) => void saveUser(event)} noValidate>
               <div className="zen-form-field">
                 <label htmlFor="admin-user-display-name">Display Name <span className="required-mark">*</span></label>
-                <input id="admin-user-display-name" value={form.displayName} onChange={(event) => updateForm("displayName", event.target.value)} aria-invalid={formErrors.displayName !== undefined} disabled={isSaving} required />
+                <input id="admin-user-display-name" value={form.displayName} onChange={(event) => updateForm("displayName", event.target.value)} aria-invalid={formErrors.displayName !== undefined} aria-describedby={formErrors.displayName !== undefined ? "admin-user-displayName-error" : undefined} disabled={isSaving} required />
                 {renderFieldError("displayName")}
               </div>
               <div className="zen-form-field">
                 <label htmlFor="admin-user-email">Email <span className="required-mark">*</span></label>
-                <input id="admin-user-email" type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} aria-invalid={formErrors.email !== undefined} disabled={isSaving} required />
+                <input id="admin-user-email" type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} aria-invalid={formErrors.email !== undefined} aria-describedby={formErrors.email !== undefined ? "admin-user-email-error" : undefined} disabled={isSaving} required />
                 {renderFieldError("email")}
               </div>
               <div className="zen-form-field">
                 <label htmlFor="admin-user-role">Role <span className="required-mark">*</span></label>
-                <select id="admin-user-role" value={form.role} onChange={(event) => updateForm("role", event.target.value as UserRole)} aria-invalid={formErrors.role !== undefined} disabled={isSaving} required>
+                <select id="admin-user-role" value={form.role} onChange={(event) => updateForm("role", event.target.value as UserRole)} aria-invalid={formErrors.role !== undefined} aria-describedby={formErrors.role !== undefined ? "admin-user-role-error" : undefined} disabled={isSaving} required>
                   {ROLES.map((role) => <option value={role} key={role}>{roleLabel(role)}</option>)}
                 </select>
                 {renderFieldError("role")}
@@ -394,7 +446,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
               <div className="zen-form-field zen-user-activation-field">
                 <span className="zen-form-label">Account status <span className="required-mark">*</span></span>
                 <label className="zen-switch-label" htmlFor="admin-user-active">
-                  <input id="admin-user-active" type="checkbox" checked={form.isActive} onChange={(event) => updateForm("isActive", event.target.checked)} disabled={isSaving} />
+                  <input id="admin-user-active" type="checkbox" checked={form.isActive} onChange={(event) => updateForm("isActive", event.target.checked)} aria-invalid={formErrors.isActive !== undefined} aria-describedby={formErrors.isActive !== undefined ? "admin-user-isActive-error" : undefined} disabled={isSaving} />
                   <span>{form.isActive ? "Active" : "Inactive"}</span>
                 </label>
                 <p className="zen-field-help">The selected activation state is saved explicitly.</p>
@@ -403,7 +455,7 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
               {editor.mode === "edit" && editor.user?.isActive === true && !form.isActive && (
                 <div className="zen-callout zen-callout-warning">
                   <label className="zen-confirmation-check" htmlFor="admin-confirm-deactivation">
-                    <input id="admin-confirm-deactivation" type="checkbox" checked={form.confirmDeactivation} onChange={(event) => updateForm("confirmDeactivation", event.target.checked)} disabled={isSaving} />
+                    <input id="admin-confirm-deactivation" type="checkbox" checked={form.confirmDeactivation} onChange={(event) => updateForm("confirmDeactivation", event.target.checked)} aria-invalid={formErrors.confirmDeactivation !== undefined} aria-describedby={formErrors.confirmDeactivation !== undefined ? "admin-user-confirmDeactivation-error" : undefined} disabled={isSaving} />
                     I confirm that this account should be deactivated.
                   </label>
                   {renderFieldError("confirmDeactivation")}
@@ -413,12 +465,12 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
                 <>
                   <div className="zen-form-field">
                     <label htmlFor="admin-user-initial-password">Initial Password <span className="required-mark">*</span></label>
-                    <input id="admin-user-initial-password" type="password" autoComplete="new-password" value={form.initialPassword} onChange={(event) => updateForm("initialPassword", event.target.value)} aria-invalid={formErrors.initialPassword !== undefined} disabled={isSaving} required />
+                    <input id="admin-user-initial-password" type="password" autoComplete="new-password" value={form.initialPassword} onChange={(event) => updateForm("initialPassword", event.target.value)} aria-invalid={formErrors.initialPassword !== undefined} aria-describedby={formErrors.initialPassword !== undefined ? "admin-user-initialPassword-error" : undefined} disabled={isSaving} required />
                     {renderFieldError("initialPassword")}
                   </div>
                   <div className="zen-form-field">
                     <label htmlFor="admin-user-confirm-password">Confirm Initial Password <span className="required-mark">*</span></label>
-                    <input id="admin-user-confirm-password" type="password" autoComplete="new-password" value={form.confirmation} onChange={(event) => updateForm("confirmation", event.target.value)} aria-invalid={formErrors.confirmation !== undefined} disabled={isSaving} required />
+                    <input id="admin-user-confirm-password" type="password" autoComplete="new-password" value={form.confirmation} onChange={(event) => updateForm("confirmation", event.target.value)} aria-invalid={formErrors.confirmation !== undefined} aria-describedby={formErrors.confirmation !== undefined ? "admin-user-confirmation-error" : undefined} disabled={isSaving} required />
                     {renderFieldError("confirmation")}
                   </div>
                   <p className="zen-field-help">12–128 characters with uppercase, lowercase, number and special character.</p>
@@ -436,12 +488,12 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
                 <p className="zen-field-help">The User must change this password at the next login. Existing sessions will be revoked.</p>
                 <div className="zen-form-field">
                   <label htmlFor="admin-user-reset-password">New Initial Password</label>
-                  <input id="admin-user-reset-password" type="password" autoComplete="new-password" value={form.initialPassword} onChange={(event) => updateForm("initialPassword", event.target.value)} aria-invalid={formErrors.initialPassword !== undefined} disabled={isSaving} />
+                  <input id="admin-user-reset-password" type="password" autoComplete="new-password" value={form.initialPassword} onChange={(event) => updateForm("initialPassword", event.target.value)} aria-invalid={formErrors.initialPassword !== undefined} aria-describedby={formErrors.initialPassword !== undefined ? "admin-user-initialPassword-error" : undefined} disabled={isSaving} />
                   {renderFieldError("initialPassword")}
                 </div>
                 <div className="zen-form-field">
                   <label htmlFor="admin-user-reset-confirm-password">Confirm New Initial Password</label>
-                  <input id="admin-user-reset-confirm-password" type="password" autoComplete="new-password" value={form.confirmation} onChange={(event) => updateForm("confirmation", event.target.value)} aria-invalid={formErrors.confirmation !== undefined} disabled={isSaving} />
+                  <input id="admin-user-reset-confirm-password" type="password" autoComplete="new-password" value={form.confirmation} onChange={(event) => updateForm("confirmation", event.target.value)} aria-invalid={formErrors.confirmation !== undefined} aria-describedby={formErrors.confirmation !== undefined ? "admin-user-confirmation-error" : undefined} disabled={isSaving} />
                   {renderFieldError("confirmation")}
                 </div>
                 <p className="zen-field-help">12–128 characters with uppercase, lowercase, number and special character.</p>

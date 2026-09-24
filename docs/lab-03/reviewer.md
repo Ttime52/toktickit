@@ -12,7 +12,7 @@
 |  #47  | feature/16-requester-regression | Approved |
 |  #48  | feature/17-staff-ticket-queue | Request changes and Approved |
 |  #49  | feature/18-staff-ticket-operations | Request changes and Approved |
-|  #50  | feature/19-admin-user-management |  |
+|  #50  | feature/19-admin-user-management | Request changes and Approved |
 |  #51  | feature/20-e2e-regression-qa |  |
 |  #52  | feature/21-docs-release-lab3 |  |
 
@@ -80,8 +80,13 @@ The specification requires CANCELLED → REOPENED to be an allowed transition, b
 PR #50 feature/19-admin-user-management
 https://github.com/Ttime52/toktickit/pull/50
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: Overall, the User Management implementation looks good. I only found one confirmed issue with password validation:
+
+The Lab 3 specification requires the 12–128 password limit to be counted by Unicode code points, but the current implementation uses value.length in both the backend and frontend. This can incorrectly count non-BMP characters such as emoji as two characters.
+
+Could you please update the password validation to count Unicode code points consistently (e.g. [...value].length) and add boundary tests for Unicode passwords?
+- How I responded: I have updated the password validation. Could you pls recheck for me🐴 (fix: password count by Unicode)
+- Reviewer comment I received: okayy approved.
 
 PR #51 feature/20-e2e-regression-qa
 https://github.com/Ttime52/toktickit/pull/51

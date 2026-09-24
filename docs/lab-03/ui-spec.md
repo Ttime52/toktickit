@@ -81,11 +81,12 @@ shell fetches `/auth/me` before rendering protected content; expired/inactive
 sessions return to Login. A `mustChangePassword` User sees only Change Password
 and Logout. The active navigation link exposes `aria-current="page"`; the
 mobile menu button exposes its expanded state and returns focus after closing.
-Canonical client routes are `/tickets`, `/tickets/new` and `/tickets/:ticketId`
-for Requester screens, `/staff/tickets` and `/staff/tickets/:ticketId` for IT
-Staff, and `/admin/users` for User Management. An Administrator's read-only
-Ticket inspection uses the shared `/tickets/:ticketId` detail only when an
-authorized link is supplied; it is not a navigable queue route.
+Canonical client routes are `/my-tickets`, `/create-ticket` and
+`/tickets/:ticketId` for Requester screens, `/staff/tickets` and
+`/staff/tickets/:ticketId` for IT Staff, and `/admin/users` for User
+Management. An Administrator's read-only Ticket inspection uses the shared
+`/tickets/:ticketId` detail only when an authorized link is supplied; it is not
+a navigable queue route.
 
 ## 2. Authentication screens
 
@@ -130,8 +131,8 @@ Requester control for `RESOLVED` or `CLOSED`.
 
 ## 4. IT Staff Ticket Queue
 
-Desktop uses a readable table; tablet may reduce secondary columns; mobile uses
-stacked Ticket cards. Each item includes Ticket Number, Created Date, Summary,
+Desktop uses a readable table; tablet and mobile use stacked Ticket cards so
+the Owner and status fields remain readable without page scrolling. Each item includes Ticket Number, Created Date, Summary,
 Category, Requester, Ticket Owner / Assignee (active IT Staff or Administrator),
 Requested Priority, IT Priority, Current Status and Last Updated. Ticket Owner /
 Assignee refers to the same primary work owner; badges use both colour and text.
@@ -228,10 +229,11 @@ buttons/labels where possible, visible keyboard focus, error summary linked to
 invalid fields, sufficient contrast, semantic tables with card alternatives,
 and no information conveyed by colour alone.
 
-At desktop (>=992 px), tablet (768–991 px) and mobile (<768 px), no page has
+At desktop (>=1200 px), tablet (768–1199 px) and mobile (<768 px), no page has
 horizontal overflow, clipped controls, overlapping badges or unreachable
-actions. Touch controls remain comfortably sized; dialog focus is trapped and
-returns to its invoking control when closed.
+actions. The required 1024×768 evidence is therefore captured as tablet
+layout. Touch controls remain comfortably sized; the User Management drawer
+traps keyboard focus and returns it to its invoking control when closed.
 
 ## 8. Visual QA evidence
 

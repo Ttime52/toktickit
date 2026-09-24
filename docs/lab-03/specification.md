@@ -1,8 +1,8 @@
 # Lab 3 Sprint Engineering Specification
 
 **Product:** TokTickIT  
-**Version:** 1.0 — pre-implementation contract  
-**Status:** Pre-implementation source-of-truth contract for the Lab 3 increment
+**Version:** 1.0 — implemented contract
+**Status:** Implemented Lab 3 source-of-truth contract; evidence verified 2026-09-24
 
 `MUST` is an observable requirement. This specification is deliberately additive
 to Lab 2: the existing Ticket, Category, RelatedSystem and Attachment history
@@ -117,6 +117,7 @@ authenticated, active session; `/api/health` remains public and a user with
 | `GET /api/staff/tickets` | — | all | — |
 | `GET /api/staff/users` owner options | — | active IT Staff/Administrator summaries | — |
 | `GET /api/staff/tickets/:id` | — | all | — |
+| `PATCH /api/staff/tickets/:id/owner` | — | claim/assign/reassign | — |
 | `PATCH /api/staff/tickets/:id` | — | all operations | IT Priority only |
 | `GET /api/users` | — | — | all |
 | `POST /api/users` | — | — | all |
@@ -236,7 +237,7 @@ Green and retain their loading, validation, empty/no-results and failure modes.
 | `User` / `users` | Preserved Lab 2 requester `id`, `displayName`, `email UNIQUE`, `isActive`, timestamps; add `role UserRole`, `passwordHash String NOT NULL` (a temporary nullable staging column is allowed only during the two-phase migration), `mustChangePassword`, `lastLoginAt`; indexes `(role,isActive,displayName)` and `(role,isActive,email)`. |
 | `Session` / `sessions` | `id` (hash of opaque cookie, PK), `userId FK`, `createdAt`, `lastSeenAt`, `expiresAt`, `revokedAt nullable`; index `(userId,revokedAt,expiresAt)`. Store only a hash of the cookie and revoke rows on logout, password events or deactivation. |
 | `LoginThrottleBucket` / expiring server-side store | `keyHash` PK (HMAC of normalized email + coarse client address), `failedCount`, `firstFailedAt`, `blockedUntil`; TTL at 15 minutes. Never store or expose raw email/IP or counters in the API. |
-| `Ticket` | Preserve all Lab 2 fields; `requesterId` FK now references `users`; backfill and retain `itPriority = requestedPriority` (final `Priority NOT NULL`); add `assignedToUserId nullable FK users`, `assignedAt`, `requesterResolutionIndicatedAt`, `requesterResolutionIndicatedByUserId nullable FK users`, and expanded `currentStatus`; indexes `(assignedToUserId,updatedAt)`, `(currentStatus,updatedAt)`, `(itPriority,updatedAt)`. |
+| `Ticket` | Preserve all Lab 2 fields; `requesterId` FK now references `users`; backfill and retain `itPriority = requestedPriority` (final `ItPriority NOT NULL`); add `assignedToUserId nullable FK users`, `assignedAt`, `requesterResolutionIndicatedAt`, `requesterResolutionIndicatedByUserId nullable FK users`, and expanded `currentStatus`; indexes `(assignedToUserId,updatedAt)`, `(currentStatus,updatedAt)`, `(itPriority,updatedAt)`. |
 | `PublicComment` | `id`, `ticketId FK`, `authorUserId FK`, `content`, `createdAt`; index `(ticketId,createdAt,id)`. |
 | `InternalNote` | `id`, `ticketId FK`, `authorUserId FK`, `content`, `createdAt`; index `(ticketId,createdAt,id)`. |
 | `Attachment` | Preserve row/metadata/storage key; uploader/remover FKs reference `users`, preserving their values. |
@@ -313,18 +314,18 @@ normative for all endpoints.
 
 ## 10. Definition of Done
 
-- [ ] The four Lab 3 Spec-DD files are internally consistent and linked.
-- [ ] Migration is reviewed, applies from Lab 2 and passes preservation checks.
-- [ ] Seed verifies the required Requester/IT Staff/Admin active and inactive
+- [x] The four Lab 3 Spec-DD files are internally consistent and linked.
+- [x] Migration is reviewed, applies from Lab 2 and passes preservation checks.
+- [x] Seed verifies the required Requester/IT Staff/Admin active and inactive
   account counts, realistic Ticket distribution, comments and notes, and is
   safe to run repeatedly.
-- [ ] Auth/session, all matrix rules and safe errors are enforced server-side.
-- [ ] Requester regression and resolution indication, staff queue/detail,
+- [x] Auth/session, all matrix rules and safe errors are enforced server-side.
+- [x] Requester regression and resolution indication, staff queue/detail,
   comments/notes and User Management are implemented with required
   loading/validation/busy/failure UI.
-- [ ] Unit, API/integration, UI, visual/style, responsive, authorization,
+- [x] Unit, API/integration, UI, visual/style, responsive, authorization,
   migration/regression and E2E tests in [tests.md](tests.md) pass.
-- [ ] No password, hash input, session ID, storage key, stack trace, SQL or
+- [x] No password, hash input, session ID, storage key, stack trace, SQL or
   secret is committed or rendered; README/evidence/reviewer/AI reflection are
   complete before merge.
 

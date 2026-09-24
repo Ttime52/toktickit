@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
+
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { seedDatabase } from "../../prisma/seed.js";
 import { passwordCodePointLength } from "../../src/auth-service.js";
+import { readStoredAttachment } from "../../src/attachments.js";
 import { getPrisma } from "../../src/prisma.js";
+
+const MIGRATION_REGRESSION_TIMEOUT = 60_000;
 
 describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
   const prisma = getPrisma();
@@ -12,11 +17,11 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
     expect(passwordCodePointLength(seedPassword)).toBeGreaterThanOrEqual(12);
     expect(passwordCodePointLength(seedPassword)).toBeLessThanOrEqual(128);
     await prisma.$connect();
-  });
+  }, MIGRATION_REGRESSION_TIMEOUT);
 
   afterAll(async () => {
     await prisma.$disconnect();
-  });
+  }, MIGRATION_REGRESSION_TIMEOUT);
 
   it("preserves migrated Ticket and Attachment identity, ownership, history, and relationships", async () => {
     const legacyTicket = await prisma.ticket.findFirst({
@@ -29,6 +34,8 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
         assignedToUserId: true,
         requestedPriority: true,
         itPriority: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
     expect(legacyTicket).not.toBeNull();
@@ -43,9 +50,22 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
         removedByUserId: true,
         storageKey: true,
         availabilityState: true,
+        originalFilename: true,
+        mimeType: true,
+        sizeBytes: true,
+        uploadedAt: true,
+        unavailableAt: true,
+        unavailableReason: true,
+        removedAt: true,
+        removalReason: true,
       },
     });
     expect(legacyAttachment).not.toBeNull();
+
+    const attachmentBytesBefore = await readStoredAttachment(legacyAttachment!.storageKey);
+    const attachmentDigestBefore = createHash("sha256")
+      .update(attachmentBytesBefore)
+      .digest("hex");
 
     const beforeCounts = await legacyCounts();
 
@@ -60,6 +80,8 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
         assignedToUserId: true,
         requestedPriority: true,
         itPriority: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
     const afterAttachment = await prisma.attachment.findUnique({
@@ -71,6 +93,14 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
         removedByUserId: true,
         storageKey: true,
         availabilityState: true,
+        originalFilename: true,
+        mimeType: true,
+        sizeBytes: true,
+        uploadedAt: true,
+        unavailableAt: true,
+        unavailableReason: true,
+        removedAt: true,
+        removalReason: true,
       },
     });
 
@@ -78,6 +108,11 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
     expect(afterTicket?.itPriority).toBe(afterTicket?.requestedPriority);
     expect(afterAttachment).toEqual(legacyAttachment);
     expect(afterAttachment?.ticketId).toBe(afterTicket?.id);
+    const attachmentBytesAfter = await readStoredAttachment(afterAttachment!.storageKey);
+    expect(createHash("sha256").update(attachmentBytesAfter).digest("hex")).toBe(
+      attachmentDigestBefore,
+    );
+    expect(attachmentBytesAfter.equals(attachmentBytesBefore)).toBe(true);
     expect(await legacyCounts()).toEqual(beforeCounts);
 
     const orphanTickets = await prisma.$queryRaw<Array<{ count: number }>>`
@@ -95,7 +130,7 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
     `;
     expect(orphanTickets[0]?.count).toBe(0);
     expect(orphanAttachments[0]?.count).toBe(0);
-  });
+  }, MIGRATION_REGRESSION_TIMEOUT);
 
   it("provisions required seed data and is safe to run twice", async () => {
     await seedDatabase(prisma);
@@ -116,7 +151,7 @@ describe("Lab 3 migration and seed regression (MIG-01/MIG-02)", () => {
     expect(first.nullPasswordHashes).toBe(0);
     expect(first.invalidPasswordHashes).toBe(0);
     expect(first.mustChangePasswordFalse).toBe(0);
-  });
+  }, MIGRATION_REGRESSION_TIMEOUT);
 
   async function snapshotSeedState() {
     const users = await prisma.user.findMany({
