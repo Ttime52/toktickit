@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import ApplicationShell, { type AppPage } from "./ApplicationShell.js";
+import AdminTicketInspection from "./AdminTicketInspection.js";
 import { AuthProvider, useAuth } from "./AuthContext.js";
 import ChangePassword from "./ChangePassword.js";
 import CreateTicket from "./CreateTicket.js";
@@ -89,7 +90,7 @@ function AuthenticatedApp() {
   const [pathname, setPathname] = useState(
     () => {
       const currentPath = window.location.pathname;
-      return currentPath === "/" || currentPath === "/my-tickets"
+      return currentPath === "/"
         ? defaultPathForRole(user?.role ?? "REQUESTER")
         : currentPath;
     },
@@ -118,6 +119,12 @@ function AuthenticatedApp() {
   const currentPage = pageFromPath(pathname);
   const ticketId = ticketIdFromPath(pathname);
   const staffTicketId = staffTicketIdFromPath(pathname);
+  const isRequesterPage =
+    currentPage === "my-tickets" ||
+    currentPage === "create-ticket" ||
+    currentPage === "ticket-detail";
+  const isAdministratorInspection =
+    user.role === "ADMINISTRATOR" && currentPage === "ticket-detail" && ticketId !== null;
 
   return (
     <ApplicationShell
@@ -132,7 +139,9 @@ function AuthenticatedApp() {
       {showChangePassword ? (
         <ChangePassword voluntary />
       ) : user.role !== "REQUESTER" ? (
-        currentPage === "admin-users" && user.role !== "ADMINISTRATOR" ? (
+        isRequesterPage && !isAdministratorInspection ? (
+          <ForbiddenState area="Requester Ticket screens" />
+        ) : currentPage === "admin-users" && user.role !== "ADMINISTRATOR" ? (
           <ForbiddenState area="Administrator User Management" />
         ) : (currentPage === "staff-queue" || currentPage === "staff-ticket-detail") && user.role !== "IT_STAFF" ? (
           <ForbiddenState
@@ -147,6 +156,11 @@ function AuthenticatedApp() {
           />
         ) : user.role === "ADMINISTRATOR" && currentPage === "admin-users" ? (
           <UserManagement onSessionRefresh={() => void refresh()} />
+        ) : user.role === "ADMINISTRATOR" && currentPage === "ticket-detail" && ticketId !== null ? (
+          <AdminTicketInspection
+            ticketId={ticketId}
+            onBack={() => navigateTo("/admin/users")}
+          />
         ) : (
           <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
         )

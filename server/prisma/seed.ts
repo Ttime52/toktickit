@@ -248,7 +248,7 @@ export async function seedDatabase(prisma: PrismaClient = getPrisma()) {
     await transaction.$executeRaw`
       ALTER TABLE "users" ALTER COLUMN "passwordHash" SET NOT NULL
     `;
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 }
 
 async function main() {

@@ -47,6 +47,12 @@ export interface TicketRequester {
   email: string;
 }
 
+export interface TicketOwnerSummary {
+  id: number;
+  displayName: string;
+  role: "IT_STAFF" | "ADMINISTRATOR";
+}
+
 export type RequestedPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type CurrentStatus =
   | "NEW"
@@ -95,6 +101,17 @@ export interface Ticket {
   attachments: TicketAttachment[];
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * The shared Ticket Detail response for Administrator inspection intentionally
+ * omits the Attachment collection. Attachment metadata/bytes are not an
+ * Administrator capability in Lab 3.
+ */
+export interface TicketInspection extends Omit<Ticket, "attachments"> {
+  ticketOwner: TicketOwnerSummary | null;
+  assignedTo: TicketOwnerSummary | null;
+  assignedAt: string | null;
 }
 
 export type TicketSortField =
@@ -801,6 +818,26 @@ export async function fetchTicket(
   }
 
   return body.data as Ticket;
+}
+
+export async function fetchAdminTicketInspection(
+  ticketId: number,
+  signal?: AbortSignal,
+): Promise<TicketInspection> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Administrator Ticket Inspection.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Administrator Ticket Inspection response.", response.status);
+  }
+
+  return body.data as TicketInspection;
 }
 
 export async function fetchPublicComments(

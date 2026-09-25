@@ -116,6 +116,29 @@ describe("Administrator User Management (UI-05)", () => {
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
   });
 
+  it("traps focus inside the editor and restores focus to its invoking action", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ data: users })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<UserManagement />);
+
+    const createButton = await screen.findByRole("button", { name: "Create User", exact: true });
+    await user.click(createButton);
+
+    const dialog = screen.getByRole("dialog");
+    const closeButton = screen.getByRole("button", { name: "Close" });
+    expect(document.activeElement).toBe(closeButton);
+
+    await user.tab({ shift: true });
+    expect(dialog).toContainElement(document.activeElement);
+    await user.tab();
+    expect(document.activeElement).toBe(closeButton);
+
+    await user.click(closeButton);
+    await waitFor(() => expect(document.activeElement).toBe(createButton));
+  });
+
   it("requires deactivation confirmation and shows safe forbidden feedback", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       if (String(input).includes("/api/users")) {

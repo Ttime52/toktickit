@@ -1,8 +1,9 @@
 # Lab 3 REST API Contract
 
 All paths are relative to `/api`. JSON responses use `Content-Type:
-application/json; charset=utf-8`. Except for login and the retained health
-check, all protected endpoints require the session described below. This
+application/json; charset=utf-8`. Except for login, the retained health check,
+and the explicitly retired requester-selector responses, all endpoints require
+the session described below. This
 contract supersedes only the requester-context part of Lab 2; its Ticket
 Number, validation and Attachment contracts remain.
 
@@ -111,11 +112,12 @@ endpoints is:
 | `POST /tickets/:ticketId/problem-appears-resolved` | 200 | Requester owner; records an indication only |
 | `GET /tickets/:ticketId/comments` | 200 | Requester owner, IT Staff or Administrator |
 | `POST /tickets/:ticketId/comments` | 201 | Requester owner or IT Staff |
-| `GET /tickets/:ticketId/internal-notes` | 200 | IT Staff or Administrator |
-| `POST /tickets/:ticketId/internal-notes` | 201 | IT Staff only |
+| `GET /tickets/:ticketId/internal-notes` (alias `/notes`) | 200 | IT Staff or Administrator |
+| `POST /tickets/:ticketId/internal-notes` (alias `/notes`) | 201 | IT Staff only |
 | `GET /staff/users` | 200 | IT Staff only; active Ticket Owner options |
 | `GET /staff/tickets` | 200 | IT Staff |
 | `GET /staff/tickets/:ticketId` | 200 | IT Staff |
+| `PATCH /staff/tickets/:ticketId/owner` | 200 | IT Staff; claim/assign/reassign only |
 | `PATCH /staff/tickets/:ticketId` | 200 | IT Staff; Administrator for IT Priority only |
 | `GET /users` | 200 | Administrator only |
 | `POST /users` | 201 | Administrator only |
@@ -311,9 +313,10 @@ be edited/deleted.
 ### Internal Notes
 
 `GET /tickets/:ticketId/internal-notes` and `POST` at the same path use the
-same collection/item shape and validation as Comments. IT Staff and
-Administrators may read; only IT Staff may post. Note content is stored and
-rendered as plain text. Responses are never embedded
+same collection/item shape and validation as Comments. The legacy-friendly
+`/tickets/:ticketId/notes` path is an exact compatibility alias for the same
+Internal Note operations. IT Staff and Administrators may read; only IT Staff
+may post. Note content is stored and rendered as plain text. Responses are never embedded
 in Requester Ticket responses, and forbidden callers receive no Note content.
 A foreign requester-owned Ticket uses the same safe `404` as a missing Ticket;
 role-forbidden callers receive `403` without Note content.
@@ -383,6 +386,13 @@ from that role returns `403`.
 On a successful operational update the endpoint returns `200 {"data":<staffTicket>}`
 using the same representation as staff detail; the
 response never includes a password, session value or storage key.
+
+`PATCH /staff/tickets/:ticketId/owner` is the owner-only variant used by the
+Claim/Assign/Reassign controls. It accepts only `action` and, for `assign` or
+`reassign`, a positive `assignedToUserId`; `claim` never accepts an assignee
+ID and assigns the authenticated IT Staff User. It applies the same active
+owner, conflict, safe-error and atomicity rules as the combined PATCH. It is
+IT Staff-only and cannot change IT Priority or status.
 
 ## 8. Administrator User Management
 

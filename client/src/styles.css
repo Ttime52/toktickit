@@ -126,13 +126,13 @@ h1 {
 
 .zen-callout-warning {
   background: var(--zen-warning-bg);
-  border-color: #e1c77a;
+  border-color: var(--zen-warning);
   color: var(--zen-warning);
 }
 
 .zen-callout-error {
   background: var(--zen-error-bg);
-  border-color: #e7aaaa;
+  border-color: var(--zen-error);
   color: var(--zen-error);
 }
 
@@ -562,7 +562,7 @@ h1 {
 .zen-attachment-row.is-invalid,
 .zen-attachment-row.is-failed {
   background: var(--zen-error-bg);
-  border-color: #e7aaaa;
+  border-color: var(--zen-error);
 }
 
 .zen-attachment-details {
@@ -819,6 +819,67 @@ h1 {
   display: none;
 }
 
+@media (max-width: 1199px) {
+  .zen-ticket-table-wrap {
+    display: none;
+  }
+
+  .zen-ticket-card-list {
+    display: grid;
+    gap: 16px;
+  }
+
+  .zen-ticket-card {
+    background: var(--zen-surface);
+    border: 1px solid var(--zen-border);
+    border-radius: 10px;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .zen-ticket-card-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .zen-ticket-card h2 {
+    font-size: 18px;
+    line-height: 1.35;
+    margin: 14px 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zen-ticket-card-details {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+  }
+
+  .zen-ticket-card-details div {
+    min-width: 0;
+  }
+
+  .zen-ticket-card-details dt {
+    color: var(--zen-muted);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .zen-ticket-card-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zen-ticket-open-button {
+    margin-top: 16px;
+    width: 100%;
+  }
+}
+
 .zen-user-management {
   min-width: 0;
 }
@@ -1020,7 +1081,7 @@ h1 {
 
 .zen-ticket-skeleton span {
   animation: zen-skeleton-pulse 1.2s ease-in-out infinite alternate;
-  background: #e5ece8;
+  background: var(--zen-readonly);
   border-radius: 4px;
   display: block;
   height: 20px;
@@ -1663,30 +1724,10 @@ h1 {
   }
 
   .zen-ticket-card-details {
-    display: grid;
-    gap: 12px;
     grid-template-columns: 1fr;
-    margin: 0;
-  }
-
-  .zen-ticket-card-details div {
-    min-width: 0;
-  }
-
-  .zen-ticket-card-details dt {
-    color: var(--zen-muted);
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-
-  .zen-ticket-card-details dd {
-    margin: 0;
-    overflow-wrap: anywhere;
   }
 
   .zen-ticket-open-button {
-    margin-top: 16px;
     width: 100%;
   }
 
