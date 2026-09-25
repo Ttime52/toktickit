@@ -91,7 +91,15 @@ Could you please update the password validation to count Unicode code points con
 PR #51 feature/20-e2e-regression-qa
 https://github.com/Ttime52/toktickit/pull/51
 
-- Reviewer comment I received: 
+- Reviewer comment I received: MIG-01 migration regression test is currently not reproducible from a clean database.
+
+The test searches for a non-lab3-seed-ticket-* Ticket with an Attachment, but it does not create or load a Lab 2-shaped database before running the regression. On a clean database prepared with prisma migrate deploy + prisma:seed, the query returns null because the seeded Tickets are intentionally excluded.
+
+This means MIG-01 currently does not provide evidence for the documented AC-09 requirement to preserve existing Lab 2 Ticket/Attachment identities, ownership, history, and relationships.
+
+Please make the migration regression reproducible using an isolated Lab 2-shaped fixture/database containing pre-existing Ticket and Attachment data, then apply the Lab 3 migration chain and verify the preserved records.
+
+MIG-02 is already passing; this request is specifically about the missing MIG-01 migration-preservation evidence.
 - How I responded:
 
 PR #52 feature/21-docs-release-lab3

@@ -10,6 +10,11 @@ details in [api-spec.md](api-spec.md) and [ui-spec.md](ui-spec.md).
   parsing and safe user-shape helpers.
 - API/integration tests exercise real middleware, persistence, role guards,
   ownership checks, migration preservation and idempotent seed behavior.
+- MIG-01 creates a temporary PostgreSQL schema, deploys the migration chain
+  through the Lab 2 boundary, inserts a Lab 2-shaped Ticket/Attachment
+  fixture, then deploys the remaining Lab 3 migrations before comparing
+  pre- and post-migration snapshots. It does not depend on a pre-existing
+  non-seed Ticket in the developer database.
 - UI/component tests use accessible queries and mock only the API boundary.
 - UI-style and responsive checks inspect the Zen Green role shell, badges,
   private-note differentiation and desktop/tablet/mobile layouts.
@@ -26,6 +31,12 @@ Latest execution evidence, verified on 2026-09-24:
 | Server build | `cd server; npm.cmd run build` | Pass |
 | Server Lab 3 | `cd server; npx.cmd vitest run tests/lab-03 --no-file-parallelism` | 8 files / 31 tests passed |
 | Integrated E2E | `npx.cmd playwright test` | 9 tests passed |
+
+MIG-01 was independently re-run on 2026-09-25 with
+`npx.cmd vitest run tests/lab-03/migration-regression.integration.test.ts
+--no-file-parallelism -t "preserves migrated Ticket"`; the isolated
+Lab 2-shaped fixture migration passed (1 test), and the full Server Lab 3
+suite was re-run with 8 files / 31 tests passing.
 
 The Playwright web server uses `server/e2e-server.mjs`, which builds the
 server before starting it because Node 25's `tsx` source runner raises
@@ -62,7 +73,7 @@ their focused tests.
 | API-10 | Security/authorization | AC-07, AC-08 | Non-admin direct User endpoints and unsafe Admin edits. | Forbidden, self-deactivation, last-active-Administrator, duplicate-email and assigned-owner safeguards hold. | `server/tests/lab-03/users-admin.api.test.ts` | Pass |
 | API-11 | API/security | BR-03, safe errors | Session revocation, cookie attributes, origin protection and generic authentication failures/throttling. | Safe `401`/`403`/`429` responses; no password, hash, cookie or internal error detail leaks. | `server/tests/lab-03/auth.api.test.ts` | Pass |
 | API-12 | Security/authorization | AC-06, AC-08 | Administrator opens shared `/tickets/:id` inspection and reads Ticket/Public Comments/Internal Notes without Attachment metadata. | Admin inspection is `200`; response omits `attachments`; notes are read-only; staff queue/mutation authorization is unchanged. | `server/tests/lab-03/requester-regression.api.test.ts` | Pass |
-| MIG-01 | Migration/regression | AC-09 | Preserve Lab 2 Ticket and Attachment identity, ownership, history, counts, Ticket Numbers, IT Priority backfill and storage references. | No record is re-keyed or lost; all relationships and attachment bytes remain valid. | `server/tests/lab-03/migration-regression.integration.test.ts` | Pass |
+| MIG-01 | Migration/regression | AC-09 | On an isolated Lab 2-shaped fixture, apply the migration chain and preserve Ticket/Attachment identity, ownership, history, counts, Ticket Numbers, IT Priority backfill and storage references. | The fixture is created before the Lab 3 migration; no record is re-keyed or lost, all relationships and attachment bytes remain valid, and the recorded migration chain completes. | `server/tests/lab-03/migration-regression.integration.test.ts` | Pass |
 | MIG-02 | Migration/regression | AC-09 | Run seed twice with environment-only seed password and verify required users, tickets, comments, notes and password-hash constraints. | Required role/activation counts exist once; ownership/status/priority data is realistic; hashes are present and no duplicate seed records appear. | `server/tests/lab-03/migration-regression.integration.test.ts` | Pass |
 | UI-01 | UI component | AC-01, AC-02, AC-08 | Login/Change Password labels, validation, busy/error and route gate plus role-specific shell navigation, badge and Logout. | Accessible generic failures; normal navigation remains unavailable until change; Logout removes access. | `client/tests/lab-03/Login.test.tsx`, `client/tests/lab-03/ChangePassword.test.tsx` | Pass |
 | UI-02 | UI component | AC-03, AC-05, AC-06 | Requester shell/Ticket regression has authenticated identity but no selector/requester control; Public Comments and the non-resolving indication are present while Internal Notes are absent. | Existing screens remain usable; indication feedback is clear and formal status does not become Resolved/Closed. | `client/tests/lab-03/RequesterRegression.test.tsx` | Pass |
