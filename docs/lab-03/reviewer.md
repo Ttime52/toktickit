@@ -14,7 +14,7 @@
 |  #49  | feature/18-staff-ticket-operations | Request changes and Approved |
 |  #50  | feature/19-admin-user-management | Request changes and Approved |
 |  #51  | feature/20-e2e-regression-qa | Request changes and Approved |
-|  #52  | feature/21-docs-release-lab3 |  |
+|  #52  | feature/21-docs-lab3-release | Request changes and Approved |
 
 PR #44 feature/13-specification-docs-lab3
 https://github.com/Ttime52/toktickit/pull/44
@@ -104,10 +104,12 @@ MIG-02 is already passing; this request is specifically about the missing MIG-01
 - Reviewer comment I received: okayy very good 🤩
 - How I responded: Thank youu
 
-PR #52 feature/21-docs-release-lab3
+PR #52 feature/21-docs-lab3-release
 https://github.com/Ttime52/toktickit/pull/52
 
-- Reviewer comment I received: 
+- Reviewer comment I received: There is one documentation issue that needs to be corrected before approval: In docs/lab-03/reviewer.md, the PR #52 entry uses the wrong branch name. It should be feature/21-docs-lab3-release.
+- How I responded: fixed it. Moreover, I have added the authorization.api.test.ts according to lab 3 requirement. pls recheck kub.
+- Reviewer comment I received:
 - How I responded: Thank you
 
 

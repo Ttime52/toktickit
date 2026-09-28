@@ -13,14 +13,12 @@ const currentPassword = "CurrentPassword1!";
 const nextPassword = "ChangedPassword2@";
 const email = `issue3-auth-${randomUUID()}@example.test`;
 let userId: number;
-let staffId: number;
-let administratorId: number;
 
 function sameOrigin(requestBuilder: request.Test) {
   return requestBuilder.set("Origin", origin);
 }
 
-describe("Issue 3 authentication and authorization (API-01)", () => {
+describe("Issue 3 authentication and session foundation (API-01)", () => {
   beforeAll(async () => {
     const user = await prisma.user.create({
       data: {
@@ -33,37 +31,10 @@ describe("Issue 3 authentication and authorization (API-01)", () => {
       },
     });
     userId = user.id;
-    const sharedHash = await argon2.hash(currentPassword, { type: argon2.argon2id });
-    const [staff, administrator] = await Promise.all([
-      prisma.user.create({
-        data: {
-          displayName: "Issue 3 IT Staff",
-          email: `issue3-staff-${randomUUID()}@example.test`,
-          passwordHash: sharedHash,
-          role: "IT_STAFF",
-          isActive: true,
-          mustChangePassword: false,
-        },
-      }),
-      prisma.user.create({
-        data: {
-          displayName: "Issue 3 Administrator",
-          email: `issue3-admin-${randomUUID()}@example.test`,
-          passwordHash: sharedHash,
-          role: "ADMINISTRATOR",
-          isActive: true,
-          mustChangePassword: false,
-        },
-      }),
-    ]);
-    staffId = staff.id;
-    administratorId = administrator.id;
   });
 
   afterAll(async () => {
     await prisma.user.delete({ where: { id: userId } });
-    await prisma.user.delete({ where: { id: staffId } });
-    await prisma.user.delete({ where: { id: administratorId } });
     await prisma.$disconnect();
   });
 
@@ -152,23 +123,4 @@ describe("Issue 3 authentication and authorization (API-01)", () => {
     expect(JSON.stringify(responses[4]?.body)).not.toContain(throttleEmail);
   });
 
-  it("enforces REQUESTER-only authorization on requester Ticket APIs", async () => {
-    const staff = await prisma.user.findUniqueOrThrow({ where: { id: staffId } });
-    const administrator = await prisma.user.findUniqueOrThrow({
-      where: { id: administratorId },
-    });
-    for (const account of [staff, administrator]) {
-      const agent = request.agent(app);
-      const login = await sameOrigin(
-        agent.post("/api/auth/login").send({ email: account.email, password: currentPassword }),
-      );
-      expect(login.status).toBe(200);
-      const forbidden = await agent
-        .post("/api/tickets")
-        .set("Origin", origin)
-        .send({});
-      expect(forbidden.status).toBe(403);
-      expect(forbidden.body.error.code).toBe("FORBIDDEN");
-    }
-  });
 });
