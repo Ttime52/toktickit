@@ -24,4 +24,24 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
-await import(pathToFileURL(resolve(serverRoot, "dist", "src", "index.js")).href);
+const { app } = await import(pathToFileURL(resolve(serverRoot, "dist", "src", "app.js")).href);
+const port = Number(process.env.PORT) || 3000;
+const server = app.listen(port, () => {
+  console.log(`TokTickIT E2E API listening on http://localhost:${port}`);
+});
+
+let shuttingDown = false;
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  server.close((error) => {
+    if (error) {
+      console.error("Failed to close the E2E API server.", error);
+      process.exitCode = 1;
+    }
+    process.exit();
+  });
+}
+
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);

@@ -22,21 +22,27 @@ details in [api-spec.md](api-spec.md) and [ui-spec.md](ui-spec.md).
   Administrator accounts. No test records a plaintext password, session cookie
   or secret in a committed artifact.
 
-Latest execution evidence, verified on 2026-09-24:
+Latest execution evidence, verified on 2026-09-28:
 
 | Suite | Command | Result |
 |---|---|---|
 | Client build | `cd client; npm.cmd run build` | Pass |
 | Client Lab 3 | `cd client; npx.cmd vitest run tests/lab-03` | 7 files / 14 tests passed |
 | Server build | `cd server; npm.cmd run build` | Pass |
-| Server Lab 3 | `cd server; npx.cmd vitest run tests/lab-03 --no-file-parallelism` | 8 files / 31 tests passed |
-| Integrated E2E | `npx.cmd playwright test` | 9 tests passed |
+| Server Lab 3 | `cd server; npx.cmd vitest run tests/lab-03 --no-file-parallelism` | 9 files / 33 tests passed |
+| Integrated E2E | API/Vite servers running; `$env:PLAYWRIGHT_EXTERNAL_SERVERS='1'; npx.cmd playwright test` | 9 tests passed |
+
+For the 2026-09-28 E2E verification, the API and Vite servers were started
+as external test servers and the same Playwright projects/specs were run with
+`PLAYWRIGHT_EXTERNAL_SERVERS=1 npx.cmd playwright test`; it returned exit code
+0 with 9 tests passed. This avoids a Windows webServer teardown process-handle
+issue while preserving the same integrated API/UI assertions.
 
 MIG-01 was independently re-run on 2026-09-25 with
 `npx.cmd vitest run tests/lab-03/migration-regression.integration.test.ts
 --no-file-parallelism -t "preserves migrated Ticket"`; the isolated
 Lab 2-shaped fixture migration passed (1 test), and the full Server Lab 3
-suite was re-run with 8 files / 31 tests passing.
+suite was re-run on 2026-09-28 with 9 files / 33 tests passing.
 
 The Playwright web server uses `server/e2e-server.mjs`, which builds the
 server before starting it because Node 25's `tsx` source runner raises
@@ -62,15 +68,15 @@ their focused tests.
 | UNIT-01 | Unit | BR-01, BR-02 | Normalize email; validate password policy and Unicode code-point boundaries. | Invalid values fail; the 12-128-character policy is enforced by code points. | `server/tests/lab-03/auth.unit.test.ts` | Pass |
 | UNIT-02 | Unit | BR-03, FR-02 | Parse the opaque session cookie and return a safe authenticated-user shape. | Only the session token is read; password/hash fields are never exposed. | `server/tests/lab-03/auth.unit.test.ts` | Pass |
 | API-01 | API | AC-01, AC-02 | Valid/invalid/inactive login, five-failure throttle, `/me`, logout, mandatory password change and a protected call after logout. | Correct session routing; cookie is HttpOnly/SameSite and Secure in HTTPS; generic safe errors and `429` throttle; change unlocks the app and the revoked session gets `401`. | `server/tests/lab-03/auth.api.test.ts` | Pass |
-| API-02 | Security/authorization | AC-03, AC-08 | Direct requester and staff-route authorization, spoofed ownership input, requester role rejection and IT Staff attachment inspection. | No session is `401`; role-forbidden is `403`; authenticated ownership is used; Staff may read attachment metadata/download; protected data is not leaked. | `server/tests/lab-03/auth.api.test.ts`, `server/tests/lab-03/requester-regression.api.test.ts`, `server/tests/lab-03/staff-queue.api.test.ts`, `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
+| API-02 | Security/authorization | AC-03, AC-08 | Direct requester and staff-route authorization, spoofed ownership input, requester role rejection and IT Staff attachment inspection. | No session is `401`; role-forbidden is `403`; authenticated ownership is used; Staff may read attachment metadata/download; protected data is not leaked. | `server/tests/lab-03/authorization.api.test.ts`, `server/tests/lab-03/requester-regression.api.test.ts`, `server/tests/lab-03/staff-queue.api.test.ts`, `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
 | API-03 | API regression | AC-03, AC-05 | Migrated requester creates/lists/views an own Ticket without `requesterId`, submits **Problem Appears Resolved**, and calls retired selector aliases directly. | Ownership works; a supplied requester ID cannot override the session; the indication does not change formal status; `/development-requesters` and `/requesters` return `410 ENDPOINT_RETIRED`. | `server/tests/lab-03/requester-regression.api.test.ts` | Pass |
 | API-04 | API | AC-04, AC-05 | Active IT Staff/Administrator owner options plus queue search, combined filters, sort, pages and assigned/unassigned/mine views. | Only active permitted owner summaries are returned; queue data/meta and invalid query handling are correct. | `server/tests/lab-03/staff-queue.api.test.ts`, `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
 | API-05 | API | AC-05 | Claim, assign/reassign, IT Priority changes and valid status transitions including Waiting for Requester, Reopened, Resolved and Closed. | IT Staff succeeds for permitted operations with explicit confirmation for formal resolution/closure; Administrator may change only IT Priority; invalid updates do not partially mutate. | `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
-| API-06 | Security/authorization | AC-05, AC-08 | Requester invokes staff endpoints; Administrator invokes queue, assignment, status and unsupported staff operations. | Requester is `403`; Administrator is `403` for queue/assignment/status and may change only IT Priority, with no forbidden data leak. | `server/tests/lab-03/staff-queue.api.test.ts`, `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
+| API-06 | Security/authorization | AC-05, AC-08 | Requester invokes staff endpoints; Administrator invokes queue, assignment, status and unsupported staff operations. | Requester is `403`; Administrator is `403` for queue/assignment/status and may change only IT Priority, with no forbidden data leak. | `server/tests/lab-03/authorization.api.test.ts`, `server/tests/lab-03/staff-queue.api.test.ts`, `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
 | API-07 | API | AC-06 | Public Comment reader/poster matrix, safe text rendering and append-only behavior. | Permitted readers/posters succeed, Administrator can read but cannot post, content is rendered as text, and edit/delete are unavailable. | `server/tests/lab-03/comments-notes.api.test.ts`, `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
 | API-08 | Security/authorization | AC-06, AC-08 | Requester queries/posts Internal Notes; Administrator reads/posts Internal Notes. | Requester receives `403` without note content; Administrator may read but cannot post. | `server/tests/lab-03/comments-notes.api.test.ts` | Pass |
 | API-09 | API | AC-07 | Admin user list/search/filter; create one-role Users with active/inactive state and an initial password; edit/reset. | Required fields and roles are validated; activation is preserved; password is Argon2id-hashed, never returned; first login is gated and reset requires a change. | `server/tests/lab-03/users-admin.api.test.ts` | Pass |
-| API-10 | Security/authorization | AC-07, AC-08 | Non-admin direct User endpoints and unsafe Admin edits. | Forbidden, self-deactivation, last-active-Administrator, duplicate-email and assigned-owner safeguards hold. | `server/tests/lab-03/users-admin.api.test.ts` | Pass |
+| API-10 | Security/authorization | AC-07, AC-08 | Non-admin direct User endpoints and unsafe Admin edits. | Forbidden, self-deactivation, last-active-Administrator, duplicate-email and assigned-owner safeguards hold. | `server/tests/lab-03/authorization.api.test.ts`, `server/tests/lab-03/users-admin.api.test.ts` | Pass |
 | API-11 | API/security | BR-03, safe errors | Session revocation, cookie attributes, origin protection and generic authentication failures/throttling. | Safe `401`/`403`/`429` responses; no password, hash, cookie or internal error detail leaks. | `server/tests/lab-03/auth.api.test.ts` | Pass |
 | API-12 | Security/authorization | AC-06, AC-08 | Administrator opens shared `/tickets/:id` inspection and reads Ticket/Public Comments/Internal Notes without Attachment metadata. | Admin inspection is `200`; response omits `attachments`; notes are read-only; staff queue/mutation authorization is unchanged. | `server/tests/lab-03/requester-regression.api.test.ts` | Pass |
 | MIG-01 | Migration/regression | AC-09 | On an isolated Lab 2-shaped fixture, apply the migration chain and preserve Ticket/Attachment identity, ownership, history, counts, Ticket Numbers, IT Priority backfill and storage references. | The fixture is created before the Lab 3 migration; no record is re-keyed or lost, all relationships and attachment bytes remain valid, and the recorded migration chain completes. | `server/tests/lab-03/migration-regression.integration.test.ts` | Pass |

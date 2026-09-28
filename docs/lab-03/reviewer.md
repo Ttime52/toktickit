@@ -13,8 +13,8 @@
 |  #48  | feature/17-staff-ticket-queue | Request changes and Approved |
 |  #49  | feature/18-staff-ticket-operations | Request changes and Approved |
 |  #50  | feature/19-admin-user-management | Request changes and Approved |
-|  #51  | feature/20-e2e-regression-qa |  |
-|  #52  | feature/21-docs-release-lab3 |  |
+|  #51  | feature/20-e2e-regression-qa | Request changes and Approved |
+|  #52  | feature/21-docs-lab3-release | Request changes and Approved |
 
 PR #44 feature/13-specification-docs-lab3
 https://github.com/Ttime52/toktickit/pull/44
@@ -100,13 +100,17 @@ This means MIG-01 currently does not provide evidence for the documented AC-09 r
 Please make the migration regression reproducible using an isolated Lab 2-shaped fixture/database containing pre-existing Ticket and Attachment data, then apply the Lab 3 migration chain and verify the preserved records.
 
 MIG-02 is already passing; this request is specifically about the missing MIG-01 migration-preservation evidence.
-- How I responded:
+- How I responded: I have fixed the MIG01 test. pls check
+- Reviewer comment I received: okayy very good 🤩
+- How I responded: Thank youu
 
-PR #52 feature/21-docs-release-lab3
+PR #52 feature/21-docs-lab3-release
 https://github.com/Ttime52/toktickit/pull/52
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: There is one documentation issue that needs to be corrected before approval: In docs/lab-03/reviewer.md, the PR #52 entry uses the wrong branch name. It should be feature/21-docs-lab3-release.
+- How I responded: fixed it. Moreover, I have added the authorization.api.test.ts according to lab 3 requirement. pls recheck kub.
+- Reviewer comment I received:
+- How I responded: Thank you
 
 
 ## Pull Requests I reviewed for my partner
@@ -172,3 +176,32 @@ feature/22-public-comment-internal-note
 https://github.com/KwanchanokThungsuk/toktickit/pull/56
 - My comment: Public Comments and Internal Notes follow the required visibility rules, requester access to Internal Notes is protected, author/timestamp handling is backend-controlled, and the 2,000-character validation, Unicode handling, draft preservation, and responsive UI are covered with tests. Approved.
 - Partner's response: Merged.
+
+feature/23-admin-user-management
+https://github.com/KwanchanokThungsuk/toktickit/pull/57
+- My comment: The create/edit user flows, role and active-status management, duplicate email protection, self-deactivation and last-active-Administrator safeguards, and initial-password reset flow are covered appropriately. Administrator routing and role-specific navigation are also aligned with the required workflow. Good job.
+- Partner's response: Merged.
+
+feature/24-admin-ticket-review
+https://github.com/KwanchanokThungsuk/toktickit/pull/58
+- My comment: I see no problem here. Administrator users can inspect Ticket information, read Public Comments and Internal Notes, and update IT Priority while Staff-only actions remain unavailable. The corresponding frontend and backend permission coverage is also included.
+Approved.
+- Partner's response: Merged.
+
+feature/25-final-ui-e2e
+https://github.com/KwanchanokThungsuk/toktickit/pull/60
+- My comment: Before approval, there are still a few Lab 3 evidence gaps:
+1. Authentication screenshot artifacts are missing.
+2. The current initial-password E2E only verifies that the Change Password screen appears; it does not complete the password change and verify normal application access as specified in tests.md.
+- Partner's response: Fixed the remaining evidence gaps:
+1. Added 3 authentication screenshots.
+2. Updated E2E-AUTH-04 to complete the forced-password change flow and verify normal authenticated access.
+3. Verified 14/14 authenticated E2E, 16/16 responsive E2E, 3/3 accessibility E2E, 88 client tests, and TypeScript/build.
+The changes have been committed and pushed. Ready for re-review. (test: complete lab 3 authentication evidence)
+- My comment: Looks good now. I will merge.🦄✔️
+
+feature/26-final-documentation
+https://github.com/KwanchanokThungsuk/toktickit/pull/61
+- My comment: docs/lab-03/reviewer.md does not include the actual GitHub PR links/numbers required by the Lab 3 submission evidence.
+- Partner's response: fixed kub. pls recheck 🫪
+- My comment: Everything looks fine now. good good🫡
