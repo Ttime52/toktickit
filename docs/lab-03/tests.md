@@ -22,7 +22,7 @@ details in [api-spec.md](api-spec.md) and [ui-spec.md](ui-spec.md).
   Administrator accounts. No test records a plaintext password, session cookie
   or secret in a committed artifact.
 
-Latest execution evidence, verified on 2026-09-24:
+Latest execution evidence, verified on 2026-09-28:
 
 | Suite | Command | Result |
 |---|---|---|
@@ -30,13 +30,19 @@ Latest execution evidence, verified on 2026-09-24:
 | Client Lab 3 | `cd client; npx.cmd vitest run tests/lab-03` | 7 files / 14 tests passed |
 | Server build | `cd server; npm.cmd run build` | Pass |
 | Server Lab 3 | `cd server; npx.cmd vitest run tests/lab-03 --no-file-parallelism` | 8 files / 31 tests passed |
-| Integrated E2E | `npx.cmd playwright test` | 9 tests passed |
+| Integrated E2E | API/Vite servers running; `$env:PLAYWRIGHT_EXTERNAL_SERVERS='1'; npx.cmd playwright test` | 9 tests passed |
+
+For the 2026-09-28 E2E verification, the API and Vite servers were started
+as external test servers and the same Playwright projects/specs were run with
+`PLAYWRIGHT_EXTERNAL_SERVERS=1 npx.cmd playwright test`; it returned exit code
+0 with 9 tests passed. This avoids a Windows webServer teardown process-handle
+issue while preserving the same integrated API/UI assertions.
 
 MIG-01 was independently re-run on 2026-09-25 with
 `npx.cmd vitest run tests/lab-03/migration-regression.integration.test.ts
 --no-file-parallelism -t "preserves migrated Ticket"`; the isolated
 Lab 2-shaped fixture migration passed (1 test), and the full Server Lab 3
-suite was re-run with 8 files / 31 tests passing.
+suite was re-run on 2026-09-28 with 8 files / 31 tests passing.
 
 The Playwright web server uses `server/e2e-server.mjs`, which builds the
 server before starting it because Node 25's `tsx` source runner raises
