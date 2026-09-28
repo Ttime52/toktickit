@@ -109,8 +109,8 @@ https://github.com/Ttime52/toktickit/pull/52
 
 - Reviewer comment I received: There is one documentation issue that needs to be corrected before approval: In docs/lab-03/reviewer.md, the PR #52 entry uses the wrong branch name. It should be feature/21-docs-lab3-release.
 - How I responded: fixed it. Moreover, I have added the authorization.api.test.ts according to lab 3 requirement. pls recheck kub.
-- Reviewer comment I received:
-- How I responded: Thank you
+- Reviewer comment I received: okayy approved 😘
+- How I responded: Thank youuu
 
 
 ## Pull Requests I reviewed for my partner
