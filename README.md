@@ -169,6 +169,44 @@ This will:
 - Populate the database with idempotent seed data; rerunning the seed does not
   duplicate records
 
+#### Local seed accounts
+
+The Lab 3 seed creates local-only accounts. Set
+`LAB3_SEED_INITIAL_PASSWORD` to a private 12–128-character value before
+running the seed. The value is hashed with Argon2id, is not stored in source
+code or logged, and every seeded account requires a first password change.
+
+PowerShell:
+
+```powershell
+$env:LAB3_SEED_INITIAL_PASSWORD = "<choose-a-local-password-of-12-or-more-characters>"
+$env:LAB3_E2E_PASSWORD = "<choose-a-different-valid-local-password>"
+cd server
+npm.cmd run prisma:seed
+```
+
+`LAB3_E2E_PASSWORD` is used only by the Playwright-created test accounts and
+must be different from the seed password. Keep both values in the local
+environment (or `server/.env`) and never commit either value.
+
+Seed account emails:
+
+| Role | Email | State |
+|---|---|---|
+| Requester | `arun.chaiyasit@example.test` | Active |
+| Requester | `boonmee.srisuk@example.test` | Active |
+| Requester | `chalida.wongsa@example.test` | Active |
+| Requester | `darin.phromma@example.test` | Active |
+| Requester | `inactive.requester@example.test` | Inactive |
+| IT Staff | `narin.staff@example.test` | Active |
+| IT Staff | `somchai.staff@example.test` | Active |
+| IT Staff | `pimchanok.staff@example.test` | Active |
+| IT Staff | `inactive.staff@example.test` | Inactive |
+| Administrator | `admin@example.test` | Active |
+
+Do not commit the shell history, `server/.env`, the chosen password, cookies,
+or generated password hashes.
+
 ## Running the Application
 
 ### Development Mode
@@ -305,10 +343,14 @@ npm run test:e2e:headed
 npm run test:e2e:report
 ```
 
-The E2E suite covers the requester-to-ticket-to-attachment flow at desktop
-(`1440x900`), tablet (`1024x768`), and mobile (`390x844`) sizes. Responsive
-checks also exercise a `900px` tablet layout and a `320px` narrow viewport.
-Screenshots are stored in `artifacts/lab-02/screenshots/`.
+The Lab 3 E2E suite covers authentication, requester Ticket/Attachment
+regression, IT Staff queue/detail operations, Administrator user creation and
+the Public Comment/Internal Note visibility boundary. Functional flows run on
+desktop; `responsive.spec.ts` captures Login, Change Password, requester
+Ticket Detail, Staff Queue, Staff Detail and User Management at `1440x900`,
+`1024x768` and `390x844`, with an additional `320px` overflow check.
+Screenshots are stored in `artifacts/lab-03/screenshots/` and the HTML report
+is stored in `artifacts/lab-03/playwright-report/`.
 
 ## API Documentation
 

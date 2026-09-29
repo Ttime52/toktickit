@@ -11,20 +11,62 @@ import {
 } from "./attachments.js";
 import {
   downloadOwnedAttachment,
+  downloadStaffAttachment,
   getOwnedAttachment,
+  getStaffAttachment,
   listOwnedAttachments,
+  listStaffAttachments,
   softRemoveOwnedAttachment,
 } from "./attachment-service.js";
 import { ApiError, sendApiError } from "./errors.js";
+import authRouter from "./auth-routes.js";
+import {
+  CLIENT_ORIGIN,
+  requireAuth,
+  requirePasswordChangeComplete,
+  requireRoles,
+  requireSameOrigin,
+} from "./auth-middleware.js";
+import {
+  createPublicComment,
+  listPublicComments,
+  validatePublicCommentBody,
+} from "./public-comment-service.js";
+import {
+  createInternalNote,
+  listInternalNotes,
+  validateInternalNoteBody,
+} from "./internal-note-service.js";
+import { recordProblemAppearsResolved } from "./requester-resolution-service.js";
 import { getPrisma } from "./prisma.js";
 import {
   assertOwnedTicket,
   createTicket,
   getOwnedTicket,
+  getTicketForInspection,
   listTickets,
   serializeTicket,
+  serializeTicketForInspection,
 } from "./ticket-service.js";
 import { parseTicketListQuery } from "./ticket-query.js";
+import { parseStaffTicketQuery } from "./staff-ticket-query.js";
+import { listStaffTickets } from "./staff-ticket-service.js";
+import {
+  getStaffTicketDetail,
+  listStaffUserOptions,
+  updateStaffTicket,
+  validateStaffTicketUpdateBody,
+} from "./staff-ticket-detail-service.js";
+import {
+  createManagedUser,
+  listManagedUsers,
+  parseUserListQuery,
+  resetManagedUserPassword,
+  updateManagedUser,
+  validateCreateManagedUserBody,
+  validateResetManagedUserPasswordBody,
+  validateUpdateManagedUserBody,
+} from "./user-management-service.js";
 import {
   normalizeCreateTicketInput,
   validateIdempotencyKey,
@@ -34,7 +76,13 @@ import {
 // Supertest can import `app` without opening a port.
 export const app = express();
 
-app.use(cors());
+app.set("trust proxy", 1);
+app.use(
+  cors({
+    origin: CLIENT_ORIGIN,
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 function hasValidActiveQuery(req: Request): boolean {
@@ -60,13 +108,30 @@ function parsePositiveInteger(value: unknown): number | null {
 type TicketScope = { ticketId: number; requesterId: number };
 type AttachmentScope = TicketScope & { attachmentId: number };
 
+function rejectRequesterIdQuery(req: Request, res: Response): boolean {
+  if (!Object.prototype.hasOwnProperty.call(req.query, "requesterId")) {
+    return false;
+  }
+
+  sendApiError(
+    res,
+    new ApiError(
+      400,
+      "INVALID_QUERY_PARAMETER",
+      "requesterId is not accepted; authentication determines the requester.",
+      { requesterId: "Remove requesterId and use the authenticated session." },
+    ),
+  );
+  return true;
+}
+
 function parseTicketScope(req: Request, res: Response): TicketScope | null {
+  if (rejectRequesterIdQuery(req, res)) return null;
+
   const ticketId = parsePositiveInteger(req.params.ticketId);
-  const requesterId = parsePositiveInteger(req.query.requesterId);
   const fields: Record<string, string> = {};
 
   if (ticketId === null) fields.ticketId = "A positive integer is required.";
-  if (requesterId === null) fields.requesterId = "A positive integer is required.";
 
   if (Object.keys(fields).length > 0) {
     sendApiError(
@@ -74,28 +139,28 @@ function parseTicketScope(req: Request, res: Response): TicketScope | null {
       new ApiError(
         400,
         "VALIDATION_ERROR",
-        "Ticket ID and requesterId must be positive integers.",
+        "Ticket ID must be a positive integer.",
         fields,
       ),
     );
     return null;
   }
 
-  return { ticketId: ticketId as number, requesterId: requesterId as number };
+  return { ticketId: ticketId as number, requesterId: req.auth!.user.id };
 }
 
 function parseAttachmentScope(
   req: Request,
   res: Response,
 ): AttachmentScope | null {
+  if (rejectRequesterIdQuery(req, res)) return null;
+
   const ticketId = parsePositiveInteger(req.params.ticketId);
   const attachmentId = parsePositiveInteger(req.params.attachmentId);
-  const requesterId = parsePositiveInteger(req.query.requesterId);
   const fields: Record<string, string> = {};
 
   if (ticketId === null) fields.ticketId = "A positive integer is required.";
   if (attachmentId === null) fields.attachmentId = "A positive integer is required.";
-  if (requesterId === null) fields.requesterId = "A positive integer is required.";
 
   if (Object.keys(fields).length > 0) {
     sendApiError(
@@ -103,7 +168,7 @@ function parseAttachmentScope(
       new ApiError(
         400,
         "VALIDATION_ERROR",
-        "Ticket ID, Attachment ID, and requesterId must be positive integers.",
+        "Ticket ID and Attachment ID must be positive integers.",
         fields,
       ),
     );
@@ -113,7 +178,7 @@ function parseAttachmentScope(
   return {
     ticketId: ticketId as number,
     attachmentId: attachmentId as number,
-    requesterId: requesterId as number,
+    requesterId: req.auth!.user.id,
   };
 }
 
@@ -129,34 +194,28 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
-// Issue 3 - Development Requester selector
+// Issue 3 - Authentication and server-side authorization foundation
 // ---------------------------------------------------------------------------
-async function listActiveDevelopmentRequesters(req: Request, res: Response) {
-  if (!hasValidActiveQuery(req)) {
-    invalidActiveQuery(res);
-    return;
-  }
+app.use("/api/auth", authRouter);
 
-  try {
-    const requesters = await getPrisma().developmentRequester.findMany({
-      where: { isActive: true },
-      select: { id: true, displayName: true, email: true },
-      orderBy: { id: "asc" },
-    });
-
-    res.status(200).json(requesters);
-  } catch {
-    res.status(500).json({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Unable to load Development Requesters.",
-      },
-    });
-  }
+function retiredRequesterSelector(_req: Request, res: Response) {
+  res.status(410).json({
+    error: {
+      code: "ENDPOINT_RETIRED",
+      message: "Requester selectors are no longer available.",
+    },
+  });
 }
 
-app.get("/api/development-requesters", listActiveDevelopmentRequesters);
-app.get("/api/requesters", listActiveDevelopmentRequesters);
+// Retired selectors are deliberately public safe 410s so they cannot become
+// an accidental identity or authorization input for any caller.
+app.get("/api/development-requesters", retiredRequesterSelector);
+app.get("/api/requesters", retiredRequesterSelector);
+
+// Every route below this point is protected. The middleware re-loads the User
+// on every request, so logout, expiry, deactivation, role changes and the
+// mandatory password-change gate take effect without trusting the browser.
+app.use("/api", requireAuth, requirePasswordChangeComplete);
 
 // ---------------------------------------------------------------------------
 // Issue 4 - active reference data
@@ -210,9 +269,234 @@ app.get("/api/related-systems", async (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// Issue 5 - IT Staff Ticket Queue
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/staff/tickets",
+  requireRoles("IT_STAFF"),
+  async (req: Request, res: Response) => {
+    const parsedQuery = parseStaffTicketQuery(
+      req.query as Record<string, unknown>,
+      req.auth!.user.id,
+    );
+    if (!parsedQuery.ok) {
+      sendApiError(res, parsedQuery.error);
+      return;
+    }
+
+    try {
+      const result = await listStaffTickets(getPrisma(), parsedQuery.value);
+      res.status(200).json(result);
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/staff/users",
+  requireRoles("IT_STAFF"),
+  async (_req: Request, res: Response) => {
+    try {
+      const data = await listStaffUserOptions(getPrisma());
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/staff/tickets/:ticketId",
+  requireRoles("IT_STAFF"),
+  async (req: Request, res: Response) => {
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    try {
+      const data = await getStaffTicketDetail(getPrisma(), ticketId);
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+async function updateStaffTicketRoute(
+  req: Request,
+  res: Response,
+  mode: "full" | "owner",
+) {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  if (ticketId === null) {
+    sendApiError(
+      res,
+      new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+        ticketId: "A positive integer is required.",
+      }),
+    );
+    return;
+  }
+
+  const normalized = validateStaffTicketUpdateBody(req.body, mode);
+  if (!normalized.ok) {
+    sendApiError(res, normalized.error);
+    return;
+  }
+
+  try {
+    const data = await updateStaffTicket(
+      getPrisma(),
+      ticketId,
+      req.auth!.user.id,
+      req.auth!.user.role,
+      normalized.value,
+    );
+    res.status(200).json({ data });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+}
+
+app.patch(
+  "/api/staff/tickets/:ticketId/owner",
+  requireSameOrigin,
+  requireRoles("IT_STAFF"),
+  async (req: Request, res: Response) => {
+    await updateStaffTicketRoute(req, res, "owner");
+  },
+);
+
+app.patch(
+  "/api/staff/tickets/:ticketId",
+  requireSameOrigin,
+  requireRoles("IT_STAFF", "ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    await updateStaffTicketRoute(req, res, "full");
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Issue 7 - Administrator User Management
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/users",
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const parsedQuery = parseUserListQuery(req.query as Record<string, unknown>);
+    if (!parsedQuery.ok) {
+      sendApiError(res, parsedQuery.error);
+      return;
+    }
+
+    try {
+      const data = await listManagedUsers(getPrisma(), parsedQuery.value);
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/users",
+  requireSameOrigin,
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const normalized = validateCreateManagedUserBody(req.body);
+    if (!normalized.ok) {
+      sendApiError(res, normalized.error);
+      return;
+    }
+
+    try {
+      const data = await createManagedUser(getPrisma(), normalized.value);
+      res.status(201).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+function parseUserId(req: Request, res: Response): number | null {
+  const userId = parsePositiveInteger(req.params.userId);
+  if (userId !== null) return userId;
+  sendApiError(
+    res,
+    new ApiError(400, "VALIDATION_ERROR", "User ID must be a positive integer.", {
+      userId: "A positive integer is required.",
+    }),
+  );
+  return null;
+}
+
+app.patch(
+  "/api/users/:userId",
+  requireSameOrigin,
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const userId = parseUserId(req, res);
+    if (userId === null) return;
+
+    const normalized = validateUpdateManagedUserBody(req.body);
+    if (!normalized.ok) {
+      sendApiError(res, normalized.error);
+      return;
+    }
+
+    try {
+      const data = await updateManagedUser(
+        getPrisma(),
+        userId,
+        req.auth!.user.id,
+        normalized.value,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/users/:userId/reset-password",
+  requireSameOrigin,
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const userId = parseUserId(req, res);
+    if (userId === null) return;
+
+    const normalized = validateResetManagedUserPasswordBody(req.body);
+    if (!normalized.ok) {
+      sendApiError(res, normalized.error);
+      return;
+    }
+
+    try {
+      const data = await resetManagedUserPassword(
+        getPrisma(),
+        userId,
+        normalized.value,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
 // Issue 4 - Ticket creation
 // ---------------------------------------------------------------------------
-app.post("/api/tickets", async (req: Request, res: Response) => {
+app.post("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
   const idempotencyKey = validateIdempotencyKey(req.get("Idempotency-Key"));
   if (idempotencyKey === null) {
     sendApiError(
@@ -227,7 +511,7 @@ app.post("/api/tickets", async (req: Request, res: Response) => {
     return;
   }
 
-  const normalized = normalizeCreateTicketInput(req.body);
+  const normalized = normalizeCreateTicketInput(req.body, req.auth!.user.id);
   if (!normalized.ok) {
     sendApiError(res, normalized.error);
     return;
@@ -250,10 +534,198 @@ app.post("/api/tickets", async (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// Issue 4 - requester resolution indication and Public Comments
+// ---------------------------------------------------------------------------
+app.post(
+  "/api/tickets/:ticketId/problem-appears-resolved",
+  requireSameOrigin,
+  requireRoles("REQUESTER"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    const body =
+      typeof req.body === "object" && req.body !== null && !Array.isArray(req.body)
+        ? (req.body as Record<string, unknown>)
+        : {};
+    const fields: Record<string, string> = {};
+
+    if (ticketId === null) fields.ticketId = "A positive integer is required.";
+    for (const key of Object.keys(body)) {
+      if (key !== "confirm") fields[key] = "This field is not accepted.";
+    }
+    if (body.confirm !== true) {
+      fields.confirm = "Confirmation must be true.";
+    }
+
+    if (Object.keys(fields).length > 0) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Request validation failed.", fields),
+      );
+      return;
+    }
+
+    try {
+      const ticket = await recordProblemAppearsResolved(
+        getPrisma(),
+        ticketId as number,
+        req.auth!.user.id,
+      );
+      res.status(200).json({ data: serializeTicket(ticket) });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/tickets/:ticketId/comments",
+  requireRoles("REQUESTER", "IT_STAFF", "ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    try {
+      const data = await listPublicComments(
+        getPrisma(),
+        ticketId,
+        req.auth!.user.id,
+        req.auth!.user.role,
+      );
+      res.status(200).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/tickets/:ticketId/comments",
+  requireSameOrigin,
+  requireRoles("REQUESTER", "IT_STAFF"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    const normalized = validatePublicCommentBody(req.body);
+    if (normalized instanceof ApiError) {
+      sendApiError(res, normalized);
+      return;
+    }
+
+    try {
+      const data = await createPublicComment(
+        getPrisma(),
+        ticketId,
+        req.auth!.user.id,
+        req.auth!.user.role,
+        normalized.content,
+      );
+      res.status(201).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+async function listInternalNotesRoute(req: Request, res: Response) {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  if (ticketId === null) {
+    sendApiError(
+      res,
+      new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+        ticketId: "A positive integer is required.",
+      }),
+    );
+    return;
+  }
+
+  try {
+    const data = await listInternalNotes(
+      getPrisma(),
+      ticketId,
+      req.auth!.user.role,
+    );
+    res.status(200).json({ data });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+}
+
+async function createInternalNoteRoute(req: Request, res: Response) {
+  const ticketId = parsePositiveInteger(req.params.ticketId);
+  if (ticketId === null) {
+    sendApiError(
+      res,
+      new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+        ticketId: "A positive integer is required.",
+      }),
+    );
+    return;
+  }
+
+  const normalized = validateInternalNoteBody(req.body);
+  if (normalized instanceof ApiError) {
+    sendApiError(res, normalized);
+    return;
+  }
+
+  try {
+    const data = await createInternalNote(
+      getPrisma(),
+      ticketId,
+      req.auth!.user.id,
+      req.auth!.user.role,
+      normalized.content,
+    );
+    res.status(201).json({ data });
+  } catch (error) {
+    sendApiError(res, error);
+  }
+}
+
+app.get(
+  [
+    "/api/tickets/:ticketId/internal-notes",
+    "/api/tickets/:ticketId/notes",
+  ],
+  requireRoles("IT_STAFF", "ADMINISTRATOR"),
+  listInternalNotesRoute,
+);
+
+app.post(
+  [
+    "/api/tickets/:ticketId/internal-notes",
+    "/api/tickets/:ticketId/notes",
+  ],
+  requireSameOrigin,
+  requireRoles("IT_STAFF"),
+  createInternalNoteRoute,
+);
+
+// ---------------------------------------------------------------------------
 // Issue 5 - requester-owned Ticket list
 // ---------------------------------------------------------------------------
-app.get("/api/tickets", async (req: Request, res: Response) => {
-  const parsedQuery = parseTicketListQuery(req.query as Record<string, unknown>);
+app.get("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
+  const parsedQuery = parseTicketListQuery(req.query as Record<string, unknown>, req.auth!.user.id);
   if (!parsedQuery.ok) {
     sendApiError(res, parsedQuery.error);
     return;
@@ -270,34 +742,58 @@ app.get("/api/tickets", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // Issue 6 - requester-owned Ticket Detail and Attachment lifecycle
 // ---------------------------------------------------------------------------
-app.get("/api/tickets/:ticketId", async (req: Request, res: Response) => {
-  const scope = parseTicketScope(req, res);
-  if (scope === null) return;
+app.get(
+  "/api/tickets/:ticketId",
+  requireRoles("REQUESTER", "ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    if (rejectRequesterIdQuery(req, res)) return;
 
-  try {
-    const ticket = await getOwnedTicket(
-      getPrisma(),
-      scope.ticketId,
-      scope.requesterId,
-    );
-    res.status(200).json({ data: serializeTicket(ticket) });
-  } catch (error) {
-    sendApiError(res, error);
-  }
-});
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
+
+    try {
+      if (req.auth!.user.role === "ADMINISTRATOR") {
+        const ticket = await getTicketForInspection(getPrisma(), ticketId);
+        res.status(200).json({ data: serializeTicketForInspection(ticket) });
+        return;
+      }
+
+      const ticket = await getOwnedTicket(getPrisma(), ticketId, req.auth!.user.id);
+      res.status(200).json({ data: serializeTicket(ticket) });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
 
 app.get(
   "/api/tickets/:ticketId/attachments",
+  requireRoles("REQUESTER", "IT_STAFF"),
   async (req: Request, res: Response) => {
-    const scope = parseTicketScope(req, res);
-    if (scope === null) return;
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    if (ticketId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID must be a positive integer.", {
+          ticketId: "A positive integer is required.",
+        }),
+      );
+      return;
+    }
 
     try {
-      const data = await listOwnedAttachments(
-        getPrisma(),
-        scope.ticketId,
-        scope.requesterId,
-      );
+      const data = req.auth!.user.role === "IT_STAFF"
+        ? await listStaffAttachments(getPrisma(), ticketId)
+        : await listOwnedAttachments(getPrisma(), ticketId, req.auth!.user.id);
       res.status(200).json({ data });
     } catch (error) {
       sendApiError(res, error);
@@ -307,19 +803,28 @@ app.get(
 
 app.get(
   "/api/tickets/:ticketId/attachments/:attachmentId",
+  requireRoles("REQUESTER", "IT_STAFF"),
   async (req: Request, res: Response) => {
-    const scope = parseAttachmentScope(req, res);
-    if (scope === null) return;
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    const attachmentId = parsePositiveInteger(req.params.attachmentId);
+    if (ticketId === null || attachmentId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID and Attachment ID must be positive integers.", {
+          ...(ticketId === null ? { ticketId: "A positive integer is required." } : {}),
+          ...(attachmentId === null ? { attachmentId: "A positive integer is required." } : {}),
+        }),
+      );
+      return;
+    }
 
     try {
-      const { attachment } = await getOwnedAttachment(
-        getPrisma(),
-        scope.ticketId,
-        scope.attachmentId,
-        scope.requesterId,
-      );
+      const { attachment } = req.auth!.user.role === "IT_STAFF"
+        ? await getStaffAttachment(getPrisma(), ticketId, attachmentId)
+        : await getOwnedAttachment(getPrisma(), ticketId, attachmentId, req.auth!.user.id);
       res.status(200).json({
-        data: serializeAttachmentMetadata(attachment, scope.requesterId),
+        data: serializeAttachmentMetadata(attachment, req.auth!.user.id),
       });
     } catch (error) {
       sendApiError(res, error);
@@ -329,17 +834,26 @@ app.get(
 
 app.get(
   "/api/tickets/:ticketId/attachments/:attachmentId/download",
+  requireRoles("REQUESTER", "IT_STAFF"),
   async (req: Request, res: Response) => {
-    const scope = parseAttachmentScope(req, res);
-    if (scope === null) return;
+    if (rejectRequesterIdQuery(req, res)) return;
+    const ticketId = parsePositiveInteger(req.params.ticketId);
+    const attachmentId = parsePositiveInteger(req.params.attachmentId);
+    if (ticketId === null || attachmentId === null) {
+      sendApiError(
+        res,
+        new ApiError(400, "VALIDATION_ERROR", "Ticket ID and Attachment ID must be positive integers.", {
+          ...(ticketId === null ? { ticketId: "A positive integer is required." } : {}),
+          ...(attachmentId === null ? { attachmentId: "A positive integer is required." } : {}),
+        }),
+      );
+      return;
+    }
 
     try {
-      const { attachment, bytes } = await downloadOwnedAttachment(
-        getPrisma(),
-        scope.ticketId,
-        scope.attachmentId,
-        scope.requesterId,
-      );
+      const { attachment, bytes } = req.auth!.user.role === "IT_STAFF"
+        ? await downloadStaffAttachment(getPrisma(), ticketId, attachmentId)
+        : await downloadOwnedAttachment(getPrisma(), ticketId, attachmentId, req.auth!.user.id);
       res
         .status(200)
         .set("Content-Type", attachment.mimeType)
@@ -357,6 +871,7 @@ app.get(
 
 app.delete(
   "/api/tickets/:ticketId/attachments/:attachmentId",
+  requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const scope = parseAttachmentScope(req, res);
     if (scope === null) return;
@@ -386,23 +901,20 @@ app.delete(
 // ---------------------------------------------------------------------------
 app.post(
   "/api/tickets/:ticketId/attachments",
+  requireRoles("REQUESTER"),
   async (req: Request, res: Response) => {
     const ticketId = parsePositiveInteger(req.params.ticketId);
-    const requesterId = parsePositiveInteger(req.query.requesterId);
 
-    if (ticketId === null || requesterId === null) {
+    if (rejectRequesterIdQuery(req, res)) return;
+
+    if (ticketId === null) {
       sendApiError(
         res,
         new ApiError(
           400,
           "VALIDATION_ERROR",
-          "Ticket ID and requesterId must be positive integers.",
-          {
-            ...(ticketId === null ? { ticketId: "A positive integer is required." } : {}),
-            ...(requesterId === null
-              ? { requesterId: "A positive integer is required." }
-              : {}),
-          },
+          "Ticket ID must be a positive integer.",
+          ticketId === null ? { ticketId: "A positive integer is required." } : {},
         ),
       );
       return;
@@ -410,7 +922,7 @@ app.post(
 
     try {
       const prisma = getPrisma();
-      await assertOwnedTicket(prisma, ticketId, requesterId);
+      await assertOwnedTicket(prisma, ticketId, req.auth!.user.id);
 
       const upload = await parseSingleMultipartFile(req);
       const validation = validateAttachmentFile(upload);
@@ -457,7 +969,7 @@ app.post(
         const attachment = await prisma.attachment.create({
           data: {
             ticketId,
-            uploadedByRequesterId: requesterId,
+            uploadedByUserId: req.auth!.user.id,
             originalFilename: validation.value.originalFilename,
             storageKey,
             mimeType: validation.value.mimeType,
@@ -480,7 +992,7 @@ app.post(
         });
 
         res.status(201).json({
-          data: serializeAttachmentMetadata(attachment, requesterId),
+          data: serializeAttachmentMetadata(attachment, req.auth!.user.id),
         });
       } catch (error) {
         if (storageKey !== null) {

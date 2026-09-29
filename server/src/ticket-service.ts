@@ -1,6 +1,7 @@
 import type {
   Prisma,
   PrismaClient,
+  ItPriority,
   RequestedPriority,
 } from "@prisma/client";
 
@@ -29,6 +30,9 @@ export const fullTicketInclude = {
   relatedSystem: {
     select: { id: true, name: true },
   },
+  assignedTo: {
+    select: { id: true, displayName: true, role: true },
+  },
   attachments: {
     orderBy: { id: "asc" },
     select: {
@@ -52,7 +56,14 @@ export type FullTicketRecord = Prisma.TicketGetPayload<{
   include: typeof fullTicketInclude;
 }>;
 
+function serializeTicketOwner(owner: FullTicketRecord["assignedTo"]) {
+  return owner === null
+    ? null
+    : { id: owner.id, displayName: owner.displayName, role: owner.role };
+}
+
 export function serializeTicket(ticket: FullTicketRecord) {
+  const ticketOwner = serializeTicketOwner(ticket.assignedTo);
   return {
     id: ticket.id,
     ticketNumber: ticket.ticketNumber,
@@ -65,6 +76,11 @@ export function serializeTicket(ticket: FullTicketRecord) {
     itPriority: ticket.itPriority,
     description: ticket.description,
     currentStatus: ticket.currentStatus,
+    ticketOwner,
+    assignedTo: ticketOwner,
+    assignedAt: ticket.assignedAt?.toISOString() ?? null,
+    requesterResolutionIndicatedAt:
+      ticket.requesterResolutionIndicatedAt?.toISOString() ?? null,
     attachments: ticket.attachments.map((attachment) =>
       serializeAttachmentMetadata(
         attachment as AttachmentMetadataRecord,
@@ -74,6 +90,16 @@ export function serializeTicket(ticket: FullTicketRecord) {
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Administrator inspection deliberately uses the shared Ticket endpoint but
+ * does not expose Attachment metadata. Attachment access remains forbidden
+ * for Administrators at the dedicated routes as required by the API contract.
+ */
+export function serializeTicketForInspection(ticket: FullTicketRecord) {
+  const { attachments: _attachments, ...inspection } = serializeTicket(ticket);
+  return inspection;
 }
 
 const ticketListSelect = {
@@ -136,17 +162,16 @@ export async function assertActiveRequester(
   prisma: PrismaClient,
   requesterId: number,
 ) {
-  const requester = await prisma.developmentRequester.findUnique({
+  const requester = await prisma.user.findUnique({
     where: { id: requesterId },
-    select: { id: true, isActive: true },
+    select: { id: true, isActive: true, role: true },
   });
 
-  if (requester === null || !requester.isActive) {
+  if (requester === null || !requester.isActive || requester.role !== "REQUESTER") {
     throw new ApiError(
-      400,
+      403,
       "REQUESTER_CONTEXT_INVALID",
-      "The selected Development Requester is not active.",
-      { requesterId: "Select an active Development Requester." },
+      "The authenticated requester is not active.",
     );
   }
 
@@ -170,11 +195,7 @@ export async function assertOwnedTicket(
   }
 
   if (ticket.requesterId !== requesterId) {
-    throw new ApiError(
-      403,
-      "OWNERSHIP_FORBIDDEN",
-      "This Ticket is not available for the selected Requester.",
-    );
+    throw new ApiError(404, "TICKET_NOT_FOUND", "Ticket was not found.");
   }
 
   return ticket;
@@ -187,6 +208,22 @@ export async function getOwnedTicket(
 ): Promise<FullTicketRecord> {
   await assertOwnedTicket(prisma, ticketId, requesterId);
 
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    include: fullTicketInclude,
+  });
+
+  if (ticket === null) {
+    throw new ApiError(404, "TICKET_NOT_FOUND", "Ticket was not found.");
+  }
+
+  return ticket;
+}
+
+export async function getTicketForInspection(
+  prisma: PrismaClient,
+  ticketId: number,
+): Promise<FullTicketRecord> {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
     include: fullTicketInclude,
@@ -420,9 +457,9 @@ export async function createTicket(
   if (replay !== null) return replay;
 
   const [requester, category, relatedSystem] = await Promise.all([
-    prisma.developmentRequester.findUnique({
+    prisma.user.findUnique({
       where: { id: input.requesterId },
-      select: { id: true, displayName: true, email: true, isActive: true },
+      select: { id: true, displayName: true, email: true, isActive: true, role: true },
     }),
     prisma.category.findUnique({
       where: { id: input.categoryId },
@@ -434,12 +471,11 @@ export async function createTicket(
     }),
   ]);
 
-  if (requester === null || !requester.isActive) {
+  if (requester === null || !requester.isActive || requester.role !== "REQUESTER") {
     throw new ApiError(
-      400,
+      403,
       "REQUESTER_CONTEXT_INVALID",
-      "The selected Development Requester is not active.",
-      { requesterId: "Select an active Development Requester." },
+      "The authenticated requester is not active.",
     );
   }
 
@@ -490,6 +526,7 @@ export async function createTicket(
           summary: input.summary,
           description: input.description,
           requestedPriority: input.requestedPriority as RequestedPriority,
+          itPriority: input.requestedPriority as unknown as ItPriority,
           currentStatus: "NEW",
           idempotencyKey,
         },

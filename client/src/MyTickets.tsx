@@ -7,6 +7,7 @@ import {
 
 import {
   ApiRequestError,
+  type CurrentStatus,
   fetchCategories,
   fetchRelatedSystems,
   fetchTickets,
@@ -24,7 +25,6 @@ import {
 type AppPage = "my-tickets" | "create-ticket";
 
 interface MyTicketsProps {
-  requesterId: number;
   requesterName: string;
   onNavigate?: (page: AppPage) => void;
   onOpenTicket?: (ticketId: number) => void;
@@ -38,7 +38,7 @@ interface TicketFilters {
   categoryId: string;
   relatedSystemId: string;
   requestedPriority: "" | RequestedPriority;
-  currentStatus: "" | "NEW";
+  currentStatus: "" | CurrentStatus;
   sortBy: TicketSortField;
   sortOrder: TicketSortOrder;
 }
@@ -101,8 +101,18 @@ function priorityLabel(priority: RequestedPriority): string {
   return priority[0] + priority.slice(1).toLowerCase();
 }
 
-function statusLabel(status: "NEW"): string {
-  return status === "NEW" ? "New" : status;
+function statusLabel(status: CurrentStatus): string {
+  const labels: Record<CurrentStatus, string> = {
+    NEW: "New",
+    OPEN: "Open",
+    IN_PROGRESS: "In Progress",
+    WAITING_FOR_REQUESTER: "Waiting for Requester",
+    RESOLVED: "Resolved",
+    CLOSED: "Closed",
+    REOPENED: "Reopened",
+    CANCELLED: "Cancelled",
+  };
+  return labels[status];
 }
 
 function sortDirectionLabel(order: TicketSortOrder): string {
@@ -117,7 +127,6 @@ function getPageSummary(meta: TicketListMeta): string {
 }
 
 export default function MyTickets({
-  requesterId,
   requesterName,
   onNavigate,
   onOpenTicket,
@@ -141,7 +150,6 @@ export default function MyTickets({
 
   const query = useMemo<TicketListQuery>(
     () => ({
-      requesterId,
       search: filters.search,
       categoryId: filters.categoryId === "" ? null : Number(filters.categoryId),
       relatedSystemId:
@@ -154,7 +162,7 @@ export default function MyTickets({
       page,
       pageSize,
     }),
-    [filters, page, pageSize, requesterId],
+    [filters, page, pageSize],
   );
   const queryKey = JSON.stringify(query);
 
@@ -311,7 +319,7 @@ export default function MyTickets({
           <p className="zen-eyebrow">Requester workspace</p>
           <h1>My Tickets</h1>
           <p className="zen-lead">
-            Review and manage Tickets for the selected Development Requester.
+            Review and manage Tickets submitted from your authenticated account.
           </p>
         </div>
         <button
@@ -390,6 +398,13 @@ export default function MyTickets({
           >
             <option value="">All Current Statuses</option>
             <option value="NEW">New</option>
+            <option value="OPEN">Open</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="WAITING_FOR_REQUESTER">Waiting for Requester</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="CLOSED">Closed</option>
+            <option value="REOPENED">Reopened</option>
+            <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
 

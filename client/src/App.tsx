@@ -1,27 +1,37 @@
 import { useCallback, useEffect, useState } from "react";
 
 import ApplicationShell, { type AppPage } from "./ApplicationShell.js";
+import AdminTicketInspection from "./AdminTicketInspection.js";
+import { AuthProvider, useAuth } from "./AuthContext.js";
+import ChangePassword from "./ChangePassword.js";
 import CreateTicket from "./CreateTicket.js";
+import Login from "./Login.js";
 import MyTickets from "./MyTickets.js";
-import RequesterSelection from "./RequesterSelection.js";
+import StaffTicketQueue from "./StaffTicketQueue.js";
+import StaffTicketDetail from "./StaffTicketDetail.js";
 import TicketDetail from "./TicketDetail.js";
-import {
-  RequesterProvider,
-  useRequesterContext,
-} from "./RequesterContext.js";
-import { checkSystem, type Category } from "./api.js";
+import UserManagement from "./UserManagement.js";
 import "./styles.css";
-
-const REQUESTER_SELECTION_PATH = "/select-requester";
 
 function pageFromPath(pathname: string): AppPage {
   if (pathname === "/create-ticket") return "create-ticket";
+  if (pathname === "/staff/tickets") return "staff-queue";
+  if (/^\/staff\/tickets\/[1-9]\d*$/u.test(pathname)) return "staff-ticket-detail";
+  if (pathname === "/admin/users") return "admin-users";
   if (/^\/tickets\/[1-9]\d*$/u.test(pathname)) return "ticket-detail";
   return "my-tickets";
 }
 
-function pathForPage(page: AppPage) {
+function pathForPage(page: AppPage): string {
+  if (page === "staff-queue") return "/staff/tickets";
+  if (page === "admin-users") return "/admin/users";
   return page === "create-ticket" ? "/create-ticket" : "/my-tickets";
+}
+
+function defaultPathForRole(role: string): string {
+  if (role === "IT_STAFF") return "/staff/tickets";
+  if (role === "ADMINISTRATOR") return "/admin/users";
+  return "/my-tickets";
 }
 
 function ticketIdFromPath(pathname: string): number | null {
@@ -31,62 +41,66 @@ function ticketIdFromPath(pathname: string): number | null {
   return Number.isSafeInteger(ticketId) ? ticketId : null;
 }
 
-function LabOneDiagnostic() {
-  const [state, setState] = useState<"idle" | "loading" | "success" | "error">(
-    "idle",
-  );
-  const [categories, setCategories] = useState<Category[]>([]);
+function staffTicketIdFromPath(pathname: string): number | null {
+  const match = /^\/staff\/tickets\/([1-9]\d*)$/u.exec(pathname);
+  if (match === null) return null;
+  const ticketId = Number(match[1]);
+  return Number.isSafeInteger(ticketId) ? ticketId : null;
+}
 
-  async function handleCheckSystem() {
-    setState("loading");
-    try {
-      const result = await checkSystem();
-      setCategories(result.categories);
-      setState("success");
-    } catch {
-      setState("error");
-    }
-  }
-
+function SessionLoading() {
   return (
-    <div className="zen-legacy-diagnostic" hidden>
-      <button type="button" tabIndex={-1} onClick={handleCheckSystem}>
-        Check System
-      </button>
-      {state === "success" && (
-        <div>
-          System Status: <strong>Online</strong>
-          <ul>
-            {categories.map((category) => (
-              <li key={category.id}>{category.name}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {state === "error" && (
-        <div>
-          System Status: Offline
-          <span>Unable to connect to TokTickIT API</span>
-        </div>
-      )}
-    </div>
+    <main className="zen-page" aria-labelledby="session-loading-title">
+      <section className="zen-card zen-auth-card">
+        <p className="zen-eyebrow">TokTickIT</p>
+        <h1 id="session-loading-title">Loading your session</h1>
+        <p className="zen-status" role="status" aria-live="polite">
+          <span className="zen-spinner" aria-hidden="true" /> Checking authentication…
+        </p>
+      </section>
+    </main>
   );
 }
 
-function AppContent() {
-  const { selectedRequester, clearRequester, requesterRevision } =
-    useRequesterContext();
-  const [pathname, setPathname] = useState(
-    () => window.location.pathname || "/my-tickets",
+function RoleLanding({ role }: { role: string }) {
+  return (
+    <section className="zen-placeholder" aria-labelledby="role-landing-title">
+      <p className="zen-eyebrow">Authenticated application</p>
+      <h1 id="role-landing-title">Your {role} workspace</h1>
+      <p>
+        Your role navigation is ready. The operational screen for this role is
+        delivered in the next Issue.
+      </p>
+    </section>
   );
+}
+
+function ForbiddenState({ area }: { area: string }) {
+  return (
+    <section className="zen-empty-panel" aria-labelledby="forbidden-title">
+      <p className="zen-eyebrow">Access restricted</p>
+      <h1 id="forbidden-title">You cannot view {area}</h1>
+      <p>Your account is not permitted to access this screen.</p>
+    </section>
+  );
+}
+
+function AuthenticatedApp() {
+  const { user, logout, refresh } = useAuth();
+  const [pathname, setPathname] = useState(
+    () => {
+      const currentPath = window.location.pathname;
+      return currentPath === "/"
+        ? defaultPathForRole(user?.role ?? "REQUESTER")
+        : currentPath;
+    },
+  );
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navigateTo = useCallback((path: string, replace = false) => {
     if (window.location.pathname !== path) {
-      if (replace) {
-        window.history.replaceState({}, "", path);
-      } else {
-        window.history.pushState({}, "", path);
-      }
+      if (replace) window.history.replaceState({}, "", path);
+      else window.history.pushState({}, "", path);
     }
     setPathname(path);
   }, []);
@@ -95,81 +109,104 @@ function AppContent() {
     function handlePopState() {
       setPathname(window.location.pathname || "/my-tickets");
     }
-
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  useEffect(() => {
-    if (selectedRequester === null && pathname !== REQUESTER_SELECTION_PATH) {
-      navigateTo(REQUESTER_SELECTION_PATH, true);
-      return;
-    }
-
-    if (
-      selectedRequester !== null &&
-      (pathname === REQUESTER_SELECTION_PATH || pathname === "/")
-    ) {
-      navigateTo("/my-tickets", true);
-    }
-  }, [navigateTo, pathname, selectedRequester]);
-
-  if (selectedRequester === null) {
-    return (
-      <>
-        <RequesterSelection onContinue={() => navigateTo("/my-tickets")} />
-        <LabOneDiagnostic />
-      </>
-    );
-  }
+  if (user === null) return null;
+  if (user.mustChangePassword) return <ChangePassword />;
 
   const currentPage = pageFromPath(pathname);
-  const requesterName = selectedRequester.displayName;
   const ticketId = ticketIdFromPath(pathname);
+  const staffTicketId = staffTicketIdFromPath(pathname);
+  const isRequesterPage =
+    currentPage === "my-tickets" ||
+    currentPage === "create-ticket" ||
+    currentPage === "ticket-detail";
+  const isAdministratorInspection =
+    user.role === "ADMINISTRATOR" && currentPage === "ticket-detail" && ticketId !== null;
 
   return (
     <ApplicationShell
       currentPage={currentPage}
-      requesterName={requesterName}
+      user={user}
       onNavigate={(page) => navigateTo(pathForPage(page))}
-      onChangeRequester={() => {
-        clearRequester();
-        navigateTo(REQUESTER_SELECTION_PATH);
+      onChangePassword={() => setShowChangePassword(true)}
+      onLogout={() => {
+        void logout();
       }}
     >
-      <div key={requesterRevision}>
-        {currentPage === "create-ticket" ? (
-          <CreateTicket
-            onNavigate={(page) => navigateTo(pathForPage(page))}
-            onViewTicket={(createdTicketId) =>
-              navigateTo(`/tickets/${createdTicketId}`)
-            }
+      {showChangePassword ? (
+        <ChangePassword voluntary />
+      ) : user.role !== "REQUESTER" ? (
+        isRequesterPage && !isAdministratorInspection ? (
+          <ForbiddenState area="Requester Ticket screens" />
+        ) : currentPage === "admin-users" && user.role !== "ADMINISTRATOR" ? (
+          <ForbiddenState area="Administrator User Management" />
+        ) : (currentPage === "staff-queue" || currentPage === "staff-ticket-detail") && user.role !== "IT_STAFF" ? (
+          <ForbiddenState
+            area={currentPage === "staff-ticket-detail" ? "the IT Staff Ticket Detail" : "the IT Staff Ticket Queue"}
           />
-        ) : currentPage === "ticket-detail" && ticketId !== null ? (
-          <TicketDetail
+        ) : user.role === "IT_STAFF" && currentPage === "staff-queue" ? (
+          <StaffTicketQueue onOpenTicket={(openedTicketId) => navigateTo(`/staff/tickets/${openedTicketId}`)} />
+        ) : user.role === "IT_STAFF" && currentPage === "staff-ticket-detail" && staffTicketId !== null ? (
+          <StaffTicketDetail
+            ticketId={staffTicketId}
+            onBack={() => navigateTo("/staff/tickets")}
+          />
+        ) : user.role === "ADMINISTRATOR" && currentPage === "admin-users" ? (
+          <UserManagement onSessionRefresh={() => void refresh()} />
+        ) : user.role === "ADMINISTRATOR" && currentPage === "ticket-detail" && ticketId !== null ? (
+          <AdminTicketInspection
             ticketId={ticketId}
-            requesterId={selectedRequester.id}
-            onNavigate={() => navigateTo("/my-tickets")}
+            onBack={() => navigateTo("/admin/users")}
           />
         ) : (
-          <MyTickets
-            requesterId={selectedRequester.id}
-            requesterName={requesterName}
-            onNavigate={(page) => navigateTo(pathForPage(page))}
-            onOpenTicket={(openedTicketId) =>
-              navigateTo(`/tickets/${openedTicketId}`)
-            }
-          />
-        )}
-      </div>
+          <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
+        )
+      ) : (
+        currentPage === "staff-queue" || currentPage === "staff-ticket-detail" || currentPage === "admin-users" ? (
+          <ForbiddenState area={currentPage === "admin-users" ? "Administrator User Management" : "the IT Staff Ticket Queue"} />
+        ) : <div>
+          {currentPage === "create-ticket" ? (
+            <CreateTicket
+              requester={user}
+              onNavigate={(page) => navigateTo(pathForPage(page))}
+              onViewTicket={(createdTicketId) =>
+                navigateTo(`/tickets/${createdTicketId}`)
+              }
+            />
+          ) : currentPage === "ticket-detail" && ticketId !== null ? (
+            <TicketDetail
+              ticketId={ticketId}
+              onNavigate={() => navigateTo("/my-tickets")}
+            />
+          ) : (
+            <MyTickets
+              requesterName={user.displayName}
+              onNavigate={(page) => navigateTo(pathForPage(page))}
+              onOpenTicket={(openedTicketId) =>
+                navigateTo(`/tickets/${openedTicketId}`)
+              }
+            />
+          )}
+        </div>
+      )}
     </ApplicationShell>
   );
 }
 
+function AppRouter() {
+  const { state } = useAuth();
+  if (state === "loading") return <SessionLoading />;
+  if (state === "unauthenticated") return <Login />;
+  return <AuthenticatedApp />;
+}
+
 export default function App() {
   return (
-    <RequesterProvider>
-      <AppContent />
-    </RequesterProvider>
+    <AuthProvider>
+      <AppRouter />
+    </AuthProvider>
   );
 }

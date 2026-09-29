@@ -70,6 +70,28 @@ textarea:focus-visible {
   padding: 32px;
 }
 
+.zen-auth-card {
+  width: min(100%, 480px);
+}
+
+.zen-auth-actions {
+  margin-top: 20px;
+}
+
+.zen-password-rules {
+  color: var(--zen-muted);
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.zen-password-rules li.is-valid {
+  color: var(--zen-success);
+  font-weight: 600;
+}
+
 .zen-eyebrow {
   color: var(--zen-secondary);
   font-size: 14px;
@@ -104,13 +126,13 @@ h1 {
 
 .zen-callout-warning {
   background: var(--zen-warning-bg);
-  border-color: #e1c77a;
+  border-color: var(--zen-warning);
   color: var(--zen-warning);
 }
 
 .zen-callout-error {
   background: var(--zen-error-bg);
-  border-color: #e7aaaa;
+  border-color: var(--zen-error);
   color: var(--zen-error);
 }
 
@@ -540,7 +562,7 @@ h1 {
 .zen-attachment-row.is-invalid,
 .zen-attachment-row.is-failed {
   background: var(--zen-error-bg);
-  border-color: #e7aaaa;
+  border-color: var(--zen-error);
 }
 
 .zen-attachment-details {
@@ -589,8 +611,7 @@ h1 {
   background: var(--zen-pale);
 }
 
-/* Kept off-screen so the Lab 1 diagnostic test remains backwards compatible
-   while the Lab 2 requester selector is the only visible entry point. */
+/* Kept off-screen for the retained Lab 1 diagnostic endpoint. */
 .zen-legacy-diagnostic {
   height: 1px;
   left: -10000px;
@@ -778,8 +799,274 @@ h1 {
   color: var(--zen-text);
 }
 
+.zen-unassigned {
+  color: var(--zen-muted);
+  font-weight: 700;
+}
+
+.zen-owner-role {
+  color: var(--zen-muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.zen-staff-ticket-table {
+  min-width: 1280px;
+}
+
 .zen-ticket-card-list {
   display: none;
+}
+
+@media (max-width: 1199px) {
+  .zen-ticket-table-wrap {
+    display: none;
+  }
+
+  .zen-ticket-card-list {
+    display: grid;
+    gap: 16px;
+  }
+
+  .zen-ticket-card {
+    background: var(--zen-surface);
+    border: 1px solid var(--zen-border);
+    border-radius: 10px;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .zen-ticket-card-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .zen-ticket-card h2 {
+    font-size: 18px;
+    line-height: 1.35;
+    margin: 14px 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zen-ticket-card-details {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+  }
+
+  .zen-ticket-card-details div {
+    min-width: 0;
+  }
+
+  .zen-ticket-card-details dt {
+    color: var(--zen-muted);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .zen-ticket-card-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zen-ticket-open-button {
+    margin-top: 16px;
+    width: 100%;
+  }
+}
+
+.zen-user-management {
+  min-width: 0;
+}
+
+.zen-user-management-heading {
+  align-items: flex-end;
+}
+
+.zen-user-toolbar {
+  align-items: end;
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(240px, 2fr) minmax(180px, 1fr) auto;
+  margin-bottom: 24px;
+  padding: 20px;
+}
+
+.zen-user-table-wrap {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.zen-user-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.zen-user-table th,
+.zen-user-table td {
+  border-bottom: 1px solid var(--zen-border);
+  padding: 14px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.zen-user-table th {
+  background: var(--zen-readonly);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zen-user-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.zen-user-table tbody tr:hover {
+  background: var(--zen-pale);
+}
+
+.zen-user-status {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.zen-user-status.is-active {
+  background: var(--zen-pale);
+  border-color: var(--zen-success);
+  color: var(--zen-success);
+}
+
+.zen-user-status.is-inactive {
+  background: var(--zen-disabled-bg);
+  border-color: var(--zen-border);
+  color: var(--zen-disabled-text);
+}
+
+.zen-user-card-list {
+  display: none;
+}
+
+.zen-user-card {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.zen-user-card h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+
+.zen-user-card dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.zen-user-card dt {
+  color: var(--zen-muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.zen-user-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.zen-user-card .zen-button {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.zen-user-drawer-backdrop {
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.zen-user-drawer {
+  background: var(--zen-surface);
+  border-left: 1px solid var(--zen-border);
+  box-shadow: -8px 0 32px rgb(23 53 42 / 24%);
+  height: 100%;
+  max-width: 560px;
+  overflow-y: auto;
+  padding: 32px;
+  width: 100%;
+}
+
+.zen-user-drawer-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.zen-user-drawer-heading h2 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.zen-form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.zen-user-activation-field {
+  margin-top: 24px;
+}
+
+.zen-switch-label,
+.zen-confirmation-check {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.zen-switch-label input,
+.zen-confirmation-check input {
+  height: 18px;
+  width: 18px;
+}
+
+.zen-user-form-actions {
+  border-top: 1px solid var(--zen-border);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+
+.zen-user-reset-section {
+  border-top: 1px solid var(--zen-border);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+
+.zen-user-reset-section h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
 }
 
 .zen-ticket-skeleton {
@@ -794,7 +1081,7 @@ h1 {
 
 .zen-ticket-skeleton span {
   animation: zen-skeleton-pulse 1.2s ease-in-out infinite alternate;
-  background: #e5ece8;
+  background: var(--zen-readonly);
   border-radius: 4px;
   display: block;
   height: 20px;
@@ -967,6 +1254,139 @@ h1 {
   text-align: right;
 }
 
+.zen-resolution-indication,
+.zen-public-comments {
+  border-top: 1px solid var(--zen-border);
+  margin-top: 28px;
+  padding-top: 28px;
+}
+
+.zen-staff-work-controls {
+  background: var(--zen-readonly);
+  border: 1px solid var(--zen-border);
+  border-radius: 8px;
+  margin-top: 28px;
+  padding: 20px;
+}
+
+.zen-staff-work-controls h2 {
+  margin-top: 0;
+}
+
+.zen-confirmation-check {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.zen-confirmation-check input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.zen-internal-notes {
+  background: var(--zen-warning-bg);
+  border-left: 5px solid var(--zen-warning);
+  margin-top: 28px;
+  padding: 24px 20px 20px;
+}
+
+.zen-internal-notes h2 {
+  color: var(--zen-warning);
+  margin-top: 0;
+}
+
+.zen-internal-notes .zen-comment-item {
+  background: var(--zen-surface);
+}
+
+.zen-staff-detail-page .zen-detail-card {
+  max-width: none;
+}
+
+.zen-resolution-confirmation {
+  background: var(--zen-readonly);
+  border: 1px solid var(--zen-border);
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.zen-resolution-confirmation p {
+  margin: 0 0 16px;
+}
+
+.zen-comment-feed {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 20px 0 24px;
+  padding: 0;
+}
+
+.zen-comment-item {
+  background: var(--zen-surface);
+  border: 1px solid var(--zen-border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.zen-comment-item p {
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.zen-comment-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zen-comment-meta time {
+  color: var(--zen-muted);
+  font-size: 13px;
+  margin-left: auto;
+}
+
+.zen-badge-role {
+  background: var(--zen-pale);
+  border-color: var(--zen-secondary);
+  color: var(--zen-text);
+  font-size: 12px;
+}
+
+.zen-empty-comments {
+  background: var(--zen-readonly);
+  border: 1px dashed var(--zen-border);
+  border-radius: 8px;
+  color: var(--zen-muted);
+  margin: 20px 0;
+  padding: 20px;
+  text-align: center;
+}
+
+.zen-comment-composer {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.zen-comment-composer label {
+  font-weight: 700;
+}
+
+.zen-comment-composer textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.zen-comment-composer .zen-button {
+  justify-self: start;
+}
+
 .zen-button-danger {
   background: var(--zen-danger);
   border-color: var(--zen-danger);
@@ -977,6 +1397,66 @@ h1 {
 .zen-button-danger:not(:disabled):focus-visible {
   background: var(--zen-danger);
   border-color: var(--zen-danger);
+}
+
+.zen-password-control {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.zen-password-control input {
+  flex: 1;
+  min-width: 0;
+}
+
+.zen-password-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.zen-user-context {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+  min-width: 0;
+  text-align: right;
+}
+
+.zen-user-identity {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.zen-user-identity span {
+  color: rgb(255 255 255 / 84%);
+  font-size: 13px;
+}
+
+.zen-role-badge {
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 999px;
+  color: var(--zen-text);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.zen-role-requester {
+  background: var(--zen-pale);
+}
+
+.zen-role-it_staff {
+  background: var(--zen-secondary);
+  color: white;
+}
+
+.zen-role-administrator {
+  background: var(--zen-warning-bg);
+  color: var(--zen-warning);
 }
 
 .zen-dialog-backdrop {
@@ -1053,6 +1533,14 @@ h1 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .zen-user-toolbar {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  .zen-user-toolbar .zen-clear-filters {
+    grid-column: 1 / -1;
+  }
+
   .zen-list-search {
     grid-column: 1 / -1;
   }
@@ -1112,6 +1600,19 @@ h1 {
     text-align: left;
   }
 
+  .zen-user-context {
+    align-items: flex-start;
+    flex-basis: 100%;
+    flex-direction: column;
+    margin-left: 0;
+    padding: 4px 0 8px;
+    text-align: left;
+  }
+
+  .zen-user-context .zen-user-identity {
+    text-align: left;
+  }
+
   .zen-shell-content {
     padding: 16px;
   }
@@ -1157,6 +1658,23 @@ h1 {
     padding: 16px;
   }
 
+  .zen-user-management-heading {
+    align-items: stretch;
+  }
+
+  .zen-user-management-heading .zen-button {
+    width: 100%;
+  }
+
+  .zen-user-toolbar {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .zen-user-toolbar .zen-clear-filters {
+    grid-column: auto;
+  }
+
   .zen-list-search {
     grid-column: auto;
   }
@@ -1167,6 +1685,15 @@ h1 {
 
   .zen-ticket-table-wrap {
     display: none;
+  }
+
+  .zen-user-table-wrap {
+    display: none;
+  }
+
+  .zen-user-card-list {
+    display: grid;
+    gap: 12px;
   }
 
   .zen-ticket-card-list {
@@ -1197,30 +1724,10 @@ h1 {
   }
 
   .zen-ticket-card-details {
-    display: grid;
-    gap: 12px;
     grid-template-columns: 1fr;
-    margin: 0;
-  }
-
-  .zen-ticket-card-details div {
-    min-width: 0;
-  }
-
-  .zen-ticket-card-details dt {
-    color: var(--zen-muted);
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-
-  .zen-ticket-card-details dd {
-    margin: 0;
-    overflow-wrap: anywhere;
   }
 
   .zen-ticket-open-button {
-    margin-top: 16px;
     width: 100%;
   }
 
@@ -1296,5 +1803,19 @@ h1 {
 
   .zen-dialog-actions .zen-button {
     flex: 1;
+  }
+
+  .zen-user-drawer {
+    max-width: none;
+    padding: 24px 16px;
+  }
+
+  .zen-user-drawer-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .zen-user-drawer-heading .zen-button {
+    width: 100%;
   }
 }

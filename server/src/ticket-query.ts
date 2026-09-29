@@ -13,12 +13,24 @@ export const TICKET_SORT_FIELDS = [
   "category",
 ] as const;
 
+export const TICKET_STATUSES = [
+  "NEW",
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_REQUESTER",
+  "RESOLVED",
+  "CLOSED",
+  "REOPENED",
+  "CANCELLED",
+] as const;
+
+export type TicketStatusValue = (typeof TICKET_STATUSES)[number];
+
 export type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
 export type TicketSortOrder = "asc" | "desc";
 export type TicketPageSize = 10 | 20 | 50;
 
 const TICKET_QUERY_PARAMETERS = new Set([
-  "requesterId",
   "search",
   "categoryId",
   "relatedSystemId",
@@ -36,7 +48,7 @@ export interface TicketListQuery {
   categoryId: number | null;
   relatedSystemId: number | null;
   requestedPriority: RequestedPriorityValue | null;
-  currentStatus: "NEW" | null;
+  currentStatus: TicketStatusValue | null;
   sortBy: TicketSortField;
   sortOrder: TicketSortOrder;
   page: number;
@@ -93,26 +105,12 @@ function optionalPositiveInteger(
 
 export function parseTicketListQuery(
   query: Record<string, unknown>,
+  requesterId: number,
 ): TicketListQueryResult {
   for (const field of Object.keys(query)) {
     if (!TICKET_QUERY_PARAMETERS.has(field)) {
       return invalidParameter(field, `Unknown query parameter: ${field}.`);
     }
-  }
-
-  const requesterIdValue = singleValue(query, "requesterId");
-  if (typeof requesterIdValue !== "string") {
-    return invalidParameter(
-      "requesterId",
-      "requesterId must be a positive integer.",
-    );
-  }
-  const requesterId = positiveInteger(requesterIdValue);
-  if (requesterId === null) {
-    return invalidParameter(
-      "requesterId",
-      "requesterId must be a positive integer.",
-    );
   }
 
   const searchValue = singleValue(query, "search");
@@ -151,11 +149,20 @@ export function parseTicketListQuery(
   }
 
   const currentStatusValue = singleValue(query, "currentStatus");
-  if (currentStatusValue === null ||
-      (currentStatusValue !== undefined && currentStatusValue !== "NEW")) {
-    return invalidParameter("currentStatus", "currentStatus must be NEW.");
+  if (
+    currentStatusValue === null ||
+    (currentStatusValue !== undefined &&
+      !TICKET_STATUSES.includes(currentStatusValue as TicketStatusValue))
+  ) {
+    return invalidParameter(
+      "currentStatus",
+      "currentStatus must be a valid Ticket status.",
+    );
   }
-  const currentStatus = currentStatusValue === undefined ? null : "NEW";
+  const currentStatus =
+    currentStatusValue === undefined
+      ? null
+      : (currentStatusValue as TicketStatusValue);
 
   const sortByValue = singleValue(query, "sortBy");
   if (

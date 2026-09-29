@@ -409,7 +409,7 @@ export function serializeAttachmentMetadata(
     removalReason: attachment.removalReason,
     previewable: active,
     downloadUrl: active
-      ? `/api/tickets/${attachment.ticketId}/attachments/${attachment.id}/download?requesterId=${requesterId}`
+      ? `/api/tickets/${attachment.ticketId}/attachments/${attachment.id}/download`
       : null,
   };
 }

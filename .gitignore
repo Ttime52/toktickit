@@ -1,5 +1,7 @@
 # dependencies
 node_modules/
+artifacts/lab-03/test-results/
+artifacts/lab-03/playwright-report/
 # env & secrets
 .env
 *.env
