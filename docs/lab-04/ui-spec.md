@@ -57,7 +57,7 @@ grayscale and are never conveyed by color alone:
 |---|---|---|
 | Requester | Dashboard, My Tickets, Create Ticket | Staff/Admin routes show safe Forbidden; no protected data flashes |
 | IT Staff | Dashboard, Ticket Queue | Requester/Admin mutation routes show safe Forbidden |
-| Administrator | Dashboard, User Management | Staff queue/status/assignment mutations show safe Forbidden; `/admin/tickets` is a read-only dashboard drill-down and authorized Ticket inspection is read-only except Actions Taken |
+| Administrator | Dashboard, User Management | Staff queue/status/assignment mutations show safe Forbidden; `/admin/tickets` is a read-only dashboard drill-down and authorized Ticket inspection is read-only except Actions Taken and the existing IT Priority control |
 
 The active link exposes `aria-current="page"`. On mobile, the nav collapses
 behind an accessible **Open navigation** button with `aria-expanded`; closing
@@ -129,7 +129,7 @@ and **Recent updates** next. Preview rows contain Ticket Number, summary,
 status badge, IT Priority badge, owner/unassigned label, and last updated time.
 Each row has a single **Open Ticket** action to `/staff/tickets/:ticketId`.
 
-The page does not become a second editable queue. Assignment, priority, Action
+The page does not become a second editable queue. Assignment, priority, Actions
 Taken, and status controls appear only after opening Ticket Detail.
 
 Required states:
@@ -178,6 +178,12 @@ filter chip so the drill-down is visible and reversible.
 
 ## 3. Actions Taken on Ticket Detail
 
+Use **Action Taken** for one record and **Actions Taken** for the collection or
+feature. `ActionsTakenList` and `ActionTakenForm` are component identifiers;
+their visible labels remain **Actions Taken**, **Add Action Taken**, and
+**Edit Action Taken**. The seven business fields use the exact UI labels in
+the specification field table and the exact camelCase API names in requests.
+
 ### 3.1 Placement and shared region
 
 On `/staff/tickets/:ticketId` and authorized Administrator inspection, place an
@@ -190,8 +196,8 @@ The card header includes:
 
 - title **Actions Taken**;
 - a short helper line: “Operational work recorded for this Ticket”;
-- count and latest action time when available; and
-- for IT Staff/Administrator, a primary **Add Action** button.
+- count and latest Action Date/Time when available; and
+- for IT Staff/Administrator, a primary **Add Action Taken** button.
 
 The list is chronological (`Action Date/Time` ascending; equal timestamps by
 ID), with the newest item still easy to find. Do not visually imply that
@@ -210,43 +216,43 @@ Desktop/tablet wide layouts may use a semantic table with these columns:
 | Follow-Up Required? | Text `Yes`/`No` and a non-color icon/label |
 | Follow-up Note | Show an em dash for `No`; show the note for `Yes` |
 | Attachment Notes | Plain text or an explicit “None” |
-| Actions | **Edit** for IT Staff/Administrator only; absent for Requester |
+| Record actions | **Edit** for IT Staff/Administrator only; absent for Requester |
 
-At mobile widths, each row becomes a bordered Action card with labelled
+At mobile widths, each row becomes a bordered Action Taken card with labelled
 definition-list fields in the same order. Do not hide required fields behind
 hover or a color-only icon. Long descriptions wrap at word boundaries; the
 page must not gain horizontal overflow.
 
 List states:
 
-- loading: three skeleton Action cards/table rows;
+- loading: three skeleton Action Taken cards/table rows;
 - empty: “No Actions Taken have been recorded for this Ticket yet”; show
-  **Add Action** only to a permitted role;
+  **Add Action Taken** only to a permitted role;
 - populated: stable chronological list;
 - validation/data failure: safe inline error with Retry, preserving the Ticket
   page;
 - not found/forbidden: use the shared safe Ticket state and do not render a
-  partial action list;
+  partial Actions Taken list;
 - stale response after save: refresh the list and show a non-destructive
   conflict panel; never silently replace an edited form.
 
 ### 3.3 `ActionTakenForm` component
 
 The create and edit form uses the existing Zen Green form card/drawer pattern.
-The form has a visible mode heading (**Add Action** or **Edit Action**) and
+The form has a visible mode heading (**Add Action Taken** or **Edit Action Taken**) and
 labels above controls:
 
-| Field | Control and behavior |
-|---|---|
-| Action Date/Time | Native `datetime-local` or equivalent accessible control, rendered in `Asia/Bangkok` and prefilled with current time for create. Before submit, convert the selected value to an ISO timestamp with explicit `Z`/UTC offset; never send an ambiguous timezone-less value. The server remains authoritative. |
-| Action Description | Required textarea; helper text “What was done?”; min-height 144 px. |
-| Result | Required textarea; helper text “What happened as a result?” |
-| Performed by | Read-only identity row populated from the session/create response; no select and no user ID input. |
-| Follow-Up Required? | Required checkbox/switch with visible `Yes`/`No` text. |
-| Follow-up Note | Textarea appears/enables when Yes; required error is linked to the field. When No, send `null` and do not preserve hidden stale text. |
-| Attachment Notes | Optional textarea; explain that this describes an existing Ticket Attachment and does not upload a file. |
+| UI field label | API field | Control and behavior |
+|---|---|---|
+| Action Date/Time | `actionAt` | Native `datetime-local` or equivalent accessible control, rendered in `Asia/Bangkok`. It is editable on create and edit for IT Staff/Administrator, read-only for Requester, and prefilled with current time only for a new record. Before submit, convert the selected value to an ISO timestamp with explicit `Z`/UTC offset; never send an ambiguous timezone-less value. On edit, never silently replace the entered value with “now”. |
+| Action Description | `actionDescription` | Required textarea; helper text “What was done?”; min-height 144 px. |
+| Result | `result` | Required textarea; helper text “What happened as a result?” |
+| Performed by | `performedBy` (response only) | Read-only identity row populated from the session/create response; no select and no user ID input. |
+| Follow-Up Required? | `followUpRequired` | Required checkbox/switch with visible `Yes`/`No` text. |
+| Follow-up Note | `followUpNote` | Textarea appears/enables when Yes; required error is linked to the field. When No, send `null` and do not preserve hidden stale text. |
+| Attachment Notes | `attachmentNotes` | Optional textarea; explain that this describes an existing Ticket Attachment and does not upload a file. |
 
-Primary action is **Save Action**; secondary is **Cancel**. Disable the primary
+Primary action is **Save Action Taken**; secondary is **Cancel**. Disable the primary
 button while saving, but keep entered values visible. A failed validation maps
 the server `fields` messages to inputs and includes an error summary above the
 form. A failed request keeps all entered data. A successful create closes the
@@ -254,8 +260,8 @@ form, refreshes the list, updates the count/version, and announces success in
 an `aria-live="polite"` region. A successful edit returns to view mode.
 
 The form never includes `ticketId`, `performedBy`, `version`, `seedKey`, or a
-physical file input. For a `412` stale conflict, keep the dirty values,
-announce “This Action changed elsewhere; review the latest version”, provide
+physical file input. For a `412 STALE_WRITE` conflict, keep the dirty values,
+announce “This Action Taken record changed elsewhere; review the latest version”, provide
 **Reload latest** and **Cancel**, and do not overwrite the user’s draft.
 
 ### 3.4 Role modes
@@ -269,8 +275,10 @@ announce “This Action changed elsewhere; review the latest version”, provide
 ## 4. Ticket workflow and resolution UI
 
 The existing IT Staff Work Controls card remains the only status/owner edit
-surface. It renders only matrix-allowed transitions from the current status;
-the UI cannot be treated as the authorization boundary.
+surface. The existing IT Priority control remains available to IT Staff and
+Administrators as specified by the retained Lab 3 contract; it is separate from
+status/owner transitions. The UI renders only matrix-allowed transitions from
+the current status and cannot be treated as the authorization boundary.
 
 - **Resolved** and **Closed** actions open a confirmation dialog containing the
   required confirmation checkbox and the required resolution/closure summary.
@@ -278,11 +286,12 @@ the UI cannot be treated as the authorization boundary.
 - The dialog identifies the current and target status in text and has a
   keyboard-trapped focus order: heading, explanation, evidence, confirmation,
   Cancel, Confirm.
-- On a server `400`, `403`, `409`, `412`, or `428`, retain the work-control
+- On a server `400 VALIDATION_ERROR`, `403`, `409`, `412 STALE_WRITE`, or `428
+  PRECONDITION_REQUIRED`, retain the work-control
   selections, show an inline safe message, and refresh only after the user
   chooses to reload when needed.
 - After success, refresh Ticket summary, status badge, version, dashboard
-  counts where visible, and Action list. Show a text success announcement.
+  counts where visible, and Actions Taken list. Show a text success announcement.
 - Requester **Problem Appears Resolved** remains a separate confirmation action
   and displays the advisory banner without changing the formal status.
 
@@ -318,13 +327,13 @@ filters.
 
 Use the existing breakpoints and avoid page-level horizontal scrolling:
 
-| Viewport | Dashboard | Action list/form | Ticket workflow |
+| Viewport | Dashboard | Actions Taken list/form | Ticket workflow |
 |---|---|---|---|
 | Desktop `>=1200 px` | Four-card first row; grouped cards and two preview lists | Semantic table may be used; form is a card or max 560 px drawer | Work controls and read-only core remain readable in two-column sections |
 | Tablet `768–1199 px` | Two-card grid; grouped metrics stack below; previews remain single column | Table may switch to labelled cards before clipping; form is full-width card | Secondary fields collapse; primary actions remain visible |
-| Mobile `<768 px` | One-column cards; no chart/text overlap; drill-down buttons full width | Stacked Action cards and one-column form; Save/Cancel are full-width or equal buttons | Status/owner controls stack; confirmation dialog fits viewport and scrolls internally |
+| Mobile `<768 px` | One-column cards; no chart/text overlap; drill-down buttons full width | Stacked Action Taken cards and one-column form; Save/Cancel are full-width or equal buttons | Status/owner controls stack; confirmation dialog fits viewport and scrolls internally |
 
-At all sizes, long Ticket Numbers, names, notes, and action text wrap safely;
+At all sizes, long Ticket Numbers, names, notes, and Action Taken text wrap safely;
 badges do not overlap; controls do not fall outside the viewport; and no page
 requires horizontal scrolling. Capture evidence at 1440×900, 1024×768, and
 390×844 (or the project’s approved mobile viewport).
@@ -337,11 +346,11 @@ The final visual test/checklist must verify:
   states match Labs 2–3; no accidental second theme exists.
 - [ ] Dashboard cards have clear labels, readable values, zero/empty text, and
   accessible drill-down names.
-- [ ] Requester sees only own dashboard/action data; forbidden screens do not
+- [ ] Requester sees only own dashboard/Actions Taken data; forbidden screens do not
   flash protected content.
-- [ ] Action list visibly separates shared work history from Public Comments
+- [ ] Actions Taken list visibly separates shared work history from Public Comments
   and private Internal Notes.
-- [ ] All seven Action fields are visible in create/view/edit modes, with
+- [ ] All seven Action Taken fields are visible in create/view/edit modes, with
   Performed by read-only and conditional Follow-up Note behavior.
 - [ ] Status/priority/role badges include text or non-color cues and remain
   readable in grayscale.

@@ -11,6 +11,13 @@ strings. All protected requests use the existing opaque HttpOnly server
 session; the API never trusts a client-supplied user ID, role, requester ID,
 or `performedBy` value.
 
+Terminology is fixed across the Lab 4 documents: one record is an **Action
+Taken**, a collection is **Actions Taken**, `ActionTaken` is the code/model
+identifier, and `/actions` is the API resource path. Canonical JSON names are
+camelCase (`actionAt`, `actionDescription`, `result`, `performedBy`,
+`followUpRequired`, `followUpNote`, and `attachmentNotes`); snake_case names
+are database-only mappings.
+
 ## 1. Conventions, authentication, and safe errors
 
 ### 1.1 Authentication and authorization
@@ -32,7 +39,7 @@ or `performedBy` value.
 ### 1.2 Safe error envelope
 
 All JSON errors use this shape and never include stack traces, SQL, file paths,
-passwords, storage keys, session values, or private note/action data:
+passwords, storage keys, session values, or private note/Action Taken data:
 
 ```json
 {
@@ -51,9 +58,9 @@ passwords, storage keys, session values, or private note/action data:
 ```json
 {
   "error": {
-    "code": "STALE_UPDATE",
+    "code": "STALE_WRITE",
     "message": "The record changed. Reload it before saving again.",
-    "resource": "action",
+    "resource": "actionTaken",
     "currentVersion": 4
   }
 }
@@ -129,7 +136,7 @@ There is no Action Taken delete endpoint. `DELETE` on an Action Taken returns
   "updatedAt": "2026-10-07T09:30:02.000Z",
   "updatedBy": null,
   "version": 1,
-  "etag": "\"action-901-v1\""
+  "etag": "\"action-taken-901-v1\""
 }
 ```
 
@@ -138,7 +145,7 @@ attempt to send `performedBy`, `performedByUserId`, `ticketId`,
 `createdAt`, `version`, or `seedKey`. `updatedBy` is optional response metadata
 for the editor; it is not a replacement for the original performer. `etag` is
 read-only response metadata and matches the strong HTTP `ETag` header for that
-Action resource.
+Action Taken resource.
 
 ### 2.2 Validation table
 
@@ -150,7 +157,7 @@ Action resource.
 | `followUpRequired` | boolean | Required; no string coercion |
 | `followUpNote` | string/null | Required 1–1,000 chars when true; empty/null when false |
 | `attachmentNotes` | string/null | Optional; trimmed, max 1,000 chars; descriptive text only |
-| `expectedTicketVersion` | integer | Required on Action update; latest parent Ticket version |
+| `expectedTicketVersion` | integer | Required on Action Taken update; missing returns `428 PRECONDITION_REQUIRED`, malformed/wrong type returns `400 VALIDATION_ERROR`, and a stale value returns `412 STALE_WRITE` |
 
 Unknown fields, malformed IDs, malformed JSON, and wrong types return
 `400 VALIDATION_ERROR` before any database write.
@@ -186,7 +193,7 @@ Success:
       "updatedAt": "2026-10-07T09:30:02.000Z",
       "updatedBy": null,
       "version": 1,
-      "etag": "\"action-901-v1\""
+      "etag": "\"action-taken-901-v1\""
     }
   ],
   "meta": {
@@ -202,7 +209,7 @@ Success:
 ```
 
 An empty list is `200 {"data":[],"meta":{"totalItems":0,"totalPages":0}}`.
-Requester ownership is applied before querying action rows; a foreign Ticket
+Requester ownership is applied before querying Action Taken rows; a foreign Ticket
 is a safe `404 TICKET_NOT_FOUND` for an own-scoped Requester.
 
 ### 3.2 Create an Action Taken
@@ -251,13 +258,13 @@ read from the body. First use returns:
     "updatedAt": "2026-10-07T09:30:02.000Z",
     "updatedBy": null,
     "version": 1,
-    "etag": "\"action-901-v1\""
+    "etag": "\"action-taken-901-v1\""
   },
   "meta": { "idempotentReplay": false, "ticketVersion": 8 }
 }
 ```
 
-with `201 Created` and an Action ETag such as `"action-901-v1"`. An equivalent
+with `201 Created` and an Action Taken ETag such as `"action-taken-901-v1"`. An equivalent
 retry by the same authenticated User returns `200` with the original row and
 `idempotentReplay=true`; a different normalized body or cross-user reuse
 returns `409 IDEMPOTENCY_KEY_REUSED` and reveals no original protected record.
@@ -269,7 +276,7 @@ returns `409 IDEMPOTENCY_KEY_REUSED` and reveals no original protected record.
 Required header and body field:
 
 ```text
-If-Match: "action-901-v1"
+If-Match: "action-taken-901-v1"
 ```
 
 ```json
@@ -284,13 +291,16 @@ If-Match: "action-901-v1"
 }
 ```
 
-Only the six editable business fields plus `expectedTicketVersion` are
-accepted. The transaction compares the Action ETag and parent Ticket version,
-updates the row, increments both the Action and parent Ticket versions, and
-returns `200` with the new ETags. `performedBy` remains the original creator.
-The operation returns `412 STALE_UPDATE` when either version is stale and
-performs no partial update. The UI must refetch both resources and ask the user
-to review before retrying.
+Only the six editable business fields — `actionAt`, `actionDescription`,
+`result`, `followUpRequired`, `followUpNote`, and `attachmentNotes` — plus
+`expectedTicketVersion` are accepted. `actionAt` is intentionally
+client-editable by IT Staff/Administrator; it is displayed in `Asia/Bangkok`
+and submitted with an explicit UTC offset or `Z`. The transaction compares the
+Action Taken ETag and parent Ticket version, updates the row, increments both
+versions, and returns `200` with the new ETags. `performedBy`, `ticketId`, and
+`createdAt` remain unchanged. The operation returns `412 STALE_WRITE` when
+either version is stale and performs no partial update. The UI must refetch
+both resources and ask the user to review before retrying.
 
 ## 4. Ticket workflow and resolution endpoints
 
@@ -335,7 +345,7 @@ The status matrix and gates are normative in
 - cancellation/reopening requires its trimmed reason field (3–1,000 chars);
 - invalid transitions return `409 INVALID_STATUS_TRANSITION`, missing/false
   gate data returns `400 STATUS_CONFIRMATION_REQUIRED`, and stale requests
-  return `412 STALE_TICKET_UPDATE`.
+  return `412 STALE_WRITE`.
 
 The backend applies these checks even when the client omits the UI dialog or
 sends a crafted request. Assignment, status, priority, resolution timestamps,
@@ -479,7 +489,7 @@ and authenticated Requester ownership rules. `GET /api/tickets` applies
 ownership before search/filter/sort/pagination; `GET /api/tickets/:ticketId`
 returns an owned read-only Ticket for a Requester or an authorized
 Administrator inspection. Requester inputs cannot set `itPriority`, status,
-owner, dates, action fields, or requester identity.
+owner, dates, Action Taken fields, or requester identity.
 
 Lab 4 adds the following server-side filters so dashboard drill-down links are
 real, repeatable queries rather than client-only labels:
@@ -552,7 +562,8 @@ password, hash, or session is returned.
 | `PATCH /staff/tickets/:id` IT Priority only | `403` | Yes | Yes |
 
 The matrix is checked before data serialization. A Requester cannot learn the
-existence of a foreign own-scoped Ticket through an Action or dashboard query.
+existence of a foreign own-scoped Ticket through an Action Taken or dashboard
+query.
 
 ## 8. Conflict, stale-update, and idempotency contract (Lab sheet §6.1)
 
@@ -565,32 +576,35 @@ The selected mechanism is a monotonic integer `version` plus strong ETags:
   `ETag: "ticket-<id>-v<version>"`.
 - `PATCH /api/staff/tickets/:ticketId` and `/owner` require that Ticket ETag in
   `If-Match`.
-- Action list responses return the parent `ticketVersion`; each Action
-  representation includes read-only `etag`, and Action resource responses send
-  the matching `ETag: "action-<id>-v<version>"` header.
-- Action create requires the latest Ticket ETag. Action update requires the
-  Action ETag and `expectedTicketVersion` in the JSON body.
+- Actions Taken list responses return the parent `ticketVersion`; each Action
+  Taken representation includes read-only `etag`, and Action Taken resource
+  responses send the matching `ETag: "action-taken-<id>-v<version>"` header.
+- Action Taken create requires the latest Ticket ETag. Action Taken update
+  requires the Action Taken ETag and `expectedTicketVersion` in the JSON body.
 - The database update condition includes the expected version. Exactly one
-  concurrent writer wins; the loser gets `412` and no field is silently
-  overwritten.
+  concurrent writer wins; the loser gets `412 STALE_WRITE` and no field is
+  silently overwritten.
 
 `If-Match: *` is not accepted because it would disable stale protection.
-Missing `If-Match` returns `428 PRECONDITION_REQUIRED`. A stale ETag/version
-returns `412 STALE_TICKET_UPDATE` or `412 STALE_UPDATE`. The client must GET,
-show a conflict message, preserve unsaved form values, and ask for an explicit
-review before resubmitting. The server does not auto-merge status, owner,
-priority, or Action fields.
+Missing `If-Match` or `expectedTicketVersion` returns `428
+PRECONDITION_REQUIRED`. A malformed precondition returns `400
+VALIDATION_ERROR`. A stale ETag/version always returns `412 STALE_WRITE`, for
+both Ticket and Action Taken resources. The client must GET, show a conflict
+message, preserve unsaved form values, and ask for an explicit review before
+resubmitting. The server does not auto-merge status, owner, priority, or Action
+Taken fields.
 
 ### 8.2 Duplicate requests and atomicity
 
-Action creation requires an ASCII 16–64 character `Idempotency-Key`. The key
+Action Taken creation requires an ASCII 16–64 character `Idempotency-Key`. The key
 is scoped to authenticated actor and endpoint. Equivalent normalized payloads
 are looked up before the first-use ETag compare: an exact retry replays the
 original response with `200` even when the parent Ticket version has advanced.
 Only a first use must pass the current Ticket ETag. A changed payload,
-different actor, or key collision returns `409 IDEMPOTENCY_KEY_REUSED`. Ticket and Action mutations,
+different actor, or key collision returns `409 IDEMPOTENCY_KEY_REUSED`. Ticket
+and Action Taken mutations,
 including version increment, are one database transaction. A database failure
-cannot leave an Action row without a parent or increment a parent without its
+cannot leave an Action Taken row without a parent or increment a parent without its
 child.
 
 ## 9. Status and safe-error matrix
@@ -604,13 +618,13 @@ child.
 | `401` | `AUTHENTICATION_REQUIRED`, `INVALID_CREDENTIALS`, `INVALID_CURRENT_PASSWORD` |
 | `403` | `FORBIDDEN`, `PASSWORD_CHANGE_REQUIRED`, role/operation restriction |
 | `404` | `TICKET_NOT_FOUND`, `ACTION_NOT_FOUND`, `ATTACHMENT_NOT_FOUND`, `USER_NOT_FOUND`; safe foreign own-scope behavior |
-| `405` | `METHOD_NOT_ALLOWED` for Action deletion |
+| `405` | `METHOD_NOT_ALLOWED` for Action Taken deletion |
 | `409` | `INVALID_STATUS_TRANSITION`, `NO_OPERATION`, `IDEMPOTENCY_KEY_REUSED`, `RESOLUTION_INDICATION_ALREADY_RECORDED`, owner conflicts |
 | `410` | `ENDPOINT_RETIRED`, `ATTACHMENT_NOT_AVAILABLE` |
-| `412` | `STALE_TICKET_UPDATE`, `STALE_UPDATE` |
+| `412` | `STALE_WRITE` for any stale Ticket or Action Taken ETag/version |
 | `413` | `ATTACHMENT_TOO_LARGE` |
 | `415` | `ATTACHMENT_TYPE_NOT_ALLOWED` |
-| `428` | `PRECONDITION_REQUIRED` when `If-Match` is absent |
+| `428` | `PRECONDITION_REQUIRED` when a required `If-Match` or `expectedTicketVersion` precondition is absent |
 | `429` | `AUTHENTICATION_RATE_LIMITED` |
 | `500` | `INTERNAL_ERROR` with generic message |
 | `503` | `SERVICE_UNAVAILABLE`, `STORAGE_UNAVAILABLE` |
@@ -623,7 +637,7 @@ and AUTH-02 in addition to the aggregate dashboard coverage below.
 | API area | Specification | Planned tests |
 |---|---|---|
 | Action Taken fields and validation | specification §4.1, §5 BR-01–BR-07 | UNIT-01, API-02, API-03, UI-02 |
-| Action authorization | specification §4.3, API §7 | AUTH-01, AUTH-02, E2E-02 |
+| Action Taken authorization | specification §4.3, API §7 | AUTH-01, AUTH-02, E2E-02 |
 | Ticket transitions and resolution gate | specification §4.5, API §4 | UNIT-02, API-08, API-09, E2E-03 |
 | Requester dashboard | specification §4.6, API §5.2 | UNIT-04, API-05, E2E-01 |
 | IT Staff/Admin dashboards | specification §4.6, API §5.3–5.4 | API-06, API-07, E2E-01 |
