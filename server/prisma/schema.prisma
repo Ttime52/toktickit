@@ -82,9 +82,9 @@ model Ticket {
   requesterResolutionIndicatedByUserId Int?
   idempotencyKey                       String            @unique
   version                              Int               @default(1)
-  resolvedAt                           DateTime?
-  closedAt                             DateTime?
-  cancelledAt                          DateTime?
+  resolvedAt                           DateTime?         @db.Timestamptz(3)
+  closedAt                             DateTime?         @db.Timestamptz(3)
+  cancelledAt                          DateTime?         @db.Timestamptz(3)
   resolutionSummary                    String?           @db.Text
   closureSummary                       String?           @db.Text
   cancelReason                         String?           @db.Text
@@ -122,7 +122,7 @@ model ActionTaken {
 
   // Issue 23 names these fields actionDateTime, description, and performedById.
   // The @map values retain the canonical Lab 4 API/database column names.
-  actionDateTime   DateTime @map("actionAt")
+  actionDateTime   DateTime @map("actionAt") @db.Timestamptz(3)
   description      String   @map("actionDescription") @db.Text
   result           String   @db.Text
   performedById    Int      @map("performedByUserId")
@@ -130,8 +130,8 @@ model ActionTaken {
   followUpNote     String?  @db.Text
   attachmentNotes  String?  @db.Text
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
   updatedById Int?     @map("updatedByUserId")
   version     Int      @default(1)
   seedKey     String?  @unique @db.VarChar(120)
