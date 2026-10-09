@@ -7,7 +7,7 @@
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
 |  #63  | feature/22-specification-docs-lab4 | Request changes and Approved |
-|  #64  | feature/23-actions-taken-model |  |
+|  #64  | feature/23-actions-taken-model | Request changes and Approved |
 |  #65  | feature/24-actions-taken-api |  |
 |  #66  | feature/25-actions-taken-ui |  |
 |  #67  | feature/26-ticket-workflow |  |
@@ -32,8 +32,10 @@ Resolve Administrator ambiguity to retain the existing IT Priority control.
 PR #64 feature/23-actions-taken-model
 https://github.com/Ttime52/toktickit/pull/64
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: Everything looks good overall. One small consistency issue remains: the spec uses TIMESTAMPTZ, while the Prisma schema/migration use TIMESTAMP(3). Please align these so the documentation matches the implementation.
+- How I responded: Already fixed the Prisma schema/migration to use the timestamptz. ple re-check.
+- Reviewer comment I received: Approved. Everything looks good overall. The remaining TIMESTAMP(3) vs TIMESTAMPTZ mismatch is minor and can be cleaned up later.
+- How I responded: the TIMESTAMP(3) that mismatched is the Lab1-3 implementation so I didn't want to change that but if it will affect in further implementation, i will clean it up later. Thank for reviewing.
 
 PR #65 feature/24-actions-taken-api
 https://github.com/Ttime52/toktickit/pull/65
@@ -80,7 +82,19 @@ I also simplified the resolution gate so it requires at least one Completed Acti
 The related specification, API contract, UI behavior, Acceptance Criteria, and planned tests were updated for consistency. I also corrected the Lab 4 reviewer metadata so Issues and PRs are no longer mislabeled and no Lab 3 branch references remain.
 - My comment: The previous concerns are resolved. Approved.
 
-PR #72 feature/28
+PR #72 feature/28-actions-taken-foundation
 https://github.com/KwanchanokThungsuk/toktickit/pull/72
-- My comment:
-- Partner's response: 
+- My comment: The Actions Taken backend foundation is strong overall, but I found three consistency/completion issues before approval:
+
+1. The Action API currently returns the raw Prisma object (safeAction returns the object unchanged), so the actual response exposes internal fields such as requestKey/foreign-key IDs and uses creator, performer, and assignee, while the approved API contract defines createdBy, performedBy, and assignedTo and excludes private implementation data. Please serialize the documented Action DTO explicitly and cover the response shape in tests.
+2. The Lab 4 required seed data calls for realistic Tickets covering the major Ticket statuses. The current clean seed only creates NEW, OPEN, and IN_PROGRESS Tickets. Please extend the seed/status coverage while keeping the existing zero/one/multiple Action fixtures.
+3. docs/lab-04/reviewer.md still links PR #64/#65 and contains feature/27-lab3-spec-contract, although the actual Lab 4 PRs are #71/#72. Please correct the review evidence.
+The migration preservation, authorization, Action lifecycle, idempotency, terminal immutability, and stale-update handling otherwise look aligned with the Lab 4 requirements.
+- Partner's response: Thanks for the review. I’ve addressed both requested fixes:
+
+1. The Actions Taken API now uses an explicit DTO serializer for all GET/POST/PATCH and retry/recovery paths, exposing createdBy, performedBy, and assignedTo while hiding internal fields such as requestKey and raw foreign-key IDs.
+2. The seed now covers all eight Ticket statuses while preserving the existing 0/1/multiple Action fixtures, with updated seed integration coverage.
+3. fixed reveiwer.md
+I also re-ran the full local verification successfully: 17/17 test files passed and 100/100 tests passed. Build and Prisma validation also pass.
+- My comment: The previous blockers are resolved: the API now returns the documented safe Action DTO without internal fields, and the seed data covers all required Ticket statuses while preserving zero/one/multiple Action fixtures. Authorization, idempotency, stale-update handling, terminal immutability, validation, and migration/regression coverage are also aligned with the Lab 4 requirements.
+Approved.
