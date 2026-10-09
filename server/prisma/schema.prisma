@@ -42,6 +42,8 @@ model User {
   removedAttachments    Attachment[]    @relation("AttachmentRemovedByUser")
   publicComments        PublicComment[] @relation("PublicCommentAuthor")
   internalNotes         InternalNote[]  @relation("InternalNoteAuthor")
+  actionsTakenPerformed ActionTaken[]   @relation("ActionTakenPerformedBy")
+  actionsTakenUpdated   ActionTaken[]   @relation("ActionTakenUpdatedBy")
   sessions              Session[]
 
   @@index([role, isActive, displayName])
@@ -79,6 +81,14 @@ model Ticket {
   requesterResolutionIndicatedAt       DateTime?
   requesterResolutionIndicatedByUserId Int?
   idempotencyKey                       String            @unique
+  version                              Int               @default(1)
+  resolvedAt                           DateTime?         @db.Timestamptz(3)
+  closedAt                             DateTime?         @db.Timestamptz(3)
+  cancelledAt                          DateTime?         @db.Timestamptz(3)
+  resolutionSummary                    String?           @db.Text
+  closureSummary                       String?           @db.Text
+  cancelReason                         String?           @db.Text
+  reopenReason                         String?           @db.Text
   createdAt                            DateTime          @default(now())
   updatedAt                            DateTime          @default(now()) @updatedAt
 
@@ -90,6 +100,7 @@ model Ticket {
   attachments           Attachment[]
   publicComments        PublicComment[]
   internalNotes         InternalNote[]
+  actionsTaken          ActionTaken[]
 
   @@index([requesterId, updatedAt])
   @@index([requesterId, currentStatus])
@@ -97,9 +108,42 @@ model Ticket {
   @@index([requesterId, relatedSystemId])
   @@index([requesterId, requestedPriority])
   @@index([assignedToUserId, updatedAt])
+  @@index([assignedToUserId, currentStatus])
   @@index([currentStatus, updatedAt])
   @@index([itPriority, updatedAt])
+  @@index([itPriority, currentStatus])
+  @@index([resolvedAt])
   @@map("tickets")
+}
+
+model ActionTaken {
+  id       BigInt @id @default(autoincrement())
+  ticketId Int
+
+  // Issue 23 names these fields actionDateTime, description, and performedById.
+  // The @map values retain the canonical Lab 4 API/database column names.
+  actionDateTime   DateTime @map("actionAt") @db.Timestamptz(3)
+  description      String   @map("actionDescription") @db.Text
+  result           String   @db.Text
+  performedById    Int      @map("performedByUserId")
+  followUpRequired Boolean
+  followUpNote     String?  @db.Text
+  attachmentNotes  String?  @db.Text
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  updatedById Int?     @map("updatedByUserId")
+  version     Int      @default(1)
+  seedKey     String?  @unique @db.VarChar(120)
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  performedBy User   @relation("ActionTakenPerformedBy", fields: [performedById], references: [id], onDelete: Restrict)
+  updatedBy   User?  @relation("ActionTakenUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, actionDateTime, id])
+  @@index([ticketId, followUpRequired])
+  @@index([performedById, actionDateTime])
+  @@map("actions_taken")
 }
 
 model TicketNumberCounter {
