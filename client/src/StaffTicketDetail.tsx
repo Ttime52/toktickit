@@ -18,10 +18,13 @@ import {
   type StaffUserOption,
   type TicketAttachment,
 } from "./api.js";
+import ActionsTakenSection from "./ActionsTaken.js";
+import type { AuthUser } from "./api.js";
 
 interface StaffTicketDetailProps {
   ticketId: number;
   onBack: () => void;
+  currentUser?: Pick<AuthUser, "displayName" | "role"> | null;
 }
 
 type LoadState = "loading" | "success" | "error";
@@ -123,7 +126,7 @@ function CommunicationFeed({
   );
 }
 
-export default function StaffTicketDetail({ ticketId, onBack }: StaffTicketDetailProps) {
+export default function StaffTicketDetail({ ticketId, onBack, currentUser }: StaffTicketDetailProps) {
   const [ticket, setTicket] = useState<StaffTicketDetailData | null>(null);
   const [detailState, setDetailState] = useState<LoadState>("loading");
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -401,6 +404,8 @@ export default function StaffTicketDetail({ ticketId, onBack }: StaffTicketDetai
         {ticket.requesterResolutionIndicatedAt !== null && (
           <div className="zen-callout zen-callout-info" role="status">Requester indicated that the problem appears resolved on {formatDate(ticket.requesterResolutionIndicatedAt)}. This is not a formal status change.</div>
         )}
+
+        <ActionsTakenSection ticketId={ticketId} mode="staff" currentUser={currentUser} />
 
         <section className="zen-form-section zen-detail-attachments" aria-labelledby="staff-attachments-heading">
           <h2 id="staff-attachments-heading">Attachments</h2>

@@ -8,13 +8,16 @@ import {
   type CurrentStatus,
   type InternalNote,
   type PublicComment,
+  type AuthUser,
   type TicketInspection,
   type UserRole,
 } from "./api.js";
+import ActionsTakenSection from "./ActionsTaken.js";
 
 interface AdminTicketInspectionProps {
   ticketId: number;
   onBack: () => void;
+  currentUser?: Pick<AuthUser, "displayName" | "role"> | null;
 }
 
 type LoadState = "loading" | "success" | "error";
@@ -164,6 +167,7 @@ function CommunicationRegion({
 export default function AdminTicketInspection({
   ticketId,
   onBack,
+  currentUser,
 }: AdminTicketInspectionProps) {
   const [ticket, setTicket] = useState<TicketInspection | null>(null);
   const [detailState, setDetailState] = useState<LoadState>("loading");
@@ -278,7 +282,7 @@ export default function AdminTicketInspection({
       {detailState === "success" && ticket !== null && (
         <article className="zen-detail-card">
           <div className="zen-callout zen-callout-info" role="status">
-            Read-only inspection. Work controls, comment/note composers and Attachment metadata are unavailable to Administrators.
+            Ticket inspection is read-only for core fields. Work controls, comment/note composers and Attachment metadata are unavailable to Administrators. Actions Taken can be recorded and updated as operational support history.
           </div>
 
           <section className="zen-form-section" aria-labelledby="admin-ticket-information-heading">
@@ -307,6 +311,8 @@ export default function AdminTicketInspection({
               </div>
             </div>
           </section>
+
+          <ActionsTakenSection ticketId={ticketId} mode="administrator" currentUser={currentUser} />
 
           <CommunicationRegion
             kind="comments"

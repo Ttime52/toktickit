@@ -153,6 +153,7 @@ function AuthenticatedApp() {
           <StaffTicketDetail
             ticketId={staffTicketId}
             onBack={() => navigateTo("/staff/tickets")}
+            currentUser={user}
           />
         ) : user.role === "ADMINISTRATOR" && currentPage === "admin-users" ? (
           <UserManagement onSessionRefresh={() => void refresh()} />
@@ -160,6 +161,7 @@ function AuthenticatedApp() {
           <AdminTicketInspection
             ticketId={ticketId}
             onBack={() => navigateTo("/admin/users")}
+            currentUser={user}
           />
         ) : (
           <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
@@ -179,6 +181,7 @@ function AuthenticatedApp() {
           ) : currentPage === "ticket-detail" && ticketId !== null ? (
             <TicketDetail
               ticketId={ticketId}
+              currentUser={user}
               onNavigate={() => navigateTo("/my-tickets")}
             />
           ) : (
