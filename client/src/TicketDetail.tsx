@@ -21,6 +21,8 @@ import {
   type Ticket,
   type TicketAttachment,
 } from "./api.js";
+import ActionsTakenSection from "./ActionsTaken.js";
+import type { AuthUser } from "./api.js";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ACTIVE_ATTACHMENTS = 5;
@@ -59,6 +61,7 @@ interface RemoveDialogState {
 interface TicketDetailProps {
   ticketId: number;
   onNavigate?: (page: "my-tickets") => void;
+  currentUser?: Pick<AuthUser, "displayName" | "role"> | null;
 }
 
 function safeErrorMessage(error: unknown, fallback: string): string {
@@ -170,6 +173,7 @@ function ReadOnlyValue({ label, value }: { label: string; value: string }) {
 export default function TicketDetail({
   ticketId,
   onNavigate,
+  currentUser,
 }: TicketDetailProps) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [state, setState] = useState<"loading" | "success" | "error">("loading");
@@ -648,6 +652,8 @@ export default function TicketDetail({
               </div>
             </div>
           </section>
+
+          <ActionsTakenSection ticketId={ticketId} mode="requester" currentUser={currentUser} />
 
           <section className="zen-form-section zen-detail-attachments" aria-labelledby="detail-attachments-heading">
             <h2 id="detail-attachments-heading">Attachments</h2>

@@ -87,6 +87,7 @@ export interface TicketAttachment {
 
 export interface Ticket {
   id: number;
+  version?: number;
   ticketNumber: string;
   ticketDate: string;
   requester: TicketRequester;
@@ -233,11 +234,67 @@ export interface StaffUserOption {
 }
 
 export interface StaffTicketDetail extends StaffTicket {
+  version?: number;
   description: string;
   attachments: TicketAttachment[];
   publicComments: PublicComment[];
   internalNotes: InternalNote[];
   createdAt: string;
+}
+
+export interface ActionTaken {
+  id: number;
+  ticketId: number;
+  actionAt: string;
+  actionDescription: string;
+  result: string;
+  performedBy: {
+    id: number;
+    displayName: string;
+    role: UserRole;
+  };
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: {
+    id: number;
+    displayName: string;
+    role: UserRole;
+  } | null;
+  version: number;
+  etag: string;
+}
+
+export interface ActionTakenListMeta {
+  page: number;
+  pageSize: 10 | 20 | 50 | 100;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  ticketVersion: number;
+}
+
+export interface ActionTakenListResult {
+  data: ActionTaken[];
+  meta: ActionTakenListMeta;
+}
+
+export interface ActionTakenInput {
+  actionAt: string;
+  actionDescription: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+}
+
+export interface ActionTakenMutationResult {
+  action: ActionTaken;
+  ticketVersion: number;
+  idempotentReplay?: boolean;
 }
 
 export type StaffTicketAction = "claim" | "assign" | "reassign";
@@ -713,6 +770,142 @@ export async function fetchStaffTicket(
     throw new ApiRequestError("Invalid Staff Ticket Detail response.", response.status);
   }
   return body.data as StaffTicketDetail;
+}
+
+function parseTicketVersionFromEtag(etag: string | null): number | null {
+  if (etag === null) return null;
+  const match = /-v(\d+)"?$/u.exec(etag);
+  if (match === null) return null;
+  const version = Number(match[1]);
+  return Number.isSafeInteger(version) && version > 0 ? version : null;
+}
+
+function actionListMeta(
+  value: unknown,
+  response: Response,
+  dataLength: number,
+): ActionTakenListMeta {
+  const meta = typeof value === "object" && value !== null
+    ? value as Record<string, unknown>
+    : {};
+  const page = typeof meta.page === "number" ? meta.page : 1;
+  const pageSize = meta.pageSize === 10 || meta.pageSize === 20 || meta.pageSize === 50 || meta.pageSize === 100
+    ? meta.pageSize
+    : 100;
+  const totalItems = typeof meta.totalItems === "number" ? meta.totalItems : dataLength;
+  const totalPages = typeof meta.totalPages === "number" ? meta.totalPages : (totalItems > 0 ? 1 : 0);
+  const ticketVersion = typeof meta.ticketVersion === "number"
+    ? meta.ticketVersion
+    : parseTicketVersionFromEtag(response.headers?.get("ETag") ?? null) ?? 0;
+
+  return {
+    page,
+    pageSize,
+    totalItems,
+    totalPages,
+    hasNextPage: meta.hasNextPage === true,
+    hasPreviousPage: meta.hasPreviousPage === true,
+    ticketVersion,
+  };
+}
+
+export async function fetchActionsTaken(
+  ticketId: number,
+  signal?: AbortSignal,
+  page = 1,
+  pageSize: 10 | 20 | 50 | 100 = 100,
+): Promise<ActionTakenListResult> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/actions?${params.toString()}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Actions Taken.");
+  }
+  if (!Array.isArray(body.data)) {
+    throw new ApiRequestError("Invalid Actions Taken response.", response.status);
+  }
+
+  return {
+    data: body.data as ActionTaken[],
+    meta: actionListMeta(body.meta, response, body.data.length),
+  };
+}
+
+export async function createActionTaken(
+  ticketId: number,
+  input: ActionTakenInput,
+  ticketVersion: number,
+  idempotencyKey: string,
+): Promise<ActionTakenMutationResult> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/actions`,
+    withCredentials({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+        "If-Match": `"ticket-${ticketId}-v${ticketVersion}"`,
+      },
+      body: JSON.stringify(input),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to save Action Taken.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Action Taken response.", response.status);
+  }
+
+  const meta = typeof body.meta === "object" && body.meta !== null
+    ? body.meta as Record<string, unknown>
+    : {};
+  const responseTicketVersion = typeof meta.ticketVersion === "number"
+    ? meta.ticketVersion
+    : ticketVersion + 1;
+
+  return {
+    action: body.data as ActionTaken,
+    ticketVersion: responseTicketVersion,
+    idempotentReplay: meta.idempotentReplay === true,
+  };
+}
+
+export async function updateActionTaken(
+  ticketId: number,
+  action: ActionTaken,
+  input: ActionTakenInput,
+  ticketVersion: number,
+): Promise<ActionTakenMutationResult> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/actions/${action.id}`,
+    withCredentials({
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": action.etag,
+      },
+      body: JSON.stringify({ ...input, expectedTicketVersion: ticketVersion }),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to update Action Taken.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Action Taken update response.", response.status);
+  }
+
+  const meta = typeof body.meta === "object" && body.meta !== null
+    ? body.meta as Record<string, unknown>
+    : {};
+  return {
+    action: body.data as ActionTaken,
+    ticketVersion: typeof meta.ticketVersion === "number" ? meta.ticketVersion : ticketVersion + 1,
+  };
 }
 
 export async function updateStaffTicket(
