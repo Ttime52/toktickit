@@ -66,6 +66,7 @@ export function serializeTicket(ticket: FullTicketRecord) {
   const ticketOwner = serializeTicketOwner(ticket.assignedTo);
   return {
     id: ticket.id,
+    version: ticket.version,
     ticketNumber: ticket.ticketNumber,
     ticketDate: ticket.ticketDate.toISOString(),
     requester: ticket.requester,

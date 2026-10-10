@@ -44,6 +44,7 @@ model User {
   internalNotes         InternalNote[]  @relation("InternalNoteAuthor")
   actionsTakenPerformed ActionTaken[]   @relation("ActionTakenPerformedBy")
   actionsTakenUpdated   ActionTaken[]   @relation("ActionTakenUpdatedBy")
+  actionTakenIdempotencyRecords ActionTakenIdempotency[] @relation("ActionTakenIdempotencyActor")
   sessions              Session[]
 
   @@index([role, isActive, displayName])
@@ -101,6 +102,7 @@ model Ticket {
   publicComments        PublicComment[]
   internalNotes         InternalNote[]
   actionsTaken          ActionTaken[]
+  actionTakenIdempotencyRecords ActionTakenIdempotency[]
 
   @@index([requesterId, updatedAt])
   @@index([requesterId, currentStatus])
@@ -139,11 +141,33 @@ model ActionTaken {
   ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
   performedBy User   @relation("ActionTakenPerformedBy", fields: [performedById], references: [id], onDelete: Restrict)
   updatedBy   User?  @relation("ActionTakenUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  idempotencyRecord ActionTakenIdempotency?
 
   @@index([ticketId, actionDateTime, id])
   @@index([ticketId, followUpRequired])
   @@index([performedById, actionDateTime])
   @@map("actions_taken")
+}
+
+model ActionTakenIdempotency {
+  scope         String   @db.VarChar(80)
+  key           String   @db.VarChar(64)
+  actorId       Int      @map("actorUserId")
+  ticketId      Int
+  payloadHash   String   @db.Char(64)
+  actionId      BigInt   @map("actionTakenId")
+  ticketVersion Int
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  actor      User        @relation("ActionTakenIdempotencyActor", fields: [actorId], references: [id], onDelete: Restrict)
+  ticket     Ticket      @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actionTaken ActionTaken @relation(fields: [actionId], references: [id], onDelete: Restrict)
+
+  @@id([scope, key])
+  @@unique([actionId])
+  @@index([actorId, scope])
+  @@index([ticketId])
+  @@map("action_taken_idempotency")
 }
 
 model TicketNumberCounter {
