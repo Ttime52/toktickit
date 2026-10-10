@@ -1527,6 +1527,10 @@ h1 {
   margin-top: 0;
 }
 
+.zen-staff-work-controls > .zen-action-row {
+  margin-top: 28px;
+}
+
 .zen-confirmation-check {
   align-items: flex-start;
   display: flex;
