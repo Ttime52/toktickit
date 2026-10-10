@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { Prisma, PrismaClient, UserRole } from "@prisma/client";
 
 import { ApiError, validationError } from "./errors.js";
@@ -45,6 +47,7 @@ const UPDATE_FIELDS = new Set([...CREATE_FIELDS, "expectedTicketVersion"]);
 
 const ACTION_LIST_PAGE_SIZES = new Set([10, 20, 50, 100]);
 const MAX_FUTURE_ACTION_TIME_MS = 5 * 60 * 1000;
+const ACTION_TAKEN_CREATE_SCOPE = "actions-taken:create";
 
 export interface ActionTakenInput {
   actionAt: Date;
@@ -56,7 +59,7 @@ export interface ActionTakenInput {
 }
 
 export interface ActionTakenPatch extends ActionTakenInput {
-  expectedTicketVersion?: number;
+  expectedTicketVersion: number;
 }
 
 export interface ActionTakenListQuery {
@@ -109,8 +112,13 @@ export interface ActionTakenMutationResult {
 }
 
 export interface ActionTakenPreconditions {
-  actionVersion?: number;
-  ticketVersion?: number;
+  actionVersion: number;
+  ticketVersion: number;
+}
+
+export interface CreateActionTakenOptions {
+  ticketVersion: number;
+  idempotencyKey: string;
 }
 
 type ValidationResult<T> =
@@ -361,13 +369,11 @@ export function validateUpdateActionTakenBody(
     fields,
   );
 
-  let expectedTicketVersion: number | undefined;
-  if (record.expectedTicketVersion !== undefined) {
-    if (!positiveInteger(record.expectedTicketVersion)) {
-      fields.expectedTicketVersion = "expectedTicketVersion must be a positive integer.";
-    } else {
-      expectedTicketVersion = record.expectedTicketVersion;
-    }
+  let expectedTicketVersion = 0;
+  if (!positiveInteger(record.expectedTicketVersion)) {
+    fields.expectedTicketVersion = "expectedTicketVersion must be a positive integer.";
+  } else {
+    expectedTicketVersion = record.expectedTicketVersion;
   }
 
   if (Object.keys(fields).length > 0 || actionAt === null) {
@@ -383,7 +389,7 @@ export function validateUpdateActionTakenBody(
       followUpRequired: followUp.followUpRequired,
       followUpNote: followUp.followUpNote,
       attachmentNotes,
-      ...(expectedTicketVersion === undefined ? {} : { expectedTicketVersion }),
+      expectedTicketVersion,
     },
   };
 }
@@ -526,55 +532,58 @@ function normalizedPayload(input: ActionTakenInput): string {
   });
 }
 
-type IdempotencyEntry = {
-  actorId: number;
-  ticketId: number;
-  payload: string;
-  actionId: bigint;
-};
+function normalizedPayloadHash(input: ActionTakenInput): string {
+  return createHash("sha256").update(normalizedPayload(input), "utf8").digest("hex");
+}
 
-// The Issue 23 schema deliberately does not add an idempotency table. Keep a
-// process-local replay guard for the API increment; database writes are still
-// transactional and the key is optional for the backwards-compatible Issue
-// 24 route. Deployments that need cross-process replay persistence can promote
-// this guard to a table without changing the ActionTaken representation.
-const idempotencyEntries = new Map<string, IdempotencyEntry>();
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
 
-async function replayIfPossible(
-  prisma: PrismaClient,
-  key: string | undefined,
+function idempotencyConflict(): ApiError {
+  return new ApiError(
+    409,
+    "IDEMPOTENCY_KEY_REUSED",
+    "The Idempotency-Key was already used with different request data.",
+  );
+}
+
+async function readIdempotentReplay(
+  prisma: PrismaExecutor,
+  key: string,
   actorId: number,
   ticketId: number,
   input: ActionTakenInput,
 ): Promise<ActionTakenMutationResult | null> {
-  if (key === undefined) return null;
-  const entry = idempotencyEntries.get(key);
-  if (entry === undefined) return null;
+  const entry = await prisma.actionTakenIdempotency.findUnique({
+    where: {
+      scope_key: {
+        scope: ACTION_TAKEN_CREATE_SCOPE,
+        key,
+      },
+    },
+    include: {
+      actionTaken: { include: ACTION_INCLUDE },
+    },
+  });
+  if (entry === null) return null;
+
   if (
     entry.actorId !== actorId ||
     entry.ticketId !== ticketId ||
-    entry.payload !== normalizedPayload(input)
+    entry.payloadHash !== normalizedPayloadHash(input)
   ) {
-    throw new ApiError(
-      409,
-      "IDEMPOTENCY_KEY_REUSED",
-      "The idempotency key was already used for a different request.",
-    );
+    throw idempotencyConflict();
   }
 
-  const action = await prisma.actionTaken.findUnique({
-    where: { id: entry.actionId },
-    include: ACTION_INCLUDE,
-  });
-  if (action === null) return null;
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: ticketId },
-    select: { version: true },
-  });
-  if (ticket === null) throw ticketNotFound();
   return {
-    action: serializeActionTaken(action),
-    ticketVersion: ticket.version,
+    action: serializeActionTaken(entry.actionTaken),
+    ticketVersion: entry.ticketVersion,
     idempotentReplay: true,
   };
 }
@@ -585,11 +594,11 @@ export async function createActionTaken(
   actorId: number,
   role: UserRole,
   input: ActionTakenInput,
-  options: ActionTakenPreconditions & { idempotencyKey?: string } = {},
+  options: CreateActionTakenOptions,
 ): Promise<ActionTakenMutationResult> {
   assertWritableRole(role);
 
-  const replay = await replayIfPossible(
+  const replay = await readIdempotentReplay(
     prisma,
     options.idempotencyKey,
     actorId,
@@ -598,63 +607,86 @@ export async function createActionTaken(
   );
   if (replay !== null) return replay;
 
-  const result = await prisma.$transaction(async (transaction) => {
-    const ticket = await getAccessibleTicket(transaction, ticketId, actorId, role);
-    const expectedTicketVersion = options.ticketVersion ?? ticket.version;
-    if (expectedTicketVersion !== ticket.version) {
-      throw new ApiError(
-        412,
-        "STALE_WRITE",
-        "The Ticket changed. Reload it before saving again.",
-      );
-    }
-
-    const action = await transaction.actionTaken.create({
-      data: {
+  let result: ActionTakenMutationResult;
+  try {
+    result = await prisma.$transaction(async (transaction): Promise<ActionTakenMutationResult> => {
+      const transactionReplay = await readIdempotentReplay(
+        transaction,
+        options.idempotencyKey,
+        actorId,
         ticketId,
-        actionDateTime: input.actionAt,
-        description: input.actionDescription,
-        result: input.result,
-        performedById: actorId,
-        followUpRequired: input.followUpRequired,
-        followUpNote: input.followUpNote,
-        attachmentNotes: input.attachmentNotes,
-      },
-      include: ACTION_INCLUDE,
-    });
-
-    const parentUpdate = await transaction.ticket.updateMany({
-      where: { id: ticketId, version: expectedTicketVersion },
-      data: { version: { increment: 1 } },
-    });
-    if (parentUpdate.count !== 1) {
-      throw new ApiError(
-        412,
-        "STALE_WRITE",
-        "The Ticket changed. Reload it before saving again.",
+        input,
       );
-    }
+      if (transactionReplay !== null) return transactionReplay;
 
-    return {
-      action,
-      ticketVersion: expectedTicketVersion + 1,
-    };
-  });
+      const ticket = await getAccessibleTicket(transaction, ticketId, actorId, role);
+      if (options.ticketVersion !== ticket.version) {
+        throw new ApiError(
+          412,
+          "STALE_WRITE",
+          "The Ticket changed. Reload it before saving again.",
+        );
+      }
 
-  if (options.idempotencyKey !== undefined) {
-    idempotencyEntries.set(options.idempotencyKey, {
-      actorId,
-      ticketId,
-      payload: normalizedPayload(input),
-      actionId: result.action.id,
+      const action = await transaction.actionTaken.create({
+        data: {
+          ticketId,
+          actionDateTime: input.actionAt,
+          description: input.actionDescription,
+          result: input.result,
+          performedById: actorId,
+          followUpRequired: input.followUpRequired,
+          followUpNote: input.followUpNote,
+          attachmentNotes: input.attachmentNotes,
+        },
+        include: ACTION_INCLUDE,
+      });
+
+      const parentUpdate = await transaction.ticket.updateMany({
+        where: { id: ticketId, version: options.ticketVersion },
+        data: { version: { increment: 1 } },
+      });
+      if (parentUpdate.count !== 1) {
+        throw new ApiError(
+          412,
+          "STALE_WRITE",
+          "The Ticket changed. Reload it before saving again.",
+        );
+      }
+
+      await transaction.actionTakenIdempotency.create({
+        data: {
+          scope: ACTION_TAKEN_CREATE_SCOPE,
+          key: options.idempotencyKey,
+          actorId,
+          ticketId,
+          payloadHash: normalizedPayloadHash(input),
+          actionId: action.id,
+          ticketVersion: options.ticketVersion + 1,
+        },
+      });
+
+      return {
+        action: serializeActionTaken(action),
+        ticketVersion: options.ticketVersion + 1,
+        idempotentReplay: false,
+      };
     });
+  } catch (error) {
+    if (isUniqueConstraintError(error) || error instanceof ApiError) {
+      const concurrentReplay = await readIdempotentReplay(
+        prisma,
+        options.idempotencyKey,
+        actorId,
+        ticketId,
+        input,
+      );
+      if (concurrentReplay !== null) return concurrentReplay;
+    }
+    throw error;
   }
 
-  return {
-    action: serializeActionTaken(result.action),
-    ticketVersion: result.ticketVersion,
-    idempotentReplay: false,
-  };
+  return result;
 }
 
 export async function updateActionTaken(
@@ -663,7 +695,7 @@ export async function updateActionTaken(
   actorId: number,
   role: UserRole,
   input: ActionTakenPatch,
-  options: ActionTakenPreconditions = {},
+  options: ActionTakenPreconditions,
   expectedTicketId?: number,
 ): Promise<ActionTakenMutationResult> {
   assertWritableRole(role);
@@ -678,12 +710,12 @@ export async function updateActionTaken(
       throw actionNotFound();
     }
 
-    const expectedActionVersion = options.actionVersion ?? existing.version;
-    const expectedTicketVersion =
-      input.expectedTicketVersion ?? options.ticketVersion ?? existing.ticket.version;
+    const expectedActionVersion = options.actionVersion;
+    const expectedTicketVersion = options.ticketVersion;
     if (
       expectedActionVersion !== existing.version ||
-      expectedTicketVersion !== existing.ticket.version
+      expectedTicketVersion !== existing.ticket.version ||
+      input.expectedTicketVersion !== expectedTicketVersion
     ) {
       throw new ApiError(
         412,

@@ -17,6 +17,7 @@ let administratorId: number;
 let ticketId: number;
 let foreignTicketId: number;
 let actionId: number;
+let replayActionId: number;
 
 function sameOrigin(builder: request.Test) {
   return builder.set("Origin", origin);
@@ -41,6 +42,18 @@ function actionBody(overrides: Record<string, unknown> = {}) {
     attachmentNotes: null,
     ...overrides,
   };
+}
+
+function ticketEtag(version: number, id = ticketId): string {
+  return `"ticket-${id}-v${version}"`;
+}
+
+function actionEtag(version: number, id = actionId): string {
+  return `"action-taken-${id}-v${version}"`;
+}
+
+function idempotencyKey(label: string): string {
+  return `i24-${randomUUID()}-${label.slice(0, 12)}`;
 }
 
 describe("Issue 24 Actions Taken API and authorization", () => {
@@ -122,6 +135,9 @@ describe("Issue 24 Actions Taken API and authorization", () => {
   });
 
   afterAll(async () => {
+    await prisma.actionTakenIdempotency.deleteMany({
+      where: { ticketId: { in: [ticketId, foreignTicketId] } },
+    });
     await prisma.actionTaken.deleteMany({ where: { ticketId: { in: [ticketId, foreignTicketId] } } });
     await prisma.ticket.deleteMany({ where: { id: { in: [ticketId, foreignTicketId] } } });
     await prisma.user.deleteMany({ where: { id: { in: [requesterId, staffId, administratorId] } } });
@@ -132,8 +148,13 @@ describe("Issue 24 Actions Taken API and authorization", () => {
     const staff = await login(
       (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
     );
+    const body = actionBody();
     const response = await sameOrigin(
-      staff.post(`/api/tickets/${ticketId}/actions-taken`).send(actionBody()),
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", idempotencyKey("staff-create"))
+        .set("If-Match", ticketEtag(1))
+        .send(body),
     );
 
     expect(response.status).toBe(201);
@@ -144,6 +165,8 @@ describe("Issue 24 Actions Taken API and authorization", () => {
       followUpNote: "Confirm the error rate with the requester tomorrow.",
     });
     expect(response.body.data).not.toHaveProperty("performedById");
+    expect(response.headers.etag).toBe(actionEtag(1, response.body.data.id));
+    expect(response.body.meta).toEqual({ idempotentReplay: false, ticketVersion: 2 });
     actionId = response.body.data.id;
 
     const persisted = await prisma.actionTaken.findUniqueOrThrow({ where: { id: BigInt(actionId) } });
@@ -180,6 +203,87 @@ describe("Issue 24 Actions Taken API and authorization", () => {
     expect(foreign.body.error.code).toBe("TICKET_NOT_FOUND");
   });
 
+  it("requires and validates every create/update concurrency precondition", async () => {
+    const staff = await login(
+      (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
+    );
+
+    const missingKey = await sameOrigin(
+      staff.post(`/api/tickets/${ticketId}/actions-taken`).send(actionBody()),
+    );
+    expect(missingKey.status).toBe(400);
+    expect(missingKey.body.error.code).toBe("VALIDATION_ERROR");
+
+    const missingTicketEtag = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", idempotencyKey("missing-ticket-etag"))
+        .send(actionBody()),
+    );
+    expect(missingTicketEtag.status).toBe(428);
+    expect(missingTicketEtag.body.error.code).toBe("PRECONDITION_REQUIRED");
+
+    const malformedKey = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", "bad key")
+        .set("If-Match", ticketEtag(2))
+        .send(actionBody()),
+    );
+    expect(malformedKey.status).toBe(400);
+    expect(malformedKey.body.error.code).toBe("VALIDATION_ERROR");
+
+    const malformedTicketEtag = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", idempotencyKey("malformed-ticket-etag"))
+        .set("If-Match", "ticket-v2")
+        .send(actionBody()),
+    );
+    expect(malformedTicketEtag.status).toBe(400);
+    expect(malformedTicketEtag.body.error.code).toBe("VALIDATION_ERROR");
+
+    const missingActionEtag = await sameOrigin(
+      staff
+        .patch(`/api/actions-taken/${actionId}`)
+        .send({ result: "A valid update with no action ETag.", expectedTicketVersion: 2 }),
+    );
+    expect(missingActionEtag.status).toBe(428);
+    expect(missingActionEtag.body.error.code).toBe("PRECONDITION_REQUIRED");
+
+    const missingExpectedTicketVersion = await sameOrigin(
+      staff
+        .patch(`/api/actions-taken/${actionId}`)
+        .set("If-Match", actionEtag(1))
+        .send({ result: "A valid update with no parent version." }),
+    );
+    expect(missingExpectedTicketVersion.status).toBe(428);
+    expect(missingExpectedTicketVersion.body.error.code).toBe("PRECONDITION_REQUIRED");
+
+    const malformedActionEtag = await sameOrigin(
+      staff
+        .patch(`/api/actions-taken/${actionId}`)
+        .set("If-Match", "action-v1")
+        .send({ result: "A valid update.", expectedTicketVersion: 2 }),
+    );
+    expect(malformedActionEtag.status).toBe(400);
+    expect(malformedActionEtag.body.error.code).toBe("VALIDATION_ERROR");
+
+    const malformedExpectedTicketVersion = await sameOrigin(
+      staff
+        .patch(`/api/actions-taken/${actionId}`)
+        .set("If-Match", actionEtag(1))
+        .send({ result: "A valid update.", expectedTicketVersion: "2" }),
+    );
+    expect(malformedExpectedTicketVersion.status).toBe(400);
+    expect(malformedExpectedTicketVersion.body.error.code).toBe("VALIDATION_ERROR");
+
+    const actionCount = await prisma.actionTaken.count({ where: { ticketId } });
+    const ticket = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId } });
+    expect(actionCount).toBe(1);
+    expect(ticket.version).toBe(2);
+  });
+
   it("allows Administrator create/update while enforcing conditional follow-up validation", async () => {
     const administrator = await login(
       (await prisma.user.findUniqueOrThrow({ where: { id: administratorId } })).email,
@@ -205,19 +309,24 @@ describe("Issue 24 Actions Taken API and authorization", () => {
     const created = await sameOrigin(
       administrator
         .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", idempotencyKey("administrator-create"))
+        .set("If-Match", ticketEtag(2))
         .send(actionBody({ followUpRequired: false, followUpNote: null })),
     );
     expect(created.status).toBe(201);
     expect(created.body.data.performedBy.id).toBe(administratorId);
+    expect(created.body.meta.ticketVersion).toBe(3);
 
     const updated = await sameOrigin(
       administrator
         .patch(`/api/actions-taken/${actionId}`)
+        .set("If-Match", actionEtag(1))
         .send({
           actionDescription: "Updated by the Administrator for verification.",
           result: "The validation and role boundary were verified.",
           followUpRequired: false,
           followUpNote: null,
+          expectedTicketVersion: 3,
         }),
     );
     expect(updated.status).toBe(200);
@@ -230,5 +339,137 @@ describe("Issue 24 Actions Taken API and authorization", () => {
       followUpNote: null,
       updatedBy: { id: administratorId, role: "ADMINISTRATOR" },
     });
+    expect(updated.body.data.version).toBe(2);
+    expect(updated.body.meta.ticketVersion).toBe(4);
+    expect(updated.headers.etag).toBe(actionEtag(2));
+  });
+
+  it("persists idempotency records, replays exact retries, and rejects conflicts", async () => {
+    const staff = await login(
+      (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
+    );
+    const body = actionBody({
+      actionDescription: "Recorded once and retried after the parent version advanced.",
+      followUpRequired: false,
+      followUpNote: null,
+    });
+    const key = idempotencyKey("durable-replay");
+
+    const first = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", key)
+        .set("If-Match", ticketEtag(4))
+        .send(body),
+    );
+    expect(first.status).toBe(201);
+    replayActionId = first.body.data.id;
+    expect(first.body.meta).toEqual({ idempotentReplay: false, ticketVersion: 5 });
+
+    const persistedKey = await prisma.actionTakenIdempotency.findUniqueOrThrow({
+      where: { scope_key: { scope: "actions-taken:create", key } },
+    });
+    expect(persistedKey).toMatchObject({
+      actorId: staffId,
+      ticketId,
+      actionId: BigInt(replayActionId),
+      ticketVersion: 5,
+    });
+    expect(persistedKey.payloadHash).toMatch(/^[a-f0-9]{64}$/u);
+
+    const countAfterFirst = await prisma.actionTaken.count({ where: { ticketId } });
+    const administrator = await login(
+      (await prisma.user.findUniqueOrThrow({ where: { id: administratorId } })).email,
+    );
+    const parentAdvance = await sameOrigin(
+      administrator
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", idempotencyKey("advance-parent"))
+        .set("If-Match", ticketEtag(5))
+        .send(actionBody({
+          actionDescription: "Advanced the parent Ticket after the original request.",
+          followUpRequired: false,
+          followUpNote: null,
+        })),
+    );
+    expect(parentAdvance.status).toBe(201);
+    expect(parentAdvance.body.meta.ticketVersion).toBe(6);
+
+    const replay = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", key)
+        .set("If-Match", ticketEtag(4))
+        .send(body),
+    );
+    expect(replay.status).toBe(200);
+    expect(replay.body.data.id).toBe(replayActionId);
+    expect(replay.body.meta).toEqual({ idempotentReplay: true, ticketVersion: 5 });
+    expect(await prisma.actionTaken.count({ where: { ticketId } })).toBe(countAfterFirst + 1);
+
+    const changedPayload = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", key)
+        .set("If-Match", ticketEtag(5))
+        .send({ ...body, result: "Changed payload must not replay." }),
+    );
+    expect(changedPayload.status).toBe(409);
+    expect(changedPayload.body.error.code).toBe("IDEMPOTENCY_KEY_REUSED");
+
+    const crossUser = await sameOrigin(
+      administrator
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", key)
+        .set("If-Match", ticketEtag(6))
+        .send(body),
+    );
+    expect(crossUser.status).toBe(409);
+    expect(crossUser.body.error.code).toBe("IDEMPOTENCY_KEY_REUSED");
+    expect(await prisma.actionTaken.count({ where: { ticketId } })).toBe(countAfterFirst + 1);
+  });
+
+  it("rejects stale writes without leaving partial Action Taken or Ticket changes", async () => {
+    const staff = await login(
+      (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
+    );
+    const beforeTicket = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId } });
+    const beforeAction = await prisma.actionTaken.findUniqueOrThrow({
+      where: { id: BigInt(actionId) },
+    });
+    const beforeCount = await prisma.actionTaken.count({ where: { ticketId } });
+
+    const staleCreate = await sameOrigin(
+      staff
+        .post(`/api/tickets/${ticketId}/actions-taken`)
+        .set("Idempotency-Key", idempotencyKey("stale-create"))
+        .set("If-Match", ticketEtag(4))
+        .send(actionBody({ result: "This stale create must roll back." })),
+    );
+    expect(staleCreate.status).toBe(412);
+    expect(staleCreate.body.error.code).toBe("STALE_WRITE");
+
+    const staleUpdate = await sameOrigin(
+      staff
+        .patch(`/api/actions-taken/${actionId}`)
+        .set("If-Match", actionEtag(1))
+        .send({
+          result: "This stale update must not overwrite the newer result.",
+          expectedTicketVersion: beforeTicket.version,
+        }),
+    );
+    expect(staleUpdate.status).toBe(412);
+    expect(staleUpdate.body.error.code).toBe("STALE_WRITE");
+
+    const afterTicket = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId } });
+    const afterAction = await prisma.actionTaken.findUniqueOrThrow({
+      where: { id: BigInt(actionId) },
+    });
+    expect(await prisma.actionTaken.count({ where: { ticketId } })).toBe(beforeCount);
+    expect(afterTicket.version).toBe(beforeTicket.version);
+    expect(afterTicket.updatedAt).toEqual(beforeTicket.updatedAt);
+    expect(afterAction.version).toBe(beforeAction.version);
+    expect(afterAction.result).toBe(beforeAction.result);
+    expect(afterAction.updatedById).toBe(beforeAction.updatedById);
   });
 });

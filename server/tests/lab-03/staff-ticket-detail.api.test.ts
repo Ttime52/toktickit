@@ -27,6 +27,10 @@ function sameOrigin(builder: request.Test) {
   return builder.set("Origin", origin);
 }
 
+function ticketEtag(id: number, version: number): string {
+  return `"ticket-${id}-v${version}"`;
+}
+
 async function login(email: string) {
   const agent = request.agent(app);
   const response = await sameOrigin(
@@ -187,8 +191,10 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
     );
     const detail = await staff.get(`/api/staff/tickets/${ticketId}`);
     expect(detail.status).toBe(200);
+    expect(detail.headers.etag).toBe(ticketEtag(ticketId, 1));
     expect(detail.body.data).toMatchObject({
       id: ticketId,
+      version: 1,
       requestedPriority: "MEDIUM",
       itPriority: "HIGH",
       currentStatus: "IN_PROGRESS",
@@ -278,13 +284,40 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
     const staff = await login(
       (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
     );
+    const missingIfMatch = await sameOrigin(
+      staff.patch(`/api/staff/tickets/${ticketId}`).send({ itPriority: "URGENT" }),
+    );
+    expect(missingIfMatch.status).toBe(428);
+    expect(missingIfMatch.body.error.code).toBe("PRECONDITION_REQUIRED");
+
+    const malformedIfMatch = await sameOrigin(
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", "ticket-v1")
+        .send({ itPriority: "URGENT" }),
+    );
+    expect(malformedIfMatch.status).toBe(400);
+    expect(malformedIfMatch.body.error.code).toBe("VALIDATION_ERROR");
+
+    const staleIfMatch = await sameOrigin(
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 99))
+        .send({ itPriority: "URGENT" }),
+    );
+    expect(staleIfMatch.status).toBe(412);
+    expect(staleIfMatch.body.error.code).toBe("STALE_WRITE");
+
     const updated = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({
-        action: "reassign",
-        assignedToUserId: administratorId,
-        itPriority: "URGENT",
-        currentStatus: "WAITING_FOR_REQUESTER",
-      }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 1))
+        .send({
+          action: "reassign",
+          assignedToUserId: administratorId,
+          itPriority: "URGENT",
+          currentStatus: "WAITING_FOR_REQUESTER",
+        }),
     );
     expect(updated.status).toBe(200);
     expect(updated.body.data).toMatchObject({
@@ -295,7 +328,10 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
     });
 
     const invalid = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "NEW" }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 2))
+        .send({ currentStatus: "NEW" }),
     );
     expect(invalid.status).toBe(409);
     expect(invalid.body.error.code).toBe("INVALID_STATUS_TRANSITION");
@@ -309,49 +345,70 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
       (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
     );
     const missingConfirmation = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "RESOLVED" }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 2))
+        .send({ currentStatus: "RESOLVED" }),
     );
     expect(missingConfirmation.status).toBe(400);
     expect(missingConfirmation.body.error.code).toBe("STATUS_CONFIRMATION_REQUIRED");
 
     const resolved = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({
-        currentStatus: "RESOLVED",
-        confirmStatusChange: true,
-      }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 2))
+        .send({
+          currentStatus: "RESOLVED",
+          confirmStatusChange: true,
+        }),
     );
     expect(resolved.status).toBe(200);
     expect(resolved.body.data.currentStatus).toBe("RESOLVED");
 
     const closed = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({
-        currentStatus: "CLOSED",
-        confirmStatusChange: true,
-      }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 3))
+        .send({
+          currentStatus: "CLOSED",
+          confirmStatusChange: true,
+        }),
     );
     expect(closed.status).toBe(200);
     expect(closed.body.data.currentStatus).toBe("CLOSED");
 
     const reopened = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "REOPENED" }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 4))
+        .send({ currentStatus: "REOPENED" }),
     );
     expect(reopened.status).toBe(200);
     expect(reopened.body.data.currentStatus).toBe("REOPENED");
 
     const cancelled = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "CANCELLED" }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 5))
+        .send({ currentStatus: "CANCELLED" }),
     );
     expect(cancelled.status).toBe(200);
     expect(cancelled.body.data.currentStatus).toBe("CANCELLED");
 
     const reopenedFromCancelled = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${ticketId}`).send({ currentStatus: "REOPENED" }),
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 6))
+        .send({ currentStatus: "REOPENED" }),
     );
     expect(reopenedFromCancelled.status).toBe(200);
     expect(reopenedFromCancelled.body.data.currentStatus).toBe("REOPENED");
 
     const claimed = await sameOrigin(
-      staff.patch(`/api/staff/tickets/${unassignedTicketId}/owner`).send({ action: "claim" }),
+      staff
+        .patch(`/api/staff/tickets/${unassignedTicketId}/owner`)
+        .set("If-Match", ticketEtag(unassignedTicketId, 1))
+        .send({ action: "claim" }),
     );
     expect(claimed.status).toBe(200);
     expect(claimed.body.data.ticketOwner).toMatchObject({ id: staffId, role: "IT_STAFF" });
@@ -371,15 +428,21 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
       (await prisma.user.findUniqueOrThrow({ where: { id: administratorId } })).email,
     );
     const priority = await sameOrigin(
-      administrator.patch(`/api/staff/tickets/${ticketId}`).send({ itPriority: "LOW" }),
+      administrator
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 7))
+        .send({ itPriority: "LOW" }),
     );
     expect(priority.status).toBe(200);
     expect(priority.body.data.itPriority).toBe("LOW");
     const forbiddenAssignment = await sameOrigin(
-      administrator.patch(`/api/staff/tickets/${ticketId}`).send({
-        action: "reassign",
-        assignedToUserId: secondStaffId,
-      }),
+      administrator
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 8))
+        .send({
+          action: "reassign",
+          assignedToUserId: secondStaffId,
+        }),
     );
     expect(forbiddenAssignment.status).toBe(403);
   });

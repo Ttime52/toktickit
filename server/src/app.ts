@@ -332,7 +332,7 @@ app.get(
 
     try {
       const data = await getStaffTicketDetail(getPrisma(), ticketId);
-      res.status(200).json({ data });
+      res.status(200).set("ETag", ticketEtag(data.id, data.version)).json({ data });
     } catch (error) {
       sendApiError(res, error);
     }
@@ -355,6 +355,9 @@ async function updateStaffTicketRoute(
     return;
   }
 
+  const ticketVersion = parseRequiredIfMatch(req, res, "ticket", ticketId);
+  if (ticketVersion === null) return;
+
   const normalized = validateStaffTicketUpdateBody(req.body, mode);
   if (!normalized.ok) {
     sendApiError(res, normalized.error);
@@ -368,8 +371,9 @@ async function updateStaffTicketRoute(
       req.auth!.user.id,
       req.auth!.user.role,
       normalized.value,
+      ticketVersion,
     );
-    res.status(200).json({ data });
+    res.status(200).set("ETag", ticketEtag(data.id, data.version)).json({ data });
   } catch (error) {
     sendApiError(res, error);
   }
@@ -747,14 +751,29 @@ function parseActionId(req: Request, res: Response): bigint | null {
   return BigInt(actionId);
 }
 
-function parseOptionalIfMatch(
+function ticketEtag(ticketId: number, version: number): string {
+  return `"ticket-${ticketId}-v${version}"`;
+}
+
+function parseRequiredIfMatch(
   req: Request,
   res: Response,
   resource: "ticket" | "actionTaken",
   resourceId: number,
-): number | undefined | null {
+): number | null {
   const value = req.get("If-Match");
-  if (value === undefined) return undefined;
+  if (value === undefined) {
+    sendApiError(
+      res,
+      new ApiError(
+        428,
+        "PRECONDITION_REQUIRED",
+        "If-Match is required for this mutation.",
+        { ifMatch: "A strong ETag for this resource is required." },
+      ),
+    );
+    return null;
+  }
 
   const pattern =
     resource === "ticket"
@@ -774,12 +793,23 @@ function parseOptionalIfMatch(
   return version;
 }
 
-function validateOptionalActionIdempotencyKey(
+function parseRequiredActionIdempotencyKey(
   req: Request,
   res: Response,
-): string | undefined | null {
+): string | null {
   const value = req.get("Idempotency-Key");
-  if (value === undefined) return undefined;
+  if (value === undefined) {
+    sendApiError(
+      res,
+      new ApiError(
+        400,
+        "VALIDATION_ERROR",
+        "Request validation failed.",
+        { idempotencyKey: "A valid 16 to 64 character ASCII key is required." },
+      ),
+    );
+    return null;
+  }
   const key = validateIdempotencyKey(value);
   if (key !== null) return key;
   sendApiError(
@@ -825,7 +855,7 @@ async function listActionTakenRoute(req: Request, res: Response) {
       req.auth!.user.role,
       parsedQuery.value,
     );
-    res.status(200).json(result);
+    res.status(200).set("ETag", ticketEtag(ticketId, result.meta.ticketVersion)).json(result);
   } catch (error) {
     sendApiError(res, error);
   }
@@ -841,9 +871,9 @@ async function createActionTakenRoute(req: Request, res: Response) {
     return;
   }
 
-  const idempotencyKey = validateOptionalActionIdempotencyKey(req, res);
+  const idempotencyKey = parseRequiredActionIdempotencyKey(req, res);
   if (idempotencyKey === null) return;
-  const ticketVersion = parseOptionalIfMatch(req, res, "ticket", ticketId);
+  const ticketVersion = parseRequiredIfMatch(req, res, "ticket", ticketId);
   if (ticketVersion === null) return;
 
   try {
@@ -854,8 +884,8 @@ async function createActionTakenRoute(req: Request, res: Response) {
       req.auth!.user.role,
       normalized.value,
       {
-        ...(ticketVersion === undefined ? {} : { ticketVersion }),
-        ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+        ticketVersion,
+        idempotencyKey,
       },
     );
     res
@@ -900,13 +930,31 @@ async function updateActionTakenRoute(req: Request, res: Response) {
   );
   if (action === null) return;
 
+  if (
+    typeof req.body === "object" &&
+    req.body !== null &&
+    !Array.isArray(req.body) &&
+    !Object.prototype.hasOwnProperty.call(req.body, "expectedTicketVersion")
+  ) {
+    sendApiError(
+      res,
+      new ApiError(
+        428,
+        "PRECONDITION_REQUIRED",
+        "expectedTicketVersion is required for Action Taken updates.",
+        { expectedTicketVersion: "The latest parent Ticket version is required." },
+      ),
+    );
+    return;
+  }
+
   const normalized = validateUpdateActionTakenBody(req.body, action);
   if (!normalized.ok) {
     sendApiError(res, normalized.error);
     return;
   }
 
-  const actionVersion = parseOptionalIfMatch(
+  const actionVersion = parseRequiredIfMatch(
     req,
     res,
     "actionTaken",
@@ -922,7 +970,8 @@ async function updateActionTakenRoute(req: Request, res: Response) {
       req.auth!.user.role,
       normalized.value,
       {
-        ...(actionVersion === undefined ? {} : { actionVersion }),
+        actionVersion,
+        ticketVersion: normalized.value.expectedTicketVersion,
       },
       expectedTicketId,
     );
@@ -1026,12 +1075,14 @@ app.get(
     try {
       if (req.auth!.user.role === "ADMINISTRATOR") {
         const ticket = await getTicketForInspection(getPrisma(), ticketId);
-        res.status(200).json({ data: serializeTicketForInspection(ticket) });
+        const data = serializeTicketForInspection(ticket);
+        res.status(200).set("ETag", ticketEtag(data.id, data.version)).json({ data });
         return;
       }
 
       const ticket = await getOwnedTicket(getPrisma(), ticketId, req.auth!.user.id);
-      res.status(200).json({ data: serializeTicket(ticket) });
+      const data = serializeTicket(ticket);
+      res.status(200).set("ETag", ticketEtag(data.id, data.version)).json({ data });
     } catch (error) {
       sendApiError(res, error);
     }

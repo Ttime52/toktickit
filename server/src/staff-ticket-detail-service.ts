@@ -88,6 +88,7 @@ export interface StaffUserOption extends StaffOwnerSummary {}
 
 export interface StaffTicketDetail {
   id: number;
+  version: number;
   ticketNumber: string;
   ticketDate: string;
   requester: { id: number; displayName: string; email: string };
@@ -123,6 +124,7 @@ export function serializeStaffTicketDetail(
   const ticketOwner = ownerSummary(ticket.assignedTo);
   return {
     id: ticket.id,
+    version: ticket.version,
     ticketNumber: ticket.ticketNumber,
     ticketDate: ticket.ticketDate.toISOString(),
     requester: ticket.requester,
@@ -327,6 +329,7 @@ export async function updateStaffTicket(
   actorId: number,
   actorRole: UserRole,
   input: StaffTicketUpdateInput,
+  expectedTicketVersion: number,
 ): Promise<StaffTicketDetail> {
   return prisma.$transaction(async (transaction) => {
     const ticket = await transaction.ticket.findUnique({
@@ -336,12 +339,21 @@ export async function updateStaffTicket(
         assignedToUserId: true,
         currentStatus: true,
         itPriority: true,
+        version: true,
       },
     });
     if (ticket === null) throw ticketNotFound();
 
     if (actorRole !== "IT_STAFF" && actorRole !== "ADMINISTRATOR") {
       throw new ApiError(403, "FORBIDDEN", "You are not allowed to update Tickets.");
+    }
+
+    if (expectedTicketVersion !== ticket.version) {
+      throw new ApiError(
+        412,
+        "STALE_WRITE",
+        "The Ticket changed. Reload it before saving again.",
+      );
     }
 
     if (
@@ -464,7 +476,17 @@ export async function updateStaffTicket(
       }
     }
 
-    await transaction.ticket.update({ where: { id: ticketId }, data });
+    const updatedCount = await transaction.ticket.updateMany({
+      where: { id: ticketId, version: expectedTicketVersion },
+      data: { ...data, version: { increment: 1 } },
+    });
+    if (updatedCount.count !== 1) {
+      throw new ApiError(
+        412,
+        "STALE_WRITE",
+        "The Ticket changed. Reload it before saving again.",
+      );
+    }
     const updated = await transaction.ticket.findUnique({
       where: { id: ticketId },
       include: staffTicketDetailInclude,
