@@ -312,7 +312,9 @@ function sortTicketListRecords(
 function ownedTicketWhere(query: TicketListQuery): Prisma.TicketWhereInput {
   const conditions: Prisma.TicketWhereInput[] = [{ requesterId: query.requesterId }];
   const dashboardWindow =
-    query.updatedWithin === "7d" || query.resolvedWithin === "7d"
+    query.windowStart !== undefined && query.windowEnd !== undefined
+      ? { start: query.windowStart, end: query.windowEnd }
+      : query.updatedWithin === "7d" || query.resolvedWithin === "7d"
       ? dashboardWindowFor(new Date())
       : null;
   if (query.categoryId !== null) conditions.push({ categoryId: query.categoryId });

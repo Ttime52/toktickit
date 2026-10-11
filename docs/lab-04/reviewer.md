@@ -92,8 +92,10 @@ The only remaining suggestion is non-blocking: add direct regression coverage fo
 PR #68 feature/27-dashboards
 https://github.com/Ttime52/toktickit/pull/68
 
-- Reviewer comment I received: 
+- Reviewer comment I received: Dashboard drill-down windows are not tied to the dashboard snapshot.
+The dashboard captures a fixed asOf value for its metrics, but the drill-down links use relative filters such as updatedWithin=7d / resolvedWithin=7d, and the destination list recomputes the window at request time. This can cause the card count and drill-down results to disagree around the reporting boundary. The drill-down should preserve the exact server-captured window used for the dashboard metrics.
 - How I responded:
+- Reviewer comment I received:
 
 PR #69 feature/28-final-regression-release
 https://github.com/Ttime52/toktickit/pull/69

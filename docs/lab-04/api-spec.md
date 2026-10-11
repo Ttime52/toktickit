@@ -393,6 +393,19 @@ and `window.end` is the start of the next local day, converted to UTC.
 Comparisons are `>= start AND < end`. Client timezone and arbitrary `userId`
 parameters are rejected.
 
+Drill-downs for metrics that use this reporting window include the exact
+`windowStart` and `windowEnd` values from the same Dashboard response in their
+query object, for example:
+
+```text
+/my-tickets?updatedWithin=7d&windowStart=2026-10-01T17:00:00.000Z&windowEnd=2026-10-08T17:00:00.000Z
+```
+
+The destination list APIs accept these bounds as a paired, canonical UTC
+seven-day window and use them as-is. This preserves the Dashboard snapshot if
+the user crosses a reporting boundary before opening the drill-down. A direct
+client request that omits the bounds retains the relative `7d` behavior.
+
 Every metric object has `value` and a safe drill-down `{path,query}` where a
 drill-down is useful. Count values are integers; grouped metrics return every
 enum bucket with a zero value.
@@ -454,7 +467,9 @@ the dashboard. It accepts the retained staff query parameters
 `currentStatus`, `assignment` (`all|assigned|unassigned|mine`), `sortBy`,
 `sortOrder`, `page`, and `pageSize`,
 plus Lab 4 `scope=active` and `updatedWithin=7d`. Invalid or unsupported
-filters return `400 INVALID_QUERY_PARAMETER`.
+filters return `400 INVALID_QUERY_PARAMETER`. When `updatedWithin=7d` is
+generated from an Administrator Dashboard metric, the request also carries
+the paired `windowStart` and `windowEnd` snapshot bounds described above.
 
 ### 5.5 Dashboard failures and evidence
 
@@ -496,19 +511,23 @@ real, repeatable queries rather than client-only labels:
 
 - Requester `GET /api/tickets` accepts `scope=active`,
   `updatedWithin=7d`, `resolvedWithin=7d`, and
-  `resolutionIndicated=true`. These filters are combined with the existing
+  `resolutionIndicated=true`, plus the optional paired `windowStart` and
+  `windowEnd` snapshot bounds. These filters are combined with the existing
   ownership/search/filter rules; `scope=active` means the five `ACTIVE`
   statuses from the specification, and `resolvedWithin=7d` means
   `currentStatus IN (RESOLVED,CLOSED)` plus a `resolvedAt` timestamp in the
   dashboard window.
 - Staff `GET /api/staff/tickets` accepts `scope=active` and
-  `updatedWithin=7d` in addition to its Lab 3 filters. `scope=active` applies
-  to the same five statuses and `updatedWithin=7d` uses the fixed
-  `Asia/Bangkok` dashboard window.
+  `updatedWithin=7d` and the optional paired `windowStart`/`windowEnd` bounds
+  in addition to its Lab 3 filters. `scope=active` applies
+  to the same five statuses. Without bounds, `updatedWithin=7d` uses the
+  current fixed `Asia/Bangkok` dashboard window; with paired bounds, it uses
+  the supplied Dashboard snapshot window as-is.
 - `updatedWithin` and `resolvedWithin` accept only `7d` in this sprint;
   `resolutionIndicated` accepts only `true`. Unknown or invalid values return
-  `400 INVALID_QUERY_PARAMETER`. The API computes the date window in
-  `Asia/Bangkok` and compares UTC timestamps using `>= start` and `< end`.
+  `400 INVALID_QUERY_PARAMETER`. When snapshot bounds are omitted, the API
+  computes the date window in `Asia/Bangkok`; valid paired bounds are used as
+  supplied. All cases compare UTC timestamps using `>= start` and `< end`.
 
 Attachment upload, metadata, download/preview, soft removal, file signature,
 5 MiB/file, five active-file limit, removed/unavailable `410`, safe filename,

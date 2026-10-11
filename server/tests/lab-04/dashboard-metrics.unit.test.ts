@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   dashboardWindowFor,
+  parseDashboardWindowBounds,
   REPORT_TIME_ZONE,
   serializeDashboardWindow,
 } from "../../src/dashboard-window.js";
 import { parseDashboardQuery } from "../../src/dashboard-service.js";
+import { parseStaffTicketQuery } from "../../src/staff-ticket-query.js";
+import { parseTicketListQuery } from "../../src/ticket-query.js";
 
 describe("Issue 27 dashboard metric boundaries (UNIT-04)", () => {
   it("uses the Asia/Bangkok half-open 7-day calendar window", () => {
@@ -37,6 +40,48 @@ describe("Issue 27 dashboard metric boundaries (UNIT-04)", () => {
     const forgedUser = parseDashboardQuery({ userId: "999" });
     expect(forgedUser.ok).toBe(false);
     if (!forgedUser.ok) expect(forgedUser.error.fields).toHaveProperty("userId");
+  });
+
+  it("preserves exact snapshot bounds for time-window list drill-downs", () => {
+    const start = "2026-10-01T17:00:00.000Z";
+    const end = "2026-10-08T17:00:00.000Z";
+
+    expect(parseDashboardWindowBounds(start, end)).toEqual({
+      key: "7d",
+      start: new Date(start),
+      end: new Date(end),
+    });
+
+    const requesterQuery = parseTicketListQuery({
+      requesterId: "7",
+      updatedWithin: "7d",
+      windowStart: start,
+      windowEnd: end,
+    });
+    expect(requesterQuery.ok).toBe(true);
+    if (requesterQuery.ok) {
+      expect(requesterQuery.value.windowStart?.toISOString()).toBe(start);
+      expect(requesterQuery.value.windowEnd?.toISOString()).toBe(end);
+    }
+
+    const staffQuery = parseStaffTicketQuery({
+      updatedWithin: "7d",
+      windowStart: start,
+      windowEnd: end,
+    }, 8);
+    expect(staffQuery.ok).toBe(true);
+    if (staffQuery.ok) {
+      expect(staffQuery.value.windowStart?.toISOString()).toBe(start);
+      expect(staffQuery.value.windowEnd?.toISOString()).toBe(end);
+    }
+
+    const incomplete = parseTicketListQuery({
+      requesterId: "7",
+      updatedWithin: "7d",
+      windowStart: start,
+    });
+    expect(incomplete.ok).toBe(false);
+    if (!incomplete.ok) expect(incomplete.error.code).toBe("INVALID_QUERY_PARAMETER");
   });
 });
 

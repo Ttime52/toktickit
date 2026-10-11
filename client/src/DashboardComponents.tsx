@@ -251,6 +251,14 @@ export function OperationalDashboardContent({
   const accountMetrics = administrator
     ? (dashboard as AdministratorDashboard).metrics
     : null;
+  const recentStaffTicketsHref = drillDownHref({
+    path: "/staff/tickets",
+    query: {
+      updatedWithin: "7d",
+      windowStart: dashboard.window.start,
+      windowEnd: dashboard.window.end,
+    },
+  });
   const noOperationalData =
     metrics.unassignedActiveCount.value === 0 &&
     metrics.myAssignedActiveCount.value === 0 &&
@@ -281,7 +289,7 @@ export function OperationalDashboardContent({
         <a className="zen-button zen-button-secondary" href={administrator ? "/admin/tickets" : "/staff/tickets"} onClick={(event) => { event.preventDefault(); onNavigate(administrator ? "/admin/tickets" : "/staff/tickets"); }}>
           {administrator ? "Search Tickets" : "My Queue"}
         </a>
-        <a className="zen-button zen-button-secondary" href={administrator ? "/admin/users" : "/staff/tickets?updatedWithin=7d"} onClick={(event) => { event.preventDefault(); onNavigate(administrator ? "/admin/users" : "/staff/tickets?updatedWithin=7d"); }}>
+        <a className="zen-button zen-button-secondary" href={administrator ? "/admin/users" : recentStaffTicketsHref} onClick={(event) => { event.preventDefault(); onNavigate(administrator ? "/admin/users" : recentStaffTicketsHref); }}>
           {administrator ? "User Management" : "Search"}
         </a>
       </nav>

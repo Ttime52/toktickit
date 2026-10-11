@@ -190,6 +190,26 @@ describe("Issue 27 role dashboards and drill-downs", () => {
       path: "/my-tickets",
       query: { scope: "active" },
     });
+    expect(response.body.data.metrics.recentlyUpdatedTicketCount.drillDown).toEqual({
+      path: "/my-tickets",
+      query: {
+        updatedWithin: "7d",
+        windowStart: response.body.data.window.start,
+        windowEnd: response.body.data.window.end,
+      },
+    });
+    expect(response.body.data.metrics.recentlyResolvedTicketCount.drillDown.query).toEqual({
+      resolvedWithin: "7d",
+      windowStart: response.body.data.window.start,
+      windowEnd: response.body.data.window.end,
+    });
+
+    const exactRecentDrillDown = new URLSearchParams(
+      response.body.data.metrics.recentlyUpdatedTicketCount.drillDown.query,
+    );
+    const exactRecentList = await requester.get(`/api/tickets?${exactRecentDrillDown.toString()}`);
+    expect(exactRecentList.status).toBe(200);
+    expect(exactRecentList.body.meta.totalItems).toBe(expectedUpdated);
 
     const indicationDrillDown = await requester.get("/api/tickets?resolutionIndicated=true");
     expect(indicationDrillDown.status).toBe(200);

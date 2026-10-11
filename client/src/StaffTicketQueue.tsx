@@ -42,6 +42,8 @@ interface QueueFilters {
 interface QueueDrilldownFilters {
   scope?: "active";
   updatedWithin?: "7d";
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 const INITIAL_FILTERS: QueueFilters = {
@@ -170,6 +172,9 @@ function readQueueRoute(): {
       ...(params.get("scope") === "active" ? { scope: "active" as const } : {}),
       ...(params.get("updatedWithin") === "7d"
         ? { updatedWithin: "7d" as const }
+        : {}),
+      ...(params.get("windowStart") !== null && params.get("windowEnd") !== null
+        ? { windowStart: params.get("windowStart") as string, windowEnd: params.get("windowEnd") as string }
         : {}),
     },
   };
@@ -361,7 +366,9 @@ export default function StaffTicketQueue({
   const hasFilters =
     isFiltered(filters) ||
     drilldownFilters.scope !== undefined ||
-    drilldownFilters.updatedWithin !== undefined;
+    drilldownFilters.updatedWithin !== undefined ||
+    drilldownFilters.windowStart !== undefined ||
+    drilldownFilters.windowEnd !== undefined;
   const tickets = queueResult?.data ?? [];
   const meta = queueResult?.meta ?? null;
   const adminMode = mode === "admin";
@@ -454,7 +461,7 @@ export default function StaffTicketQueue({
         </button>
       </section>
 
-      {(drilldownFilters.scope !== undefined || drilldownFilters.updatedWithin !== undefined) && (
+      {(drilldownFilters.scope !== undefined || drilldownFilters.updatedWithin !== undefined || drilldownFilters.windowStart !== undefined || drilldownFilters.windowEnd !== undefined) && (
         <div className="zen-callout zen-callout-info" role="status">
           This list is filtered by the selected Dashboard metric. Clear Filters to return to the full review list.
         </div>

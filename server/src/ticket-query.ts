@@ -3,6 +3,7 @@ import {
   REQUESTED_PRIORITIES,
   type RequestedPriorityValue,
 } from "./ticket-validation.js";
+import { parseDashboardWindowBounds } from "./dashboard-window.js";
 
 export const ACTIVE_TICKET_STATUSES = [
   "NEW",
@@ -57,6 +58,8 @@ const TICKET_QUERY_PARAMETERS = new Set([
   "updatedWithin",
   "resolvedWithin",
   "resolutionIndicated",
+  "windowStart",
+  "windowEnd",
 ]);
 
 export interface TicketListQuery {
@@ -75,6 +78,9 @@ export interface TicketListQuery {
   updatedWithin?: "7d";
   resolvedWithin?: "7d";
   resolutionIndicated?: true;
+  /** Exact Dashboard snapshot bounds for time-window drill-downs. */
+  windowStart?: Date;
+  windowEnd?: Date;
 }
 
 export type TicketListQueryResult =
@@ -222,6 +228,19 @@ export function parseTicketListQuery(
     return invalidParameter("resolutionIndicated", "resolutionIndicated must be true.");
   }
 
+  const windowStartValue = singleValue(query, "windowStart");
+  const windowEndValue = singleValue(query, "windowEnd");
+  const hasWindowBounds = windowStartValue !== undefined || windowEndValue !== undefined;
+  const dashboardWindow = hasWindowBounds
+    ? parseDashboardWindowBounds(windowStartValue, windowEndValue)
+    : null;
+  if (hasWindowBounds && dashboardWindow === null) {
+    return invalidParameter(
+      "windowStart",
+      "windowStart and windowEnd must be canonical UTC bounds for a seven-day Dashboard window.",
+    );
+  }
+
   const sortByValue = singleValue(query, "sortBy");
   if (
     sortByValue !== undefined &&
@@ -281,6 +300,9 @@ export function parseTicketListQuery(
       ...(resolutionIndicatedValue === undefined
         ? {}
         : { resolutionIndicated: true as const }),
+      ...(dashboardWindow === null
+        ? {}
+        : { windowStart: dashboardWindow.start, windowEnd: dashboardWindow.end }),
     },
   };
 }

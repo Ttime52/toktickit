@@ -48,6 +48,8 @@ interface TicketDrilldownFilters {
   updatedWithin?: "7d";
   resolvedWithin?: "7d";
   resolutionIndicated?: true;
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 const INITIAL_FILTERS: TicketFilters = {
@@ -123,6 +125,9 @@ function readTicketDrilldown(): {
       ...(params.get("resolutionIndicated") === "true"
         ? { resolutionIndicated: true as const }
         : {}),
+      ...(params.get("windowStart") !== null && params.get("windowEnd") !== null
+        ? { windowStart: params.get("windowStart") as string, windowEnd: params.get("windowEnd") as string }
+        : {}),
     },
   };
 }
@@ -137,7 +142,9 @@ function isFiltered(filters: TicketFilters, drilldown: TicketDrilldownFilters): 
     drilldown.scope !== undefined ||
     drilldown.updatedWithin !== undefined ||
     drilldown.resolvedWithin !== undefined ||
-    drilldown.resolutionIndicated !== undefined
+    drilldown.resolutionIndicated !== undefined ||
+    drilldown.windowStart !== undefined ||
+    drilldown.windowEnd !== undefined
   );
 }
 

@@ -24,6 +24,11 @@ const metric = (value: number, path: string, query: Record<string, string>) => (
   drillDown: { path, query },
 });
 
+const snapshotQuery = {
+  windowStart: windowEvidence.start,
+  windowEnd: windowEvidence.end,
+};
+
 const requesterDashboard = {
   asOf: "2026-10-07T10:00:00.000Z",
   reportTimeZone: "Asia/Bangkok" as const,
@@ -31,8 +36,8 @@ const requesterDashboard = {
   metrics: {
     openTicketCount: metric(2, "/my-tickets", { scope: "active" }),
     waitingForRequesterCount: metric(1, "/my-tickets", { currentStatus: "WAITING_FOR_REQUESTER" }),
-    recentlyUpdatedTicketCount: metric(1, "/my-tickets", { updatedWithin: "7d" }),
-    recentlyResolvedTicketCount: metric(0, "/my-tickets", { resolvedWithin: "7d" }),
+    recentlyUpdatedTicketCount: metric(1, "/my-tickets", { updatedWithin: "7d", ...snapshotQuery }),
+    recentlyResolvedTicketCount: metric(0, "/my-tickets", { resolvedWithin: "7d", ...snapshotQuery }),
     resolutionIndicationCount: metric(1, "/my-tickets", { resolutionIndicated: "true" }),
   },
   recentTickets: [
@@ -57,7 +62,7 @@ const staffDashboard = {
     unassignedActiveCount: metric(0, "/staff/tickets", { assignment: "unassigned", scope: "active" }),
     myAssignedActiveCount: metric(3, "/staff/tickets", { assignment: "mine", scope: "active" }),
     urgentActiveCount: metric(1, "/staff/tickets", { itPriority: "URGENT", scope: "active" }),
-    recentlyUpdatedCount: metric(2, "/staff/tickets", { updatedWithin: "7d" }),
+    recentlyUpdatedCount: metric(2, "/staff/tickets", { updatedWithin: "7d", ...snapshotQuery }),
     ticketsByStatus: [
       "NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED",
     ].map((status) => ({ status: status as never, value: 0, drillDown: { path: "/staff/tickets", query: { currentStatus: status } } })),
@@ -96,6 +101,9 @@ describe("Issue 27 Dashboard UI", () => {
     expect(await screen.findByRole("heading", { name: "My Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Problem Appears Resolved")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View Open Tickets" })).toHaveAttribute("href", "/my-tickets?scope=active");
+    expect(screen.getByRole("link", { name: "View Recently updated" }).getAttribute("href")).toContain(
+      "windowStart=2026-10-01T17%3A00%3A00.000Z",
+    );
     expect(screen.getByRole("link", { name: "Open Ticket" })).toHaveAttribute("href", "/tickets/7");
     expect(screen.getAllByText("Asia/Bangkok · last 7 calendar days").length).toBe(4);
   });

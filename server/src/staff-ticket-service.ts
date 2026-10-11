@@ -134,9 +134,11 @@ function sortRows(rows: StaffTicketRecord[], query: StaffTicketQuery): StaffTick
 
 function staffWhere(query: StaffTicketQuery): Prisma.TicketWhereInput {
   const conditions: Prisma.TicketWhereInput[] = [];
-  const dashboardWindow = query.updatedWithin === "7d"
-    ? dashboardWindowFor(new Date())
-    : null;
+  const dashboardWindow = query.windowStart !== undefined && query.windowEnd !== undefined
+    ? { start: query.windowStart, end: query.windowEnd }
+    : query.updatedWithin === "7d"
+      ? dashboardWindowFor(new Date())
+      : null;
   if (query.categoryId !== null) conditions.push({ categoryId: query.categoryId });
   if (query.relatedSystemId !== null) {
     conditions.push({ relatedSystemId: query.relatedSystemId });

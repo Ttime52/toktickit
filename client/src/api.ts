@@ -162,6 +162,8 @@ export interface TicketListQuery {
   updatedWithin?: "7d";
   resolvedWithin?: "7d";
   resolutionIndicated?: true;
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 export interface TicketListMeta {
@@ -222,6 +224,8 @@ export interface StaffTicketQuery {
   pageSize: TicketPageSize;
   scope?: "active";
   updatedWithin?: "7d";
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 export interface StaffTicketListResult {
@@ -712,6 +716,8 @@ export async function fetchTickets(
   if (query.resolutionIndicated !== undefined) {
     params.set("resolutionIndicated", String(query.resolutionIndicated));
   }
+  if (query.windowStart !== undefined) params.set("windowStart", query.windowStart);
+  if (query.windowEnd !== undefined) params.set("windowEnd", query.windowEnd);
 
   const response = await fetch(`${API_URL}/api/tickets?${params.toString()}`, withCredentials(signal
     ? { signal }
@@ -759,6 +765,8 @@ export async function fetchStaffTickets(
   if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
   if (query.scope !== undefined) params.set("scope", query.scope);
   if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
+  if (query.windowStart !== undefined) params.set("windowStart", query.windowStart);
+  if (query.windowEnd !== undefined) params.set("windowEnd", query.windowEnd);
 
   const response = await fetch(
     `${API_URL}/api/staff/tickets?${params.toString()}`,
@@ -841,6 +849,8 @@ export async function fetchAdminTickets(
   if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
   if (query.scope !== undefined) params.set("scope", query.scope);
   if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
+  if (query.windowStart !== undefined) params.set("windowStart", query.windowStart);
+  if (query.windowEnd !== undefined) params.set("windowEnd", query.windowEnd);
 
   const response = await fetch(
     `${API_URL}/api/admin/tickets?${params.toString()}`,

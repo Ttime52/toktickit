@@ -4,6 +4,7 @@ import {
   type RequestedPriorityValue,
 } from "./ticket-validation.js";
 import { TICKET_STATUSES, type TicketStatusValue } from "./ticket-query.js";
+import { parseDashboardWindowBounds } from "./dashboard-window.js";
 
 export const STAFF_ASSIGNMENT_VALUES = [
   "all",
@@ -44,6 +45,8 @@ const STAFF_QUERY_PARAMETERS = new Set([
   "pageSize",
   "scope",
   "updatedWithin",
+  "windowStart",
+  "windowEnd",
 ]);
 
 export interface StaffTicketQuery {
@@ -62,6 +65,9 @@ export interface StaffTicketQuery {
   /** Lab 4 dashboard drill-down filters are omitted when not supplied. */
   scope?: "active";
   updatedWithin?: "7d";
+  /** Exact Dashboard snapshot bounds for time-window drill-downs. */
+  windowStart?: Date;
+  windowEnd?: Date;
 }
 
 export type StaffTicketQueryResult =
@@ -175,6 +181,19 @@ export function parseStaffTicketQuery(
     return invalidParameter("updatedWithin", "updatedWithin must be 7d.");
   }
 
+  const windowStartValue = singleValue(query, "windowStart");
+  const windowEndValue = singleValue(query, "windowEnd");
+  const hasWindowBounds = windowStartValue !== undefined || windowEndValue !== undefined;
+  const dashboardWindow = hasWindowBounds
+    ? parseDashboardWindowBounds(windowStartValue, windowEndValue)
+    : null;
+  if (hasWindowBounds && dashboardWindow === null) {
+    return invalidParameter(
+      "windowStart",
+      "windowStart and windowEnd must be canonical UTC bounds for a seven-day Dashboard window.",
+    );
+  }
+
   const assignmentValue = singleValue(query, "assignment");
   if (
     assignmentValue !== undefined &&
@@ -242,6 +261,9 @@ export function parseStaffTicketQuery(
       currentUserId,
       ...(scopeValue === undefined ? {} : { scope: "active" as const }),
       ...(updatedWithinValue === undefined ? {} : { updatedWithin: "7d" as const }),
+      ...(dashboardWindow === null
+        ? {}
+        : { windowStart: dashboardWindow.start, windowEnd: dashboardWindow.end }),
     },
   };
 }

@@ -191,6 +191,13 @@ function metric(value: number, path: string, query: Record<string, string>): Das
   return { value, drillDown: { path, query } };
 }
 
+function windowDrillDown(window: DashboardWindow): Record<string, string> {
+  return {
+    windowStart: window.start.toISOString(),
+    windowEnd: window.end.toISOString(),
+  };
+}
+
 function ownerPreview(
   owner: StaffPreviewRecord["assignedTo"] | RequesterPreviewRecord["assignedTo"],
 ): DashboardTicketOwner | null {
@@ -296,12 +303,12 @@ async function readRequesterDashboard(
       recentlyUpdatedTicketCount: metric(
         recentlyUpdatedTicketCount,
         "/my-tickets",
-        { updatedWithin: "7d" },
+        { updatedWithin: "7d", ...windowDrillDown(window) },
       ),
       recentlyResolvedTicketCount: metric(
         recentlyResolvedTicketCount,
         "/my-tickets",
-        { resolvedWithin: "7d" },
+        { resolvedWithin: "7d", ...windowDrillDown(window) },
       ),
       resolutionIndicationCount: metric(
         resolutionIndicationCount,
@@ -393,7 +400,7 @@ async function readStaffDashboard(
       recentlyUpdatedCount: metric(
         recentlyUpdatedCount,
         drillDownPath,
-        { updatedWithin: "7d" },
+        { updatedWithin: "7d", ...windowDrillDown(window) },
       ),
       ticketsByStatus: TICKET_STATUSES.map((status) => ({
         status,
