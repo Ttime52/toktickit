@@ -78,8 +78,12 @@ function safeErrorMessage(error: unknown, fallback: string): string {
     : error.message;
 }
 
-function isFiltered(search: string, role: "" | UserRole): boolean {
-  return search.trim().length > 0 || role !== "";
+function isFiltered(
+  search: string,
+  role: "" | UserRole,
+  activeFilter: "" | "true" | "false",
+): boolean {
+  return search.trim().length > 0 || role !== "" || activeFilter !== "";
 }
 
 function fieldErrorMessage(error: unknown, field: string): string | null {
@@ -89,6 +93,12 @@ function fieldErrorMessage(error: unknown, field: string): string | null {
 export default function UserManagement({ onSessionRefresh }: UserManagementProps) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"" | UserRole>("");
+  const [activeFilter, setActiveFilter] = useState<"" | "true" | "false">(
+    () => {
+      const value = new URLSearchParams(window.location.search).get("isActive");
+      return value === "true" || value === "false" ? value : "";
+    },
+  );
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -142,8 +152,8 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
   }, [editor]);
 
   const queryKey = useMemo(
-    () => JSON.stringify({ search: search.trim(), role: roleFilter }),
-    [roleFilter, search],
+    () => JSON.stringify({ search: search.trim(), role: roleFilter, isActive: activeFilter }),
+    [activeFilter, roleFilter, search],
   );
 
   useEffect(() => {
@@ -151,7 +161,11 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
     setLoadState("loading");
     setLoadError(null);
     fetchAdminUsers(
-      { search, role: roleFilter === "" ? null : roleFilter },
+      {
+        search,
+        role: roleFilter === "" ? null : roleFilter,
+        isActive: activeFilter === "" ? null : activeFilter === "true",
+      },
       controller.signal,
     )
       .then((result) => {
@@ -166,11 +180,12 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
         setLoadError(safeErrorMessage(error, "Unable to load User Management. Please try again."));
       });
     return () => controller.abort();
-  }, [queryKey, retry]);
+  }, [activeFilter, queryKey, retry]);
 
   function clearFilters() {
     setSearch("");
     setRoleFilter("");
+    setActiveFilter("");
   }
 
   function openCreate(trigger?: HTMLButtonElement) {
@@ -359,7 +374,15 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
             {ROLES.map((role) => <option value={role} key={role}>{roleLabel(role)}</option>)}
           </select>
         </div>
-        <button type="button" className="zen-button zen-button-secondary zen-clear-filters" onClick={clearFilters} disabled={!isFiltered(search, roleFilter)}>Clear Filters</button>
+        <div className="zen-list-field">
+          <label htmlFor="admin-user-status-filter">Account Status</label>
+          <select id="admin-user-status-filter" value={activeFilter} onChange={(event) => setActiveFilter(event.target.value as "" | "true" | "false")}>
+            <option value="">All account statuses</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+        <button type="button" className="zen-button zen-button-secondary zen-clear-filters" onClick={clearFilters} disabled={!isFiltered(search, roleFilter, activeFilter)}>Clear Filters</button>
       </section>
 
       {loadState === "error" ? (
@@ -374,9 +397,9 @@ export default function UserManagement({ onSessionRefresh }: UserManagementProps
         </section>
       ) : users.length === 0 ? (
         <section className="zen-empty-panel" role="status">
-          <h2>{isFiltered(search, roleFilter) ? "No Users match these filters" : "No Users yet"}</h2>
-          <p>{isFiltered(search, roleFilter) ? "Try a different search or clear the filters." : "Create the first User to get started."}</p>
-          {!isFiltered(search, roleFilter) && <button type="button" className="zen-button zen-button-primary" onClick={(event) => openCreate(event.currentTarget)}>Create User</button>}
+          <h2>{isFiltered(search, roleFilter, activeFilter) ? "No Users match these filters" : "No Users yet"}</h2>
+          <p>{isFiltered(search, roleFilter, activeFilter) ? "Try a different search or clear the filters." : "Create the first User to get started."}</p>
+          {!isFiltered(search, roleFilter, activeFilter) && <button type="button" className="zen-button zen-button-primary" onClick={(event) => openCreate(event.currentTarget)}>Create User</button>}
         </section>
       ) : (
         <section className="zen-user-results" aria-live="polite">

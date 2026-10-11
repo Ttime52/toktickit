@@ -43,6 +43,13 @@ interface TicketFilters {
   sortOrder: TicketSortOrder;
 }
 
+interface TicketDrilldownFilters {
+  scope?: "active";
+  updatedWithin?: "7d";
+  resolvedWithin?: "7d";
+  resolutionIndicated?: true;
+}
+
 const INITIAL_FILTERS: TicketFilters = {
   search: "",
   categoryId: "",
@@ -54,6 +61,17 @@ const INITIAL_FILTERS: TicketFilters = {
 };
 
 const PAGE_SIZES: TicketPageSize[] = [10, 20, 50];
+
+const CURRENT_STATUSES: CurrentStatus[] = [
+  "NEW",
+  "OPEN",
+  "IN_PROGRESS",
+  "WAITING_FOR_REQUESTER",
+  "RESOLVED",
+  "CLOSED",
+  "REOPENED",
+  "CANCELLED",
+];
 
 const SORT_OPTIONS: Array<{ value: TicketSortField; label: string }> = [
   { value: "updatedAt", label: "Last Updated" },
@@ -87,13 +105,39 @@ function formatDate(value: string): string {
   });
 }
 
-function isFiltered(filters: TicketFilters): boolean {
+function readTicketDrilldown(): {
+  filters: TicketFilters;
+  drilldown: TicketDrilldownFilters;
+} {
+  const params = new URLSearchParams(window.location.search);
+  const currentStatusValue = params.get("currentStatus");
+  const currentStatus = CURRENT_STATUSES.includes(currentStatusValue as CurrentStatus)
+    ? currentStatusValue as CurrentStatus
+    : "";
+  return {
+    filters: { ...INITIAL_FILTERS, currentStatus },
+    drilldown: {
+      ...(params.get("scope") === "active" ? { scope: "active" as const } : {}),
+      ...(params.get("updatedWithin") === "7d" ? { updatedWithin: "7d" as const } : {}),
+      ...(params.get("resolvedWithin") === "7d" ? { resolvedWithin: "7d" as const } : {}),
+      ...(params.get("resolutionIndicated") === "true"
+        ? { resolutionIndicated: true as const }
+        : {}),
+    },
+  };
+}
+
+function isFiltered(filters: TicketFilters, drilldown: TicketDrilldownFilters): boolean {
   return (
     filters.search.trim().length > 0 ||
     filters.categoryId !== "" ||
     filters.relatedSystemId !== "" ||
     filters.requestedPriority !== "" ||
-    filters.currentStatus !== ""
+    filters.currentStatus !== "" ||
+    drilldown.scope !== undefined ||
+    drilldown.updatedWithin !== undefined ||
+    drilldown.resolvedWithin !== undefined ||
+    drilldown.resolutionIndicated !== undefined
   );
 }
 
@@ -131,7 +175,11 @@ export default function MyTickets({
   onNavigate,
   onOpenTicket,
 }: MyTicketsProps) {
-  const [filters, setFilters] = useState<TicketFilters>(INITIAL_FILTERS);
+  const initialRouteFilters = useMemo(readTicketDrilldown, []);
+  const [filters, setFilters] = useState<TicketFilters>(initialRouteFilters.filters);
+  const [drilldownFilters, setDrilldownFilters] = useState<TicketDrilldownFilters>(
+    initialRouteFilters.drilldown,
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<TicketPageSize>(10);
   const [listState, setListState] = useState<ListState>("loading");
@@ -161,8 +209,9 @@ export default function MyTickets({
       sortOrder: filters.sortOrder,
       page,
       pageSize,
+      ...drilldownFilters,
     }),
-    [filters, page, pageSize],
+    [drilldownFilters, filters, page, pageSize],
   );
   const queryKey = JSON.stringify(query);
 
@@ -234,6 +283,7 @@ export default function MyTickets({
 
   function clearFilters() {
     setFilters(INITIAL_FILTERS);
+    setDrilldownFilters({});
     setPage(1);
   }
 
@@ -253,7 +303,7 @@ export default function MyTickets({
     setNotice("Ticket Detail is not part of Issue 5 yet.");
   }
 
-  const hasFilters = isFiltered(filters);
+  const hasFilters = isFiltered(filters, drilldownFilters);
   const tickets = listResult?.data ?? [];
   const meta = listResult?.meta ?? null;
   const referencesLoading = referenceState === "loading";
@@ -442,6 +492,12 @@ export default function MyTickets({
           Clear Filters
         </button>
       </section>
+
+      {hasFilters && (drilldownFilters.scope !== undefined || drilldownFilters.updatedWithin !== undefined || drilldownFilters.resolvedWithin !== undefined || drilldownFilters.resolutionIndicated !== undefined) && (
+        <div className="zen-callout zen-callout-info" role="status">
+          This list is filtered by the selected Dashboard metric. Clear Filters to return to all My Tickets.
+        </div>
+      )}
 
       {referenceError !== null && (
         <div className="zen-callout zen-callout-warning" role="alert">

@@ -19,6 +19,7 @@ export interface ManagedUser extends AuthUser {
 export interface AdminUserQuery {
   search: string;
   role: UserRole | null;
+  isActive?: boolean | null;
 }
 
 export interface CreateAdminUserInput {
@@ -157,6 +158,10 @@ export interface TicketListQuery {
   sortOrder: TicketSortOrder;
   page: number;
   pageSize: TicketPageSize;
+  scope?: "active";
+  updatedWithin?: "7d";
+  resolvedWithin?: "7d";
+  resolutionIndicated?: true;
 }
 
 export interface TicketListMeta {
@@ -215,10 +220,106 @@ export interface StaffTicketQuery {
   sortOrder: TicketSortOrder;
   page: number;
   pageSize: TicketPageSize;
+  scope?: "active";
+  updatedWithin?: "7d";
 }
 
 export interface StaffTicketListResult {
   data: StaffTicket[];
+  meta: TicketListMeta;
+}
+
+export interface DashboardDrillDown {
+  path: string;
+  query: Record<string, string>;
+}
+
+export interface DashboardMetric {
+  value: number;
+  drillDown: DashboardDrillDown;
+}
+
+export interface DashboardWindow {
+  key: "7d";
+  start: string;
+  end: string;
+}
+
+export interface DashboardTicketOwner {
+  id: number;
+  displayName: string;
+  role: UserRole;
+}
+
+export interface DashboardTicketPreview {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: CurrentStatus;
+  itPriority: RequestedPriority;
+  ticketOwner: DashboardTicketOwner | null;
+  updatedAt: string;
+}
+
+export interface RequesterTicketPreview extends DashboardTicketPreview {
+  requestedPriority: RequestedPriority;
+}
+
+export interface DashboardStatusMetric {
+  status: CurrentStatus;
+  value: number;
+  drillDown: DashboardDrillDown;
+}
+
+export interface DashboardItPriorityMetric {
+  itPriority: RequestedPriority;
+  value: number;
+  drillDown: DashboardDrillDown;
+}
+
+export interface RequesterDashboard {
+  asOf: string;
+  reportTimeZone: "Asia/Bangkok";
+  window: DashboardWindow;
+  metrics: {
+    openTicketCount: DashboardMetric;
+    waitingForRequesterCount: DashboardMetric;
+    recentlyUpdatedTicketCount: DashboardMetric;
+    recentlyResolvedTicketCount: DashboardMetric;
+    resolutionIndicationCount: DashboardMetric;
+  };
+  recentTickets: RequesterTicketPreview[];
+}
+
+export interface StaffDashboard {
+  asOf: string;
+  reportTimeZone: "Asia/Bangkok";
+  window: DashboardWindow;
+  metrics: {
+    unassignedActiveCount: DashboardMetric;
+    myAssignedActiveCount: DashboardMetric;
+    urgentActiveCount: DashboardMetric;
+    recentlyUpdatedCount: DashboardMetric;
+    ticketsByStatus: DashboardStatusMetric[];
+    ticketsByItPriority: DashboardItPriorityMetric[];
+  };
+  recentTickets: DashboardTicketPreview[];
+  urgentTickets: DashboardTicketPreview[];
+}
+
+export interface AdministratorDashboard extends StaffDashboard {
+  metrics: StaffDashboard["metrics"] & {
+    activeUserCount: DashboardMetric;
+    inactiveUserCount: DashboardMetric;
+  };
+}
+
+export interface AdminTicket extends StaffTicket {
+  inspectionPath: string;
+}
+
+export interface AdminTicketListResult {
+  data: AdminTicket[];
   meta: TicketListMeta;
 }
 
@@ -605,6 +706,12 @@ export async function fetchTickets(
     params.set("requestedPriority", query.requestedPriority);
   }
   if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+  if (query.scope !== undefined) params.set("scope", query.scope);
+  if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
+  if (query.resolvedWithin !== undefined) params.set("resolvedWithin", query.resolvedWithin);
+  if (query.resolutionIndicated !== undefined) {
+    params.set("resolutionIndicated", String(query.resolutionIndicated));
+  }
 
   const response = await fetch(`${API_URL}/api/tickets?${params.toString()}`, withCredentials(signal
     ? { signal }
@@ -650,6 +757,8 @@ export async function fetchStaffTickets(
   }
   if (query.itPriority !== null) params.set("itPriority", query.itPriority);
   if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+  if (query.scope !== undefined) params.set("scope", query.scope);
+  if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
 
   const response = await fetch(
     `${API_URL}/api/staff/tickets?${params.toString()}`,
@@ -664,6 +773,88 @@ export async function fetchStaffTickets(
   }
   return {
     data: body.data as StaffTicket[],
+    meta: body.meta as TicketListMeta,
+  };
+}
+
+async function fetchDashboard<T>(
+  path: string,
+  fallbackMessage: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(
+    `${API_URL}${path}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) throwApiResponseError(response, body, fallbackMessage);
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError(`Invalid dashboard response.`, response.status);
+  }
+  return body.data as T;
+}
+
+export function fetchRequesterDashboard(
+  signal?: AbortSignal,
+): Promise<RequesterDashboard> {
+  return fetchDashboard<RequesterDashboard>(
+    "/api/dashboard/requester?window=7d",
+    "Unable to load My Dashboard.",
+    signal,
+  );
+}
+
+export function fetchStaffDashboard(signal?: AbortSignal): Promise<StaffDashboard> {
+  return fetchDashboard<StaffDashboard>(
+    "/api/dashboard/staff?window=7d",
+    "Unable to load the IT Staff Dashboard.",
+    signal,
+  );
+}
+
+export function fetchAdministratorDashboard(
+  signal?: AbortSignal,
+): Promise<AdministratorDashboard> {
+  return fetchDashboard<AdministratorDashboard>(
+    "/api/dashboard/administrator?window=7d",
+    "Unable to load the Administrator Dashboard.",
+    signal,
+  );
+}
+
+export async function fetchAdminTickets(
+  query: StaffTicketQuery,
+  signal?: AbortSignal,
+): Promise<AdminTicketListResult> {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+    assignment: query.assignment,
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+  if (query.search.trim().length > 0) params.set("search", query.search.trim());
+  if (query.categoryId !== null) params.set("categoryId", String(query.categoryId));
+  if (query.relatedSystemId !== null) params.set("relatedSystemId", String(query.relatedSystemId));
+  if (query.requestedPriority !== null) params.set("requestedPriority", query.requestedPriority);
+  if (query.itPriority !== null) params.set("itPriority", query.itPriority);
+  if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+  if (query.scope !== undefined) params.set("scope", query.scope);
+  if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
+
+  const response = await fetch(
+    `${API_URL}/api/admin/tickets?${params.toString()}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Administrator Ticket Review.");
+  }
+  if (!Array.isArray(body.data) || typeof body.meta !== "object" || body.meta === null) {
+    throw new ApiRequestError("Invalid Administrator Ticket Review response.", response.status);
+  }
+  return {
+    data: body.data as AdminTicket[],
     meta: body.meta as TicketListMeta,
   };
 }
@@ -692,6 +883,9 @@ export async function fetchAdminUsers(
   const params = new URLSearchParams();
   if (query.search.trim().length > 0) params.set("search", query.search.trim());
   if (query.role !== null) params.set("role", query.role);
+  if (query.isActive !== undefined && query.isActive !== null) {
+    params.set("isActive", String(query.isActive));
+  }
 
   const response = await fetch(
     `${API_URL}/api/users?${params.toString()}`,

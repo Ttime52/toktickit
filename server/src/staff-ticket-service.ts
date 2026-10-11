@@ -11,6 +11,8 @@ import {
   type StaffSortField,
   type StaffTicketQuery,
 } from "./staff-ticket-query.js";
+import { ACTIVE_TICKET_STATUSES } from "./ticket-query.js";
+import { dashboardWindowFor } from "./dashboard-window.js";
 
 const staffTicketSelect = {
   id: true,
@@ -131,31 +133,50 @@ function sortRows(rows: StaffTicketRecord[], query: StaffTicketQuery): StaffTick
 }
 
 function staffWhere(query: StaffTicketQuery): Prisma.TicketWhereInput {
-  return {
-    ...(query.categoryId === null ? {} : { categoryId: query.categoryId }),
-    ...(query.relatedSystemId === null ? {} : { relatedSystemId: query.relatedSystemId }),
-    ...(query.requestedPriority === null ? {} : { requestedPriority: query.requestedPriority }),
-    ...(query.itPriority === null ? {} : { itPriority: query.itPriority }),
-    ...(query.currentStatus === null ? {} : { currentStatus: query.currentStatus }),
-    ...(query.assignment === "assigned" ? { assignedToUserId: { not: null } } : {}),
-    ...(query.assignment === "unassigned" ? { assignedToUserId: null } : {}),
-    ...(query.assignment === "mine" ? { assignedToUserId: query.currentUserId } : {}),
-    ...(query.search.length === 0
-      ? {}
-      : {
-          OR: [
-            { ticketNumber: { contains: query.search, mode: "insensitive" } },
-            { summary: { contains: query.search, mode: "insensitive" } },
-            { description: { contains: query.search, mode: "insensitive" } },
-            { category: { name: { contains: query.search, mode: "insensitive" } } },
-            { relatedSystem: { name: { contains: query.search, mode: "insensitive" } } },
-            { requester: { displayName: { contains: query.search, mode: "insensitive" } } },
-            { requester: { email: { contains: query.search, mode: "insensitive" } } },
-            { assignedTo: { displayName: { contains: query.search, mode: "insensitive" } } },
-            { assignedTo: { email: { contains: query.search, mode: "insensitive" } } },
-          ],
-        }),
-  };
+  const conditions: Prisma.TicketWhereInput[] = [];
+  const dashboardWindow = query.updatedWithin === "7d"
+    ? dashboardWindowFor(new Date())
+    : null;
+  if (query.categoryId !== null) conditions.push({ categoryId: query.categoryId });
+  if (query.relatedSystemId !== null) {
+    conditions.push({ relatedSystemId: query.relatedSystemId });
+  }
+  if (query.requestedPriority !== null) {
+    conditions.push({ requestedPriority: query.requestedPriority });
+  }
+  if (query.itPriority !== null) conditions.push({ itPriority: query.itPriority });
+  if (query.currentStatus !== null) {
+    conditions.push({ currentStatus: query.currentStatus });
+  }
+  if (query.scope === "active") {
+    conditions.push({ currentStatus: { in: [...ACTIVE_TICKET_STATUSES] } });
+  }
+  if (query.assignment === "assigned") conditions.push({ assignedToUserId: { not: null } });
+  if (query.assignment === "unassigned") conditions.push({ assignedToUserId: null });
+  if (query.assignment === "mine") {
+    conditions.push({ assignedToUserId: query.currentUserId });
+  }
+  if (query.updatedWithin === "7d" && dashboardWindow !== null) {
+    conditions.push({ updatedAt: { gte: dashboardWindow.start, lt: dashboardWindow.end } });
+  }
+
+  if (query.search.length > 0) {
+    conditions.push({
+      OR: [
+        { ticketNumber: { contains: query.search, mode: "insensitive" } },
+        { summary: { contains: query.search, mode: "insensitive" } },
+        { description: { contains: query.search, mode: "insensitive" } },
+        { category: { name: { contains: query.search, mode: "insensitive" } } },
+        { relatedSystem: { name: { contains: query.search, mode: "insensitive" } } },
+        { requester: { displayName: { contains: query.search, mode: "insensitive" } } },
+        { requester: { email: { contains: query.search, mode: "insensitive" } } },
+        { assignedTo: { displayName: { contains: query.search, mode: "insensitive" } } },
+        { assignedTo: { email: { contains: query.search, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  return conditions.length === 0 ? {} : { AND: conditions };
 }
 
 function serializeRow(ticket: StaffTicketRecord): StaffTicketRow {

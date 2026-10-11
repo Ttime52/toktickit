@@ -42,6 +42,8 @@ const STAFF_QUERY_PARAMETERS = new Set([
   "sortOrder",
   "page",
   "pageSize",
+  "scope",
+  "updatedWithin",
 ]);
 
 export interface StaffTicketQuery {
@@ -57,6 +59,9 @@ export interface StaffTicketQuery {
   page: number;
   pageSize: StaffPageSize;
   currentUserId: number;
+  /** Lab 4 dashboard drill-down filters are omitted when not supplied. */
+  scope?: "active";
+  updatedWithin?: "7d";
 }
 
 export type StaffTicketQueryResult =
@@ -160,6 +165,16 @@ export function parseStaffTicketQuery(
   const currentStatus =
     statusValue === undefined ? null : (statusValue as TicketStatusValue);
 
+  const scopeValue = singleValue(query, "scope");
+  if (scopeValue !== undefined && scopeValue !== "active") {
+    return invalidParameter("scope", "scope must be active.");
+  }
+
+  const updatedWithinValue = singleValue(query, "updatedWithin");
+  if (updatedWithinValue !== undefined && updatedWithinValue !== "7d") {
+    return invalidParameter("updatedWithin", "updatedWithin must be 7d.");
+  }
+
   const assignmentValue = singleValue(query, "assignment");
   if (
     assignmentValue !== undefined &&
@@ -225,6 +240,8 @@ export function parseStaffTicketQuery(
       page,
       pageSize: pageSize as StaffPageSize,
       currentUserId,
+      ...(scopeValue === undefined ? {} : { scope: "active" as const }),
+      ...(updatedWithinValue === undefined ? {} : { updatedWithin: "7d" as const }),
     },
   };
 }

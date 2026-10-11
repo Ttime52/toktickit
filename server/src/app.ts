@@ -61,6 +61,12 @@ import { parseTicketListQuery } from "./ticket-query.js";
 import { parseStaffTicketQuery } from "./staff-ticket-query.js";
 import { listStaffTickets } from "./staff-ticket-service.js";
 import {
+  getAdministratorDashboard,
+  getRequesterDashboard,
+  getStaffDashboard,
+  parseDashboardQuery,
+} from "./dashboard-service.js";
+import {
   getStaffTicketDetail,
   listStaffUserOptions,
   updateStaffTicket,
@@ -333,6 +339,88 @@ app.get(
     try {
       const data = await getStaffTicketDetail(getPrisma(), ticketId);
       res.status(200).set("ETag", ticketEtag(data.id, data.version)).json({ data });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Issue 27 - role-based dashboards and Administrator read-only drill-down
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/admin/tickets",
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    const parsedQuery = parseStaffTicketQuery(
+      req.query as Record<string, unknown>,
+      req.auth!.user.id,
+    );
+    if (!parsedQuery.ok) {
+      sendApiError(res, parsedQuery.error);
+      return;
+    }
+
+    try {
+      const result = await listStaffTickets(getPrisma(), parsedQuery.value);
+      res.status(200).json({
+        ...result,
+        data: result.data.map((ticket) => ({
+          ...ticket,
+          inspectionPath: `/tickets/${ticket.id}`,
+        })),
+      });
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+function dashboardQuery(req: Request, res: Response): boolean {
+  const parsed = parseDashboardQuery(req.query as Record<string, unknown>);
+  if (!parsed.ok) {
+    sendApiError(res, parsed.error);
+    return false;
+  }
+  return true;
+}
+
+app.get(
+  "/api/dashboard/requester",
+  requireRoles("REQUESTER"),
+  async (req: Request, res: Response) => {
+    if (!dashboardQuery(req, res)) return;
+    try {
+      const result = await getRequesterDashboard(getPrisma(), req.auth!.user.id);
+      res.status(200).json(result);
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/dashboard/staff",
+  requireRoles("IT_STAFF"),
+  async (req: Request, res: Response) => {
+    if (!dashboardQuery(req, res)) return;
+    try {
+      const result = await getStaffDashboard(getPrisma(), req.auth!.user.id);
+      res.status(200).json(result);
+    } catch (error) {
+      sendApiError(res, error);
+    }
+  },
+);
+
+app.get(
+  "/api/dashboard/administrator",
+  requireRoles("ADMINISTRATOR"),
+  async (req: Request, res: Response) => {
+    if (!dashboardQuery(req, res)) return;
+    try {
+      const result = await getAdministratorDashboard(getPrisma(), req.auth!.user.id);
+      res.status(200).json(result);
     } catch (error) {
       sendApiError(res, error);
     }
@@ -1039,6 +1127,7 @@ app.delete(
 // Issue 5 - requester-owned Ticket list
 // ---------------------------------------------------------------------------
 app.get("/api/tickets", requireRoles("REQUESTER"), async (req: Request, res: Response) => {
+  if (rejectRequesterIdQuery(req, res)) return;
   const parsedQuery = parseTicketListQuery(req.query as Record<string, unknown>, req.auth!.user.id);
   if (!parsedQuery.ok) {
     sendApiError(res, parsedQuery.error);
