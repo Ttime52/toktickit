@@ -9,7 +9,7 @@
 |  #63  | feature/22-specification-docs-lab4 | Request changes and Approved |
 |  #64  | feature/23-actions-taken-model | Request changes and Approved |
 |  #65  | feature/24-actions-taken-api | Request changes and Approved |
-|  #66  | feature/25-actions-taken-ui |  |
+|  #66  | feature/25-actions-taken-ui | Request changes and Approved |
 |  #67  | feature/26-ticket-workflow |  |
 |  #68  | feature/27-dashboards |  |
 |  #69  | feature/28-final-regression-release |  |
@@ -66,14 +66,22 @@ Lab 1/2: Still contains the original baseline failures as noted in the PR review
 PR #66 feature/25-actions-taken-ui
 https://github.com/Ttime52/toktickit/pull/66
 
-- Reviewer comment I received: 
-- How I responded:
+- Reviewer comment I received: The backend/setup side looks good and I was able to reproduce the fresh database setup after regenerating Prisma Client.
+The remaining concerns are on the UI test coverage: stale-write recovery/idempotent retry, Staff/Admin integration, and documented validation boundaries are still not fully covered.
+I’d like those tests added before approval.
+- How I responded: Added UI test coverage. pls re-check.
+- Reviewer comment I received: Thanks for the update. I re-checked the added UI coverage and the main concerns from my previous review are now addressed: stale-write recovery, idempotent retry behavior, and Staff/Admin integration are covered.
+I’m approving this PR.
 
 PR #67 feature/26-ticket-workflow
 https://github.com/Ttime52/toktickit/pull/67
 
-- Reviewer comment I received: 
+- Reviewer comment I received: I found one remaining contract mismatch in the workflow UI.
+The Lab 4 UI spec requires the Resolved and Closed status changes to use a confirmation dialog with the required evidence, confirmation checkbox, and keyboard/focus behavior.
+The current implementation renders those controls inline in the Work Controls section instead of using the required dialog.
+Please update the Resolved/Closed workflow UI to match the documented confirmation-dialog behavior before approval.
 - How I responded:
+- Reviewer comment I received:
 
 PR #68 feature/27-dashboards
 https://github.com/Ttime52/toktickit/pull/68
@@ -146,3 +154,24 @@ Build passed
 git diff --check passed
 - My comment: the Administrator inspection messaging now matches the permitted Actions Taken behavior, and TICKET_NOT_ACTIVE recovery now refreshes the authoritative parent Ticket status while preserving the user's unsaved Action draft. The updated tests also cover the recovery wiring.
 Approved.
+
+PR #74 feature/30-complete-ticket-workflow
+https://github.com/KwanchanokThungsuk/toktickit/pull/74
+- My comment: The backend enforces the documented status-transition matrix, resolution gate, Requester advisory behavior, Administrator operational permissions, version-based stale-update protection, and Ticket cancellation behavior for Draft Actions. The Staff/Admin UI also exposes only permitted workflow transitions and refreshes authoritative Ticket state.
+No blocking workflow issues found.
+- Partner's response: Merged.
+
+PR #75 feature/31-it-staff-requester-dashboards
+https://github.com/KwanchanokThungsuk/toktickit/pull/75
+- My comment: I found a few issues in the Dashboard → Ticket flow that should be fixed before approval.
+
+1. Requester Recently Resolved drill-down fails
+The dashboard sends recentlyResolvedFrom/To, but MyTickets also adds the default sortBy and sortOrder. The backend rejects this combination, so the page can return 400 INVALID_QUERY.
+2. Requester filters can conflict after drill-down
+If the user enters My Tickets with statusGroup=active and then selects a specific currentStatus, both filters are kept. The backend rejects statusGroup + currentStatus.
+3. Admin cannot open Ticket Detail from the new dashboard
+Admin dashboard links use #/staff/tickets/:id, which renders StaffTicketDetail and calls GET /api/staff/tickets/:id. However, that endpoint still uses the staff-only guard, so Administrators are rejected even though the UI routes them there.
+Please normalize/clear mutually exclusive Requester filters, allow Administrator access to the operational Ticket Detail endpoint, and add tests for the full Dashboard → Ticket/List flows.
+
+The rest of the dashboard metrics, ownership scoping, empty/error states, and drill-down definitions look good.
+- Partner's response:

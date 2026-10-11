@@ -360,10 +360,26 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
         .send({
           currentStatus: "RESOLVED",
           confirmStatusChange: true,
+          resolutionSummary: "The endpoint was repaired and verified healthy.",
         }),
     );
     expect(resolved.status).toBe(200);
     expect(resolved.body.data.currentStatus).toBe("RESOLVED");
+    expect(resolved.body.data.resolutionSummary).toBe("The endpoint was repaired and verified healthy.");
+    expect(resolved.body.data.resolvedAt).toEqual(expect.any(String));
+
+    const duplicateResolved = await sameOrigin(
+      staff
+        .patch(`/api/staff/tickets/${ticketId}`)
+        .set("If-Match", ticketEtag(ticketId, 2))
+        .send({
+          currentStatus: "RESOLVED",
+          confirmStatusChange: true,
+          resolutionSummary: "The endpoint was repaired and verified healthy.",
+        }),
+    );
+    expect(duplicateResolved.status).toBe(412);
+    expect(duplicateResolved.body.error.code).toBe("STALE_WRITE");
 
     const closed = await sameOrigin(
       staff
@@ -372,16 +388,19 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
         .send({
           currentStatus: "CLOSED",
           confirmStatusChange: true,
+          closureSummary: "The requester confirmed the verified resolution.",
         }),
     );
     expect(closed.status).toBe(200);
     expect(closed.body.data.currentStatus).toBe("CLOSED");
+    expect(closed.body.data.closureSummary).toBe("The requester confirmed the verified resolution.");
+    expect(closed.body.data.closedAt).toEqual(expect.any(String));
 
     const reopened = await sameOrigin(
       staff
         .patch(`/api/staff/tickets/${ticketId}`)
         .set("If-Match", ticketEtag(ticketId, 4))
-        .send({ currentStatus: "REOPENED" }),
+        .send({ currentStatus: "REOPENED", reopenReason: "Requester reported a regression." }),
     );
     expect(reopened.status).toBe(200);
     expect(reopened.body.data.currentStatus).toBe("REOPENED");
@@ -390,7 +409,7 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
       staff
         .patch(`/api/staff/tickets/${ticketId}`)
         .set("If-Match", ticketEtag(ticketId, 5))
-        .send({ currentStatus: "CANCELLED" }),
+        .send({ currentStatus: "CANCELLED", cancelReason: "Duplicate request is no longer needed." }),
     );
     expect(cancelled.status).toBe(200);
     expect(cancelled.body.data.currentStatus).toBe("CANCELLED");
@@ -399,7 +418,7 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
       staff
         .patch(`/api/staff/tickets/${ticketId}`)
         .set("If-Match", ticketEtag(ticketId, 6))
-        .send({ currentStatus: "REOPENED" }),
+        .send({ currentStatus: "REOPENED", reopenReason: "The requester supplied new evidence." }),
     );
     expect(reopenedFromCancelled.status).toBe(200);
     expect(reopenedFromCancelled.body.data.currentStatus).toBe("REOPENED");
@@ -412,6 +431,40 @@ describe("Issue 6 IT Staff Ticket Detail (API-05/API-06/API-07/API-08)", () => {
     );
     expect(claimed.status).toBe(200);
     expect(claimed.body.data.ticketOwner).toMatchObject({ id: staffId, role: "IT_STAFF" });
+  });
+
+  it("allows exactly one concurrent status writer and rejects the stale retry", async () => {
+    const [firstStaff, secondStaff] = await Promise.all([
+      login(
+        (await prisma.user.findUniqueOrThrow({ where: { id: staffId } })).email,
+      ),
+      login(
+        (await prisma.user.findUniqueOrThrow({ where: { id: secondStaffId } })).email,
+      ),
+    ]);
+
+    const [first, second] = await Promise.all([
+      sameOrigin(
+        firstStaff
+          .patch(`/api/staff/tickets/${unassignedTicketId}`)
+          .set("If-Match", ticketEtag(unassignedTicketId, 2))
+          .send({ currentStatus: "OPEN" }),
+      ),
+      sameOrigin(
+        secondStaff
+          .patch(`/api/staff/tickets/${unassignedTicketId}`)
+          .set("If-Match", ticketEtag(unassignedTicketId, 2))
+          .send({ currentStatus: "OPEN" }),
+      ),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([200, 412]);
+    const stale = first.status === 412 ? first : second;
+    expect(stale.body.error.code).toBe("STALE_WRITE");
+
+    const stored = await prisma.ticket.findUniqueOrThrow({ where: { id: unassignedTicketId } });
+    expect(stored.currentStatus).toBe("OPEN");
+    expect(stored.version).toBe(3);
   });
 
   it("keeps Requesters out of staff operations and Administrators priority-only", async () => {

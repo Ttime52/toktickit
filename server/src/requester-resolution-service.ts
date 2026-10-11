@@ -63,6 +63,7 @@ export async function recordProblemAppearsResolved(
       data: {
         requesterResolutionIndicatedAt: now,
         requesterResolutionIndicatedByUserId: requesterId,
+        version: { increment: 1 },
       },
     });
 
