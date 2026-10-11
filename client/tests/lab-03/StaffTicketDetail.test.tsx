@@ -156,11 +156,22 @@ describe("IT Staff Ticket Detail (UI-04)", () => {
     await screen.findByRole("heading", { name: "Ticket Detail" });
 
     await user.selectOptions(screen.getByLabelText("Current Status"), "RESOLVED");
-    expect(screen.getByText("I confirm this formal Resolved transition.")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Confirm status change" });
+    expect(dialog).toHaveTextContent("In Progress");
+    expect(dialog).toHaveTextContent("Resolved");
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Confirm status change" })));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByLabelText(/Resolution Summary/));
     await user.type(screen.getByLabelText(/Resolution Summary/), "The endpoint was repaired and verified healthy.");
-    expect(screen.getByRole("button", { name: "Save Work Changes" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "Save Work Changes" }));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Confirm" }));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByLabelText(/Resolution Summary/));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(true));
     const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({

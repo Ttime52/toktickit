@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
   ApiRequestError,
@@ -28,6 +28,16 @@ interface StaffTicketDetailProps {
 }
 
 type LoadState = "loading" | "success" | "error";
+type FormalStatus = Extract<CurrentStatus, "RESOLVED" | "CLOSED">;
+
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "textarea:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "a[href]",
+  "[tabindex]:not([tabindex=\"-1\"])",
+].join(", ");
 
 const PRIORITIES: RequestedPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
@@ -148,12 +158,20 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [hasStaleConflict, setHasStaleConflict] = useState(false);
   const [actionsRefreshKey, setActionsRefreshKey] = useState(0);
+  const [statusDialogTarget, setStatusDialogTarget] = useState<FormalStatus | null>(null);
   const [comments, setComments] = useState<PublicComment[]>([]);
   const [notes, setNotes] = useState<InternalNote[]>([]);
   const [commentContent, setCommentContent] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [communicationError, setCommunicationError] = useState<string | null>(null);
   const [postingCommunication, setPostingCommunication] = useState<"comment" | "note" | null>(null);
+  const statusSelectRef = useRef<HTMLSelectElement>(null);
+  const statusDialogRef = useRef<HTMLElement>(null);
+  const statusDialogHeadingRef = useRef<HTMLHeadingElement>(null);
+  const statusDialogWasOpenRef = useRef(false);
+  const isSavingRef = useRef(false);
+
+  isSavingRef.current = isSaving;
 
   const applyTicketDetail = useCallback((loaded: StaffTicketDetailData) => {
     setTicket(loaded);
@@ -210,6 +228,65 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
     setReopenReason(ticket.reopenReason ?? "");
   }, [ticket]);
 
+  useEffect(() => {
+    if (statusDialogTarget !== null) {
+      statusDialogWasOpenRef.current = true;
+      return;
+    }
+    if (!statusDialogWasOpenRef.current) return;
+    statusDialogWasOpenRef.current = false;
+    statusSelectRef.current?.focus();
+  }, [statusDialogTarget]);
+
+  useEffect(() => {
+    if (statusDialogTarget === null) return;
+
+    const dialog = statusDialogRef.current;
+    if (dialog === null) return;
+    const dialogElement = dialog;
+    statusDialogHeadingRef.current?.focus();
+
+    function getFocusableElements() {
+      return Array.from(
+        dialogElement.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isSavingRef.current) {
+        event.preventDefault();
+        cancelStatusDialog();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (first === undefined || last === undefined) return;
+
+      if (!dialogElement.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [statusDialogTarget]);
+
   const availableStatuses = useMemo(() => {
     if (ticket === null) return [];
     return [ticket.currentStatus, ...STATUS_TRANSITIONS[ticket.currentStatus]];
@@ -222,11 +299,15 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
   const statusChanged = ticket !== null && selectedStatus !== ticket.currentStatus;
   const formalStatusNeedsConfirmation =
     statusChanged && selectedStatus !== "" && isFormalStatus(selectedStatus);
+  const statusDialogEvidence =
+    statusDialogTarget === "RESOLVED" ? resolutionSummary.trim() : closureSummary.trim();
+  const statusDialogEvidenceValid =
+    statusDialogTarget === null || (statusDialogEvidence.length >= 10 && statusDialogEvidence.length <= 2000);
   const hasWorkChanges = ownerChanged || priorityChanged || statusChanged;
 
-  async function saveWorkControls() {
+  async function saveWorkControls(confirmedFormalStatus = confirmStatusChange) {
     if (ticket === null || !hasWorkChanges || isSaving) return;
-    if (formalStatusNeedsConfirmation && !confirmStatusChange) {
+    if (formalStatusNeedsConfirmation && !confirmedFormalStatus) {
       setSaveError("Confirm the formal Resolved or Closed status change before saving.");
       return;
     }
@@ -243,7 +324,7 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
     if (priorityChanged && selectedPriority !== "") input.itPriority = selectedPriority;
     if (statusChanged && selectedStatus !== "") {
       input.currentStatus = selectedStatus;
-      if (formalStatusNeedsConfirmation) input.confirmStatusChange = confirmStatusChange;
+      if (formalStatusNeedsConfirmation) input.confirmStatusChange = confirmedFormalStatus;
       if (selectedStatus === "RESOLVED") input.resolutionSummary = resolutionSummary.trim();
       if (selectedStatus === "CLOSED") input.closureSummary = closureSummary.trim();
       if (selectedStatus === "CANCELLED") input.cancelReason = cancelReason.trim();
@@ -258,6 +339,8 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
       const updated = await updateStaffTicket(ticketId, input, ticket.version ?? 1);
       applyTicketDetail(updated);
       setActionsRefreshKey((value) => value + 1);
+      setStatusDialogTarget(null);
+      setConfirmStatusChange(false);
       // The mutation response is immediately visible, then the detail is
       // refetched so the page is synchronized with the authoritative summary.
       await refreshTicketDetail().catch(() => undefined);
@@ -298,12 +381,33 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
     try {
       await refreshTicketDetail();
       setHasStaleConflict(false);
+      setStatusDialogTarget(null);
+      setConfirmStatusChange(false);
+      setActionsRefreshKey((value) => value + 1);
       setSaveSuccess("Latest Ticket version loaded. Review your changes before saving again.");
     } catch (error: unknown) {
       setSaveError(safeErrorMessage(error, "Unable to reload this Ticket. Please try again."));
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function cancelStatusDialog() {
+    if (isSaving || ticket === null) return;
+    setSelectedStatus(ticket.currentStatus);
+    setConfirmStatusChange(false);
+    setStatusDialogTarget(null);
+    setSaveError(null);
+    setHasStaleConflict(false);
+  }
+
+  async function confirmStatusDialog() {
+    if (statusDialogTarget === null || isSaving) return;
+    if (!confirmStatusChange) {
+      setSaveError("Confirm the formal Resolved or Closed status change before saving.");
+      return;
+    }
+    await saveWorkControls(true);
   }
 
   async function submitCommunication(
@@ -421,7 +525,7 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
           <div className="zen-form-grid">
             <div className="zen-list-field">
               <label htmlFor="staff-detail-owner">Ticket Owner</label>
-              <select id="staff-detail-owner" value={selectedOwner} disabled={ownerState !== "success" || ownerOptions.length === 0 || isSaving} onChange={(event) => { setSelectedOwner(event.target.value); setSaveError(null); }}>
+              <select id="staff-detail-owner" value={selectedOwner} disabled={ownerState !== "success" || ownerOptions.length === 0 || isSaving || statusDialogTarget !== null} onChange={(event) => { setSelectedOwner(event.target.value); setSaveError(null); }}>
                 {ticket.ticketOwner === null && <option value="">Unassigned</option>}
                 {ownerOptions.map((owner) => <option value={owner.id} key={owner.id}>{owner.displayName} ({roleLabel(owner.role)})</option>)}
               </select>
@@ -431,52 +535,36 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
             </div>
             <div className="zen-list-field">
               <label htmlFor="staff-detail-it-priority">IT Priority</label>
-              <select id="staff-detail-it-priority" value={selectedPriority} disabled={isSaving} onChange={(event) => { setSelectedPriority(event.target.value as RequestedPriority); setSaveError(null); }}>
+              <select id="staff-detail-it-priority" value={selectedPriority} disabled={isSaving || statusDialogTarget !== null} onChange={(event) => { setSelectedPriority(event.target.value as RequestedPriority); setSaveError(null); }}>
                 {PRIORITIES.map((priority) => <option value={priority} key={priority}>{formatPriority(priority)}</option>)}
               </select>
             </div>
             <div className="zen-list-field">
               <label htmlFor="staff-detail-status">Current Status</label>
-              <select id="staff-detail-status" value={selectedStatus} disabled={isSaving} onChange={(event) => { setSelectedStatus(event.target.value as CurrentStatus); setConfirmStatusChange(false); setSaveError(null); }}>
+              <select
+                id="staff-detail-status"
+                ref={statusSelectRef}
+                value={selectedStatus}
+                disabled={isSaving || statusDialogTarget !== null}
+                onChange={(event) => {
+                  const nextStatus = event.target.value as CurrentStatus;
+                  setSelectedStatus(nextStatus);
+                  setConfirmStatusChange(false);
+                  setSaveError(null);
+                  setSaveSuccess(null);
+                  setHasStaleConflict(false);
+                  if ((nextStatus === "RESOLVED" || nextStatus === "CLOSED") && nextStatus !== ticket.currentStatus) {
+                    setStatusDialogTarget(nextStatus);
+                  } else {
+                    setStatusDialogTarget(null);
+                  }
+                }}
+              >
                 {availableStatuses.map((status) => <option value={status} key={status}>{formatStatus(status)}</option>)}
               </select>
               <p className="zen-field-help">Only status transitions permitted from the current status are available.</p>
             </div>
           </div>
-          {statusChanged && selectedStatus === "RESOLVED" && (
-            <div className="zen-form-field zen-action-form-field-full">
-              <label htmlFor="staff-resolution-summary">Resolution Summary <span className="required-mark">*</span></label>
-              <textarea
-                id="staff-resolution-summary"
-                value={resolutionSummary}
-                minLength={10}
-                maxLength={2000}
-                rows={4}
-                onChange={(event) => { setResolutionSummary(event.target.value); setSaveError(null); }}
-                aria-required="true"
-                aria-describedby="staff-resolution-summary-help"
-                disabled={isSaving}
-              />
-              <p id="staff-resolution-summary-help" className="zen-field-help">Required for Resolved: 10 to 2,000 characters.</p>
-            </div>
-          )}
-          {statusChanged && selectedStatus === "CLOSED" && (
-            <div className="zen-form-field zen-action-form-field-full">
-              <label htmlFor="staff-closure-summary">Closure Summary <span className="required-mark">*</span></label>
-              <textarea
-                id="staff-closure-summary"
-                value={closureSummary}
-                minLength={10}
-                maxLength={2000}
-                rows={4}
-                onChange={(event) => { setClosureSummary(event.target.value); setSaveError(null); }}
-                aria-required="true"
-                aria-describedby="staff-closure-summary-help"
-                disabled={isSaving}
-              />
-              <p id="staff-closure-summary-help" className="zen-field-help">Required for Closed: 10 to 2,000 characters.</p>
-            </div>
-          )}
           {statusChanged && selectedStatus === "CANCELLED" && (
             <div className="zen-form-field zen-action-form-field-full">
               <label htmlFor="staff-cancel-reason">Cancellation Reason <span className="required-mark">*</span></label>
@@ -489,7 +577,7 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
                 onChange={(event) => { setCancelReason(event.target.value); setSaveError(null); }}
                 aria-required="true"
                 aria-describedby="staff-cancel-reason-help"
-                disabled={isSaving}
+                disabled={isSaving || statusDialogTarget !== null}
               />
               <p id="staff-cancel-reason-help" className="zen-field-help">Required for Cancelled: 3 to 1,000 characters.</p>
             </div>
@@ -506,20 +594,17 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
                 onChange={(event) => { setReopenReason(event.target.value); setSaveError(null); }}
                 aria-required="true"
                 aria-describedby="staff-reopen-reason-help"
-                disabled={isSaving}
+                disabled={isSaving || statusDialogTarget !== null}
               />
               <p id="staff-reopen-reason-help" className="zen-field-help">Required for Reopened: 3 to 1,000 characters.</p>
             </div>
-          )}
-          {formalStatusNeedsConfirmation && (
-            <label className="zen-confirmation-check"><input type="checkbox" checked={confirmStatusChange} onChange={(event) => { setConfirmStatusChange(event.target.checked); setSaveError(null); }} /> I confirm this formal {formatStatus(selectedStatus as CurrentStatus)} transition.</label>
           )}
           {saveError !== null && <div className="zen-callout zen-callout-error" role="alert">{saveError}</div>}
           {saveSuccess !== null && <div className="zen-callout zen-callout-info" role="status" aria-live="polite">{saveSuccess}</div>}
           <div className="zen-action-row">
             {hasStaleConflict && <button type="button" className="zen-button zen-button-secondary" onClick={() => void reloadLatestTicket()} disabled={isSaving}>Reload latest Ticket</button>}
             {ticket.ticketOwner === null && <button type="button" className="zen-button zen-button-secondary" onClick={() => void claimTicket()} disabled={isSaving}>Claim Ticket</button>}
-            <button type="button" className="zen-button zen-button-primary" onClick={() => void saveWorkControls()} disabled={isSaving || !hasWorkChanges || (formalStatusNeedsConfirmation && !confirmStatusChange)}>{isSaving ? "Saving..." : "Save Work Changes"}</button>
+            <button type="button" className="zen-button zen-button-primary" onClick={() => void saveWorkControls()} disabled={isSaving || statusDialogTarget !== null || !hasWorkChanges || (formalStatusNeedsConfirmation && !confirmStatusChange)}>{isSaving ? "Saving..." : "Save Work Changes"}</button>
           </div>
         </section>
 
@@ -560,6 +645,86 @@ export default function StaffTicketDetail({ ticketId, onBack, currentUser }: Sta
         </section>
         {communicationError !== null && <div className="zen-callout zen-callout-error" role="alert">{communicationError}</div>}
       </article>
+
+      {statusDialogTarget !== null && (
+        <div className="zen-dialog-backdrop" role="presentation">
+          <section
+            ref={statusDialogRef}
+            className="zen-dialog zen-status-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-status-dialog-title"
+            aria-describedby="staff-status-dialog-description"
+          >
+            <h2 id="staff-status-dialog-title" ref={statusDialogHeadingRef} tabIndex={-1}>Confirm status change</h2>
+            <p id="staff-status-dialog-description">
+              Change Ticket <strong>{ticket.ticketNumber}</strong> from <strong>{formatStatus(ticket.currentStatus)}</strong> to <strong>{formatStatus(statusDialogTarget)}</strong>?
+            </p>
+
+            {statusDialogTarget === "RESOLVED" ? (
+              <>
+                <label htmlFor="staff-resolution-summary">Resolution Summary <span className="required-mark">*</span></label>
+                <textarea
+                  id="staff-resolution-summary"
+                  value={resolutionSummary}
+                  minLength={10}
+                  maxLength={2000}
+                  rows={4}
+                  onChange={(event) => { setResolutionSummary(event.target.value); setSaveError(null); }}
+                  aria-required="true"
+                  aria-describedby="staff-resolution-summary-help"
+                  disabled={isSaving}
+                  required
+                />
+                <p id="staff-resolution-summary-help" className="zen-field-help">Required for Resolved: 10 to 2,000 characters.</p>
+              </>
+            ) : (
+              <>
+                <label htmlFor="staff-closure-summary">Closure Summary <span className="required-mark">*</span></label>
+                <textarea
+                  id="staff-closure-summary"
+                  value={closureSummary}
+                  minLength={10}
+                  maxLength={2000}
+                  rows={4}
+                  onChange={(event) => { setClosureSummary(event.target.value); setSaveError(null); }}
+                  aria-required="true"
+                  aria-describedby="staff-closure-summary-help"
+                  disabled={isSaving}
+                  required
+                />
+                <p id="staff-closure-summary-help" className="zen-field-help">Required for Closed: 10 to 2,000 characters.</p>
+              </>
+            )}
+
+            <label className="zen-confirmation-check" htmlFor="staff-status-dialog-confirm">
+              <input
+                id="staff-status-dialog-confirm"
+                type="checkbox"
+                checked={confirmStatusChange}
+                onChange={(event) => { setConfirmStatusChange(event.target.checked); setSaveError(null); }}
+                disabled={isSaving}
+              />
+              I confirm this formal {formatStatus(statusDialogTarget)} transition.
+            </label>
+
+            {saveError !== null && <div className="zen-callout zen-callout-error" role="alert">{saveError}</div>}
+            {hasStaleConflict && (
+              <div className="zen-callout zen-callout-warning" role="alert">
+                <p>This Ticket changed elsewhere. Reload the latest version before resubmitting.</p>
+                <button type="button" className="zen-button zen-button-secondary zen-small-button" onClick={() => void reloadLatestTicket()} disabled={isSaving}>Reload latest Ticket</button>
+              </div>
+            )}
+
+            <div className="zen-action-row zen-dialog-actions">
+              <button type="button" className="zen-button zen-button-secondary" onClick={cancelStatusDialog} disabled={isSaving}>Cancel</button>
+              <button type="button" className="zen-button zen-button-primary" onClick={() => void confirmStatusDialog()} disabled={isSaving || hasStaleConflict || !confirmStatusChange || !statusDialogEvidenceValid}>
+                {isSaving ? "Saving..." : "Confirm"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

@@ -76,8 +76,12 @@ I’m approving this PR.
 PR #67 feature/26-ticket-workflow
 https://github.com/Ttime52/toktickit/pull/67
 
-- Reviewer comment I received: 
+- Reviewer comment I received: I found one remaining contract mismatch in the workflow UI.
+The Lab 4 UI spec requires the Resolved and Closed status changes to use a confirmation dialog with the required evidence, confirmation checkbox, and keyboard/focus behavior.
+The current implementation renders those controls inline in the Work Controls section instead of using the required dialog.
+Please update the Resolved/Closed workflow UI to match the documented confirmation-dialog behavior before approval.
 - How I responded:
+- Reviewer comment I received:
 
 PR #68 feature/27-dashboards
 https://github.com/Ttime52/toktickit/pull/68
