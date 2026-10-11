@@ -181,6 +181,73 @@ describe("IT Staff Ticket Detail (UI-04)", () => {
     });
   });
 
+  it("uses the closure evidence variant for a Closed transition", async () => {
+    const resolvedDetail = { ...detail, currentStatus: "RESOLVED" as const };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/staff/tickets/101") && init?.method === "PATCH") {
+        return Promise.resolve(jsonResponse({
+          data: {
+            ...resolvedDetail,
+            currentStatus: "CLOSED",
+            closureSummary: "The requester confirmed the verified resolution.",
+          },
+        }));
+      }
+      if (url.includes("/api/staff/tickets/101")) return Promise.resolve(jsonResponse({ data: resolvedDetail }));
+      if (url.includes("/api/staff/users")) return Promise.resolve(jsonResponse({ data: [{ id: 8, displayName: "Staff Example", role: "IT_STAFF" }] }));
+      return Promise.resolve(jsonResponse({ data: [] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<StaffTicketDetail ticketId={101} onBack={vi.fn()} />);
+    await screen.findByRole("heading", { name: "Ticket Detail" });
+
+    await user.selectOptions(screen.getByLabelText("Current Status"), "CLOSED");
+    const dialog = screen.getByRole("dialog", { name: "Confirm status change" });
+    expect(dialog).toHaveTextContent("Resolved");
+    expect(dialog).toHaveTextContent("Closed");
+    expect(screen.getByLabelText(/Closure Summary/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Resolution Summary/)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/Closure Summary/), "The requester confirmed the verified resolution.");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(true));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({
+      currentStatus: "CLOSED",
+      confirmStatusChange: true,
+      closureSummary: "The requester confirmed the verified resolution.",
+    });
+  });
+
+  it("cancels a formal status dialog without mutating the Ticket", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/api/staff/tickets/101")) return Promise.resolve(jsonResponse({ data: detail }));
+      if (url.includes("/api/staff/users")) return Promise.resolve(jsonResponse({ data: [{ id: 8, displayName: "Staff Example", role: "IT_STAFF" }] }));
+      return Promise.resolve(jsonResponse({ data: [] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const user = userEvent.setup();
+    render(<StaffTicketDetail ticketId={101} onBack={vi.fn()} />);
+    await screen.findByRole("heading", { name: "Ticket Detail" });
+
+    await user.selectOptions(screen.getByLabelText("Current Status"), "RESOLVED");
+    expect(screen.getByRole("dialog", { name: "Confirm status change" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Resolution Summary/), "A draft that must not be submitted.");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Confirm status change" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Current Status")).toHaveValue("IN_PROGRESS");
+    expect(screen.getByRole("button", { name: "Save Work Changes" })).toBeDisabled();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(0);
+  });
+
   it("offers Reopened when the current status is Cancelled", async () => {
     const cancelledDetail = { ...detail, currentStatus: "CANCELLED" as const };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
