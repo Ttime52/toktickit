@@ -150,7 +150,7 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/73
     - Staff, Admin, and Requester Ticket Detail parents now refetch the Ticket detail and pass the refreshed currentStatus back into the Actions panel.
     - While the Ticket is inactive, Actions Taken stays read-only.
     - When the Ticket is reopened and the authoritative status becomes active again, write controls are restored without losing the local draft.
-    
+
 Tests were also updated to verify the real callback -> Ticket refetch -> refreshed status flow instead of relying only on manual prop rerendering.
 
 Verification:
@@ -209,3 +209,10 @@ git diff --check passed
 Ready for re-review.
 - My comment: Rechecked the latest changes. The previous issues are resolved: Recently Resolved filters are now cleared correctly when selecting an exact status, Admin can open operational Ticket Detail, the related regression tests were added, and the generated cookies.txt file has been removed and ignored.
 Approved.
+
+PR #76 feature/32-lab4-tests-regression
+https://github.com/KwanchanokThungsuk/toktickit/pull/76
+- My comment: The added tests cover the remaining Action ordering/ownership, field boundaries and no-partial-mutation behavior, terminal Action immutability, forced-password authorization, and duplicate-submit protection. The test evidence and AC traceability were also updated consistently.
+The remaining browser E2E, responsive/accessibility, performance, and final release evidence are clearly documented as future Issue 33 work.
+No blocking issues found. Approved.
+- Partner's response: Merged.
