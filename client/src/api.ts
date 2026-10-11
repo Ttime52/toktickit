@@ -98,6 +98,13 @@ export interface Ticket {
   itPriority: RequestedPriority | null;
   description: string;
   currentStatus: CurrentStatus;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  cancelledAt?: string | null;
+  resolutionSummary?: string | null;
+  closureSummary?: string | null;
+  cancelReason?: string | null;
+  reopenReason?: string | null;
   requesterResolutionIndicatedAt: string | null;
   attachments: TicketAttachment[];
   createdAt: string;
@@ -236,6 +243,13 @@ export interface StaffUserOption {
 export interface StaffTicketDetail extends StaffTicket {
   version?: number;
   description: string;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  cancelledAt?: string | null;
+  resolutionSummary?: string | null;
+  closureSummary?: string | null;
+  cancelReason?: string | null;
+  reopenReason?: string | null;
   attachments: TicketAttachment[];
   publicComments: PublicComment[];
   internalNotes: InternalNote[];
@@ -305,6 +319,10 @@ export interface StaffTicketUpdateInput {
   itPriority?: RequestedPriority;
   currentStatus?: CurrentStatus;
   confirmStatusChange?: boolean;
+  resolutionSummary?: string | null;
+  closureSummary?: string | null;
+  cancelReason?: string | null;
+  reopenReason?: string | null;
 }
 
 export interface PublicComment {
@@ -911,12 +929,16 @@ export async function updateActionTaken(
 export async function updateStaffTicket(
   ticketId: number,
   input: StaffTicketUpdateInput,
+  ticketVersion: number,
 ): Promise<StaffTicketDetail> {
   const response = await fetch(
     `${API_URL}/api/staff/tickets/${ticketId}`,
     withCredentials({
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": `"ticket-${ticketId}-v${ticketVersion}"`,
+      },
       body: JSON.stringify(input),
     }),
   );
@@ -933,12 +955,16 @@ export async function updateStaffTicket(
 export async function updateStaffTicketOwner(
   ticketId: number,
   input: Pick<StaffTicketUpdateInput, "action" | "assignedToUserId">,
+  ticketVersion: number,
 ): Promise<StaffTicketDetail> {
   const response = await fetch(
     `${API_URL}/api/staff/tickets/${ticketId}/owner`,
     withCredentials({
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": `"ticket-${ticketId}-v${ticketVersion}"`,
+      },
       body: JSON.stringify(input),
     }),
   );

@@ -42,6 +42,7 @@ export interface ActionsTakenSectionProps {
   ticketId: number;
   mode: ActionsTakenMode;
   currentUser?: Pick<AuthUser, "displayName" | "role"> | null;
+  refreshKey?: number;
 }
 
 const EMPTY_FORM: ActionFormValues = {
@@ -472,6 +473,7 @@ export default function ActionsTakenSection({
   ticketId,
   mode,
   currentUser,
+  refreshKey = 0,
 }: ActionsTakenSectionProps) {
   const canEdit = mode !== "requester";
   const [actions, setActions] = useState<ActionTaken[]>([]);
@@ -525,7 +527,7 @@ export default function ActionsTakenSection({
     const controller = new AbortController();
     void loadActions(controller.signal).catch(() => undefined);
     return () => controller.abort();
-  }, [listRetry, loadActions]);
+  }, [listRetry, loadActions, refreshKey]);
 
   useEffect(() => {
     setEditor(null);

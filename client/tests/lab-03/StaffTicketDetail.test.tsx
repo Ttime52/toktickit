@@ -14,6 +14,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 const detail = {
   id: 101,
+  version: 1,
   ticketNumber: "TT-2026-000101",
   ticketDate: "2026-09-18T01:00:00.000Z",
   summary: "Battery issue",
@@ -127,6 +128,7 @@ describe("IT Staff Ticket Detail (UI-04)", () => {
     });
     const patchCall = fetchMock.mock.calls.find(([input, init]) => String(input).includes("/api/staff/tickets/101") && init?.method === "PATCH");
     expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({ currentStatus: "WAITING_FOR_REQUESTER" });
+    expect(patchCall?.[1]?.headers).toMatchObject({ "If-Match": '"ticket-101-v1"' });
 
     await user.type(screen.getByLabelText("Add a Public Comment"), "Staff public update.");
     await user.click(screen.getByRole("button", { name: "Post Public Comment" }));
@@ -155,6 +157,7 @@ describe("IT Staff Ticket Detail (UI-04)", () => {
 
     await user.selectOptions(screen.getByLabelText("Current Status"), "RESOLVED");
     expect(screen.getByText("I confirm this formal Resolved transition.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Resolution Summary/), "The endpoint was repaired and verified healthy.");
     expect(screen.getByRole("button", { name: "Save Work Changes" })).toBeDisabled();
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Save Work Changes" }));
@@ -163,6 +166,7 @@ describe("IT Staff Ticket Detail (UI-04)", () => {
     expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({
       currentStatus: "RESOLVED",
       confirmStatusChange: true,
+      resolutionSummary: "The endpoint was repaired and verified healthy.",
     });
   });
 

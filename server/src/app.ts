@@ -584,7 +584,8 @@ app.post(
         ticketId as number,
         req.auth!.user.id,
       );
-      res.status(200).json({ data: serializeTicket(ticket) });
+      const data = serializeTicket(ticket);
+      res.status(200).set("ETag", ticketEtag(data.id, data.version)).json({ data });
     } catch (error) {
       sendApiError(res, error);
     }
