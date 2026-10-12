@@ -1,116 +1,58 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import request from "supertest";
 
-import { getPrisma } from "../../src/prisma.js";
 import { app } from "../../src/app.js";
+import {
+  createTestUser,
+  loginAs,
+  prisma,
+} from "../lab-04/test-support.js";
 
-type RequesterResponse = {
-  id: number;
-  displayName: string;
-  email: string;
-};
+let requesterId: number | undefined;
 
-describe("Development Requester reference API (API-01/API-02)", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+afterAll(async () => {
+  if (requesterId !== undefined) {
+    await prisma.user.delete({ where: { id: requesterId } });
+  }
+});
 
-  it("returns only active requesters in id order and omits internal fields", async () => {
-    const response = await request(app).get(
-      "/api/development-requesters?active=true",
-    );
+async function authenticatedRequester() {
+  if (requesterId === undefined) {
+    const requester = await createTestUser("REQUESTER", "lab2-reference-data");
+    requesterId = requester.id;
+  }
+  return loginAs(
+    (await prisma.user.findUniqueOrThrow({ where: { id: requesterId } })).email,
+  );
+}
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          displayName: "Arun Chaiyasit",
-          email: "arun.chaiyasit@example.test",
-        }),
-        expect.objectContaining({
-          displayName: "Boonmee Srisuk",
-          email: "boonmee.srisuk@example.test",
-        }),
-        expect.objectContaining({
-          displayName: "Chalida Wongsa",
-          email: "chalida.wongsa@example.test",
-        }),
-        expect.objectContaining({
-          displayName: "Darin Phromma",
-          email: "darin.phromma@example.test",
-        }),
-      ]),
-    );
+describe("Current reference-data API (API-01/API-02)", () => {
+  it("keeps the obsolete requester selectors retired", async () => {
+    const [developmentRequesters, requesters] = await Promise.all([
+      request(app).get("/api/development-requesters"),
+      request(app).get("/api/requesters"),
+    ]);
 
-    const requesters = response.body as RequesterResponse[];
-    expect(requesters.length).toBeGreaterThanOrEqual(4);
-    expect(requesters.map(({ id }) => id)).toEqual(
-      [...requesters.map(({ id }) => id)].sort((a, b) => a - b),
-    );
-    expect(requesters.map(({ email }) => email)).not.toContain(
-      "inactive.requester@example.test",
-    );
-
-    for (const requester of requesters) {
-      expect(Object.keys(requester).sort()).toEqual([
-        "displayName",
-        "email",
-        "id",
-      ]);
+    for (const response of [developmentRequesters, requesters]) {
+      expect(response.status).toBe(410);
+      expect(response.body).toEqual({
+        error: {
+          code: "ENDPOINT_RETIRED",
+          message: "Requester selectors are no longer available.",
+        },
+      });
     }
   });
 
-  it("defaults active to true and rejects unsupported active values", async () => {
-    const omitted = await request(app).get("/api/development-requesters");
-    const invalid = await request(app).get(
-      "/api/development-requesters?active=false",
-    );
+  it("requires an authenticated User for active Categories and Related Systems", async () => {
+    const unauthenticated = await request(app).get("/api/categories?active=true");
+    expect(unauthenticated.status).toBe(401);
+    expect(unauthenticated.body.error.code).toBe("AUTHENTICATION_REQUIRED");
 
-    expect(omitted.status).toBe(200);
-    expect(omitted.body.length).toBeGreaterThanOrEqual(4);
-    expect(invalid.status).toBe(400);
-    expect(invalid.body).toEqual({
-      error: {
-        code: "INVALID_QUERY_PARAMETER",
-        message: "The active query parameter must be true.",
-      },
-    });
-  });
-
-  it("supports the /api/requesters compatibility path with the same active-only contract", async () => {
-    const response = await request(app).get("/api/requesters");
-
-    expect(response.status).toBe(200);
-    expect(response.body.length).toBeGreaterThanOrEqual(4);
-    expect(response.body).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ email: "inactive.requester@example.test" }),
-      ]),
-    );
-  });
-
-  it("returns a safe error when the database lookup fails", async () => {
-    vi.spyOn(getPrisma().developmentRequester, "findMany").mockRejectedValue(
-      new Error("SELECT * FROM development_requesters; secret=do-not-leak"),
-    );
-
-    const response = await request(app).get("/api/development-requesters");
-
-    expect(response.status).toBe(500);
-    expect(response.body).toEqual({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Unable to load Development Requesters.",
-      },
-    });
-    expect(JSON.stringify(response.body)).not.toContain("SELECT");
-    expect(JSON.stringify(response.body)).not.toContain("secret");
-  });
-
-  it("returns active Categories and Related Systems in id order", async () => {
+    const agent = await authenticatedRequester();
     const [categories, relatedSystems] = await Promise.all([
-      request(app).get("/api/categories?active=true"),
-      request(app).get("/api/related-systems?active=true"),
+      agent.get("/api/categories?active=true"),
+      agent.get("/api/related-systems?active=true"),
     ]);
 
     expect(categories.status).toBe(200);
@@ -127,6 +69,11 @@ describe("Development Requester reference API (API-01/API-02)", () => {
     ]);
 
     expect(relatedSystems.status).toBe(200);
+    expect(relatedSystems.body.map((item: { id: number }) => item.id)).toEqual(
+      [...relatedSystems.body.map((item: { id: number }) => item.id)].sort(
+        (a, b) => a - b,
+      ),
+    );
     expect(relatedSystems.body.map((item: { name: string }) => item.name)).toEqual([
       "Email",
       "Campus Wi-Fi",
@@ -138,6 +85,20 @@ describe("Development Requester reference API (API-01/API-02)", () => {
     ]);
     for (const item of relatedSystems.body as Array<Record<string, unknown>>) {
       expect(Object.keys(item).sort()).toEqual(["id", "name"]);
+    }
+  });
+
+  it("rejects invalid active query values without exposing implementation details", async () => {
+    const agent = await authenticatedRequester();
+    const [categories, systems] = await Promise.all([
+      agent.get("/api/categories?active=false"),
+      agent.get("/api/related-systems?active=false"),
+    ]);
+
+    for (const response of [categories, systems]) {
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_QUERY_PARAMETER");
+      expect(JSON.stringify(response.body)).not.toMatch(/sql|password|stack|prisma/iu);
     }
   });
 });

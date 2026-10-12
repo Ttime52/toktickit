@@ -1,4 +1,4 @@
-# Lab 4 — Peer Review Record  (fill this in)
+# Lab 4 — Peer Review Record
 
 **Author:** <Vera Intharathang> — <67070501043> — GitHub: @Ttime52
 **Peer reviewer:** <Kwanchanok Thungsuk> — <67070501006> — GitHub: @KwanchanokThungsuk
@@ -11,7 +11,7 @@
 |  #65  | feature/24-actions-taken-api | Request changes and Approved |
 |  #66  | feature/25-actions-taken-ui | Request changes and Approved |
 |  #67  | feature/26-ticket-workflow | Request changes and Approved |
-|  #68  | feature/27-dashboards |  |
+|  #68  | feature/27-dashboards | Request changes and Approved |
 |  #69  | feature/28-final-regression-release |  |
 
 PR #63 feature/22-specification-docs-lab4
@@ -94,8 +94,16 @@ https://github.com/Ttime52/toktickit/pull/68
 
 - Reviewer comment I received: Dashboard drill-down windows are not tied to the dashboard snapshot.
 The dashboard captures a fixed asOf value for its metrics, but the drill-down links use relative filters such as updatedWithin=7d / resolvedWithin=7d, and the destination list recomputes the window at request time. This can cause the card count and drill-down results to disagree around the reporting boundary. The drill-down should preserve the exact server-captured window used for the dashboard metrics.
-- How I responded:
-- Reviewer comment I received:
+- How I responded: Implemented the dashboard drill-down snapshot fix. Please recheck again.
+- Reviewer comment I received: Rechecked the dashboard drill-down snapshot fix on feature/27-dashboards.
+
+The implementation now preserves the dashboard’s exact windowStart and windowEnd in the time-window drill-down links, and the destination queries use those supplied bounds instead of recomputing a later relative 7-day window.
+
+This resolves the original concern where dashboard card counts and drill-down results could disagree around the reporting boundary.
+
+The remaining test-coverage gaps are non-blocking from my side.
+
+Approved.
 
 PR #69 feature/28-final-regression-release
 https://github.com/Ttime52/toktickit/pull/69
@@ -218,3 +226,22 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/76
 The remaining browser E2E, responsive/accessibility, performance, and final release evidence are clearly documented as future Issue 33 work.
 No blocking issues found. Approved.
 - Partner's response: Merged.
+
+PR #77 feature/33-final-regression-accessibility-release
+https://github.com/KwanchanokThungsuk/toktickit/pull/77
+- My comment: The final regression and release evidence looks strong overall, but I found two remaining cleanup issues before approval:
+
+1. server/tests/helpers/migration-test-database.ts still hard-codes PostgreSQL executables under /Applications/Postgres.app/.... This causes the migration/seed regression tests to fail on non-macOS environments even though the README only requires PostgreSQL generally. Since this is the final regression/release PR, please make these commands portable/configurable (for example, use psql, createdb, and dropdb from PATH) or document the required environment consistently.
+2. docs/lab-04/reviewer.md still lists PR #71 as feature/27-lab3-spec-contract, while the actual branch was feature/27-sprint4-contract-test-plan. The PR #76 detail section is also still blank even though it is marked Approved in the summary. Please clean up the final peer-review evidence so it accurately matches the PR history.
+The E2E, responsive, accessibility, screenshot, performance, and AI-use evidence otherwise look complete and consistent.
+- Partner's response: Thanks for the review. I fixed the remaining cleanup items:
+
+Replaced the macOS-specific PostgreSQL CLI paths with PATH-resolved psql, createdb, and dropdb.
+Updated the Lab 3/4 migration regression tests to use the shared portable helper.
+Corrected the Lab 4 reviewer evidence for PR docs: define Lab 4 engineering contract and test plan #71 and PR test(lab4): complete issue 32 regression coverage #76.
+Also corrected my partner's name in the Lab 1, Lab 2, and Lab 3 reviewer headers; those are documentation-only fixes.
+Relevant migration/seed checks, server build, Prisma validation, and git diff --check all pass.
+
+Please recheck PR #77.
+- My comment: Rechecked the latest changes. The previous issues are resolved: the PostgreSQL migration test helper now uses portable CLI commands from PATH instead of the macOS-only Postgres.app paths, and the peer-review evidence in reviewer.md has been corrected and completed.
+No remaining blocking issues found.

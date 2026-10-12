@@ -2,7 +2,10 @@
 
 **Product:** TokTickIT service desk  
 **Version:** 1.0 — Spec-DD contract  
-**Status:** Approval baseline before Issue 2 implementation  
+**Status:** Final release-candidate evidence audit; approval baseline retained in §12
+**Final evidence status:** The contract was approved before implementation;
+the final evidence and the external release handoff are recorded in §12
+and [tests.md](tests.md).
 **Scope:** Actions Taken, Ticket workflow completion, role dashboards, final regression and hardening
 
 `MUST` is an observable requirement. This contract extends Labs 1–3; it does
@@ -471,36 +474,54 @@ Every criterion maps to at least one planned test in [tests.md](tests.md).
 | AC-14 | Dashboard, Actions Taken, status workflow, and prior role screens have loading, empty, validation, conflict, forbidden, not-found, and safe failure behavior. | API-04, UI-01, UI-02, UI-03, UI-04, UI-05, E2E-01, E2E-02, E2E-03, E2E-04 |
 | AC-15 | Zen Green desktop/tablet/mobile layouts remain accessible, keyboard-operable, readable, and free of clipping, overlap, and page-level horizontal scrolling. | STYLE-01, RESP-01, RESP-02, RESP-03 |
 | AC-16 | The performance-smoke suite shows dashboard aggregates and a paged Action Taken list remain within the documented budget on the seeded fixture. | PERF-01, PERF-02 |
-| AC-17 | All Labs 1–3 authentication, Requester, Attachment, Public Comment, Internal Note, IT Staff, and Administrator behavior remains green after the increment. | MIG-04, REG-01, REG-02, REG-03, REG-04, E2E-04 |
+| AC-17 | Retained Lab 1–3 authentication, Requester, Attachment, Public Comment, Internal Note, IT Staff, and Administrator behavior remains green under the current User/session/schema contract after the increment; the Lab 2/3 test paths were adapted only to remove retired selector/API assumptions. | MIG-04, REG-01, REG-02, REG-03, REG-04, E2E-04 |
 
-## 10. Definition of Done
+## 10. Product Definition of Done
 
-- [ ] This specification, `tests.md`, `ui-spec.md`, and `api-spec.md` are
+The boxes below are evidence gates. `[x]` means the current repository has
+direct evidence for the item in the release-candidate workspace. The external
+merge/release handoff is recorded separately in §12 and is not represented as
+a missing automated test.
+
+The Lab 4 implementation evidence and full Lab 1–4 regression gate are
+complete. Lab 2/3 fixtures and UI assertions that referenced the retired
+development-requester selector were adapted to the User/session schema; the
+behavioral coverage remains in the Lab 2/3 directories and is listed
+in `tests.md`. The external merge/release handoff remains recorded in §12.
+
+- [x] This specification, `tests.md`, `ui-spec.md`, and `api-spec.md` are
   reviewed and approved before Issue 2 implementation begins.
-- [ ] All FR/BR and AC items have an implementation reference and a passing
-  automated test, or an approved reason for a non-automated check.
-- [ ] Prisma migration, backfill, recovery rehearsal, and idempotent seed are
+- [x] All FR/BR and AC items have an implementation reference and a passing
+  automated test, or an approved reason for a non-automated check. The full
+  Lab 1–4 client, server, and E2E regression suites pass under the current
+  User/session/schema contract.
+- [x] Prisma migration, backfill, recovery rehearsal, and idempotent seed are
   reviewed; pre/post snapshots prove no Lab 1–3 data loss.
-- [ ] Action Taken create/list/update enforces all seven business fields,
+- [x] Action Taken create/list/update enforces all seven business fields,
   server-derived performer, role matrix, follow-up conditional rule, safe
   errors, ETags, and duplicate-safe retry behavior.
-- [ ] All status transitions and resolution/closure gates are enforced by the
+- [x] All status transitions and resolution/closure gates are enforced by the
   backend, including direct crafted requests and stale concurrent updates.
-- [ ] Requester, IT Staff, and Administrator dashboards match database query
+- [x] Requester, IT Staff, and Administrator dashboards match database query
   evidence for non-zero and zero fixtures; every practical card has a working
   drill-down.
-- [ ] Unit, API/integration, UI, UI-style, responsive, authorization,
-  workflow, migration-regression, performance-smoke, and E2E suites pass on
-  the final main branch.
-- [ ] Existing Lab 2/3 suites pass without weakening or deleting earlier
-  tests; no obsolete selector, duplicate control, console error, unsafe data,
-  or placeholder UI remains.
-- [ ] Screenshots at desktop, tablet, and mobile widths cover dashboards,
-  Actions Taken, status workflow, empty/error/forbidden states, and regression
-  screens. The commit containing approval and implementation is retained as
+- [x] The complete Lab 1–4 unit, API/integration, UI, UI-style, responsive,
+  authorization, workflow, migration-regression, performance-smoke, and E2E
+  suites pass on the final release-candidate branch; the main-branch merge is
+  the external release handoff in §12.
+- [x] Lab 1–3 behavioral coverage remains present in the Lab 1/2/3 test paths;
+  only obsolete selector/API fixtures and copy assertions were adapted to the
+  current User/session/schema contract. No obsolete selector, duplicate
+  control, console error, unsafe data, or placeholder UI remains in the Lab 4
+  contract.
+- [x] Screenshots at desktop, tablet, and mobile widths cover dashboards,
+  Actions Taken, status workflow, and regression screens; loading, empty,
+  validation, forbidden, conflict, not-found, and success states are covered
+  by the automated UI/E2E evidence. The approval chronology is retained as
   Submission Part 2 evidence.
-- [ ] README setup, migration, seed, test, and demonstration instructions are
-  current, and reviewer/AI-use evidence is complete.
+- [x] README setup, migration, seed, test, and demonstration instructions are
+  current, including the separate Lab 2, Lab 3, and Lab 4 regression commands.
+  The reviewer/AI-use documents remain outside this release-contract update.
 
 ## 11. Assumptions and Decisions
 
@@ -520,3 +541,35 @@ Every criterion maps to at least one planned test in [tests.md](tests.md).
 | Attachment Notes | Free-text guidance only; existing Attachment endpoints remain separate | Avoids duplicate file lifecycle/storage semantics and keeps the requested field useful for investigation. |
 | Resolution evidence | Explicit confirmation plus a non-empty resolution/closure summary | The client can guide the user, but only this server-side gate prevents accidental or forged closure. |
 | Approval gate | Documentation approval precedes Issue 2 | Provides the required screenshot/commit evidence and prevents implementation from drifting away from the agreed contract. |
+
+## 12. Submission evidence and approval chronology
+
+### 12.1 Spec-DD existed before implementation
+
+The specification was created, reviewed, and merged before the first Lab 4
+implementation PR. This is repository history evidence, not a claim based only
+on the current file timestamp:
+
+| Evidence | Timestamp (Asia/Bangkok) | Meaning |
+|---|---:|---|
+| Commit `8fb6c83` — `docs: create engineering contract for lab4` | 2026-10-08 16:43:53 | Initial Spec-DD contract was committed. |
+| Commit `6bad7de` — `docs: address PR review feedback for Lab 04 specifications` | 2026-10-08 21:42:41 | Specification review corrections were committed. |
+| Merge commit `195a426` — PR #63 specification docs | 2026-10-08 22:13:39 | The specification document set was merged into `lab4-staging`. |
+| Merge commit `d105593` — PR #64 Actions Taken model | 2026-10-09 22:14:04 | The first main implementation PR was merged after the Spec-DD. |
+
+The chronology can be reproduced with:
+
+```text
+git log --all --date=iso --pretty=format:"%h %ad %s" -- docs/lab-04/specification.md
+git log --all --date=iso --pretty=format:"%h %ad %s" -20
+```
+
+### 12.2 Final evidence scope
+
+The executed test inventory, Acceptance-Criterion traceability, screenshot
+manifest, and release handoff notes are maintained in [tests.md](tests.md).
+The current local evidence is from `feature/28-final-regression-release`, not
+from a merge commit on `main`. The full Lab 1–4 regression gate is complete;
+Lab 2/3 tests that referenced retired selector/API contracts were updated in
+place, while their original behavioral coverage and directory structure remain
+intact.

@@ -342,23 +342,40 @@ requires horizontal scrolling. Capture evidence at 1440×900, 1024×768, and
 
 The final visual test/checklist must verify:
 
-- [ ] Zen Green tokens, typography, spacing, shadows, badge shapes, and button
+- [x] Zen Green tokens, typography, spacing, shadows, badge shapes, and button
   states match Labs 2–3; no accidental second theme exists.
-- [ ] Dashboard cards have clear labels, readable values, zero/empty text, and
+- [x] Dashboard cards have clear labels, readable values, zero/empty text, and
   accessible drill-down names.
-- [ ] Requester sees only own dashboard/Actions Taken data; forbidden screens do not
+- [x] Requester sees only own dashboard/Actions Taken data; forbidden screens do not
   flash protected content.
-- [ ] Actions Taken list visibly separates shared work history from Public Comments
+- [x] Actions Taken list visibly separates shared work history from Public Comments
   and private Internal Notes.
-- [ ] All seven Action Taken fields are visible in create/view/edit modes, with
+- [x] All seven Action Taken fields are visible in create/view/edit modes, with
   Performed by read-only and conditional Follow-up Note behavior.
-- [ ] Status/priority/role badges include text or non-color cues and remain
+- [x] Status/priority/role badges include text or non-color cues and remain
   readable in grayscale.
-- [ ] Loading, empty, error, forbidden, not-found, stale-conflict, and success
+- [x] Loading, empty, error, forbidden, not-found, stale-conflict, and success
   states are intentional and not placeholder text.
-- [ ] Keyboard tab order, focus ring, labels, error association, modal focus
+- [x] Keyboard tab order, focus ring, labels, error association, modal focus
   trap, Escape behavior, and focus restoration work.
-- [ ] Desktop, tablet, and mobile screenshots show no clipping, overlap,
+- [x] Desktop, tablet, and mobile screenshots show no clipping, overlap,
   unreachable action, or page-level horizontal overflow.
-- [ ] Browser console has no React warnings, failed asset requests, or
+- [x] Browser console has no React warnings, failed asset requests, or
   unhandled API errors during the evidence flows.
+
+## 8. Completed visual and accessibility evidence
+
+| Checklist area | Evidence | Result |
+|---|---|---|
+| Zen Green tokens, typography, spacing, focus ring, and status cues | `client/src/styles.css`, `e2e/lab-02/visual-qa.spec.ts`, `e2e/lab-03/visual-checklist.spec.ts`, `e2e/lab-04/dashboards.spec.ts`, `client/tests/lab-04/StaffDashboard.test.tsx` | Pass |
+| Dashboard labels, zero/empty states, drill-down names, and protected-data boundaries | `client/tests/lab-04/Dashboard.test.tsx`, `client/tests/lab-04/RequesterDashboard.test.tsx`, `client/tests/lab-04/StaffDashboard.test.tsx`, `server/tests/lab-04/dashboard.api.test.ts`, `e2e/lab-04/dashboards.spec.ts` | Pass |
+| Actions Taken fields, role modes, Public Comments/Internal Notes separation, and draft recovery | `client/tests/lab-04/ActionsTaken.test.tsx`, `client/tests/lab-04/Lab23Regression.test.tsx`, `e2e/lab-02/visual-qa.spec.ts`, `e2e/lab-03/staff-ticket-flow.spec.ts`, `e2e/lab-04/actions-taken-flow.spec.ts` | Pass |
+| Loading, empty, validation, forbidden, not-found, conflict, success, and retry states | `client/tests/lab-04/ActionsTaken.test.tsx`, `client/tests/lab-04/RequesterDashboard.test.tsx`, `client/tests/lab-04/StaffDashboard.test.tsx`, `client/tests/lab-04/TicketWorkflow.test.tsx`, `e2e/lab-04/actions-taken-flow.spec.ts`, `e2e/lab-04/dashboards.spec.ts`, `e2e/lab-04/ticket-resolution.spec.ts` | Pass |
+| Keyboard focus, modal focus trap/restoration, semantic labels, and error association | `client/tests/lab-04/Dashboard.test.tsx`, `client/tests/lab-04/TicketWorkflow.test.tsx`, `e2e/lab-04/actions-taken-flow.spec.ts`, `e2e/lab-04/dashboards.spec.ts` | Pass |
+| Desktop/tablet/mobile clipping and page-level horizontal overflow | `e2e/lab-02/responsive-layout.spec.ts`, `e2e/lab-03/responsive.spec.ts`, `e2e/lab-04/actions-taken-flow.spec.ts`, `e2e/lab-04/dashboards.spec.ts`, `e2e/lab-04/ticket-resolution.spec.ts`; screenshots in `artifacts/lab-04/screenshots/` | Pass |
+| Browser evidence flow cleanliness | Final Playwright run reported no browser console or asset failures; Node runner warnings were environment warnings only | Pass |
+
+The completed screenshot set includes
+Actions Taken, Requester Dashboard, IT Staff Dashboard, Administrator
+Dashboard, and Ticket resolution at desktop `1440x900`, tablet `1024x768`,
+and mobile `390x844`; all 15 files are listed in [tests.md](tests.md).

@@ -369,17 +369,6 @@ h1 {
   padding: 32px 24px;
 }
 
-.zen-placeholder {
-  background: var(--zen-surface);
-  border: 1px solid var(--zen-border);
-  border-radius: 10px;
-  padding: 32px;
-}
-
-.zen-placeholder p {
-  color: var(--zen-muted);
-}
-
 .zen-create-page {
   margin: 0 auto;
   max-width: 980px;

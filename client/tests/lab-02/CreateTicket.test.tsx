@@ -12,6 +12,15 @@ const requesters = [
   },
 ];
 
+const authUser = {
+  id: requesters[0].id,
+  displayName: requesters[0].displayName,
+  email: requesters[0].email,
+  role: "REQUESTER",
+  isActive: true,
+  mustChangePassword: false,
+};
+
 const categories = [
   { id: 1, name: "Account and Access" },
   { id: 2, name: "Hardware" },
@@ -54,8 +63,8 @@ function mockApi(options?: {
 }) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    if (url.includes("/api/development-requesters")) {
-      return jsonResponse(requesters);
+    if (url.endsWith("/api/auth/me")) {
+      return jsonResponse({ data: { user: authUser } });
     }
     if (url.includes("/api/categories")) {
       return options?.referencesFail
@@ -76,8 +85,11 @@ function mockApi(options?: {
         options?.createStatus ?? 201,
       );
     }
-    if (url.includes("/api/tickets/101?requesterId=1")) {
+    if (url === "http://localhost:3000/api/tickets/101") {
       return jsonResponse({ data: createdTicket });
+    }
+    if (url === "http://localhost:3000/api/tickets/101/comments") {
+      return jsonResponse({ data: [] });
     }
     if (url.includes("/attachments") && init?.method === "POST") {
       return jsonResponse({
@@ -94,7 +106,7 @@ function mockApi(options?: {
           unavailableReason: null,
           removalReason: null,
           previewable: true,
-          downloadUrl: "/api/tickets/101/attachments/501/download?requesterId=1",
+          downloadUrl: "/api/tickets/101/attachments/501/download",
         },
       }, 201);
     }
@@ -107,11 +119,7 @@ function mockApi(options?: {
 async function openCreateTicket(waitForReferences = true) {
   const user = userEvent.setup({ applyAccept: false });
   render(<App />);
-  const requesterSelect = await screen.findByRole("combobox", {
-    name: "Development Requester",
-  });
-  await user.selectOptions(requesterSelect, "1");
-  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await screen.findByRole("heading", { name: "My Tickets" });
   await user.click(screen.getByRole("link", { name: "Create Ticket" }));
   await screen.findByRole("heading", { name: "Create Ticket" });
   if (waitForReferences) {
@@ -195,7 +203,6 @@ describe("Create Ticket screen (UI-03 through UI-10)", () => {
     const [, createInit] = createCall as [RequestInfo | URL, RequestInit];
     const sentBody = JSON.parse(String(createInit.body)) as Record<string, unknown>;
     expect(sentBody).toEqual({
-      requesterId: 1,
       categoryId: 2,
       relatedSystemId: 7,
       summary: "Laptop battery drains quickly",

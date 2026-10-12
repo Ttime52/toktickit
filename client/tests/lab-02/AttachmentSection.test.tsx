@@ -30,7 +30,7 @@ function makeAttachment(
     removalReason: null,
     previewable: true,
     downloadUrl:
-      "/api/tickets/701/attachments/801/download?requesterId=7",
+      "/api/tickets/701/attachments/801/download",
     ...overrides,
   };
 }
@@ -93,7 +93,6 @@ function renderDetail(detail: Ticket = ticket) {
   render(
     <TicketDetail
       ticketId={detail.id}
-      requesterId={detail.requester.id}
       onNavigate={vi.fn()}
     />,
   );
@@ -115,8 +114,11 @@ function mockAttachmentApi(options: {
     const url = String(input);
     const method = init?.method ?? "GET";
 
-    if (method === "GET" && url.includes("/api/tickets/701?requesterId=7")) {
+    if (method === "GET" && url === "http://localhost:3000/api/tickets/701") {
       return jsonResponse({ data: options.detail ?? ticket });
+    }
+    if (method === "GET" && url === "http://localhost:3000/api/tickets/701/comments") {
+      return jsonResponse({ data: [] });
     }
 
     if (method === "POST" && url.includes("/api/tickets/701/attachments")) {
@@ -259,8 +261,11 @@ describe("Attachment section", () => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
-      if (method === "GET" && url.includes("/api/tickets/701?requesterId=7")) {
+      if (method === "GET" && url === "http://localhost:3000/api/tickets/701") {
         return jsonResponse({ data: { ...ticket, attachments: [] } });
+      }
+      if (method === "GET" && url === "http://localhost:3000/api/tickets/701/comments") {
+        return jsonResponse({ data: [] });
       }
       if (method === "POST" && url.includes("/api/tickets/701/attachments")) {
         uploadAttempt += 1;
@@ -284,7 +289,9 @@ describe("Attachment section", () => {
       screen.getByText("Unable to upload this Attachment. Please retry."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Storage service unavailable")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Retry" }));
+    const retryRow = screen.getByText("retry-proof.png", { exact: true }).closest("li");
+    expect(retryRow).not.toBeNull();
+    await user.click(within(retryRow as HTMLElement).getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("retry-proof.png")).toBeInTheDocument();
     await waitFor(() => expect(uploadAttempt).toBe(2));
@@ -328,7 +335,7 @@ describe("Attachment section", () => {
       expect(
         fetchMock.mock.calls.some(
           ([input, init]) =>
-            String(input).includes("/api/tickets/701/attachments/801?requesterId=7") &&
+            String(input).includes("/api/tickets/701/attachments/801") &&
             init?.method === "DELETE" &&
             String(init.body).includes("Replaced with the correct file"),
         ),

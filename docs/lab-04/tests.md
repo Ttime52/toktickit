@@ -1,157 +1,270 @@
-# TokTickIT Lab 4 Test Plan — Test-DD / TDD Contract
+# TokTickIT Lab 4 Test Plan, Traceability, and Final Evidence
 
-**Status:** Planned; must be approved before Issue 2 implementation  
+**Status:** Full Lab 1–4 regression evidence was recorded on 2026-10-12 for
+`feature/28-final-regression-release`. Lab 2/3 tests were updated only where
+their fixtures/assertions referenced the retired development-requester selector
+or pre-session API; behavioral coverage remains ownership, Attachments, Public
+Comments, Internal Notes, IT Staff, and Administrator User Management.
 **Source of truth:** [specification.md](specification.md),
 [api-spec.md](api-spec.md), and [ui-spec.md](ui-spec.md)  
-**Final status convention:** Every Lab 4 row starts as `Planned — not run`.
-It may become `Pass` only after the named automated test runs on the final
-main branch. No passing result is claimed by this pre-implementation plan.
+**Final status convention:** Pass means the named automated test ran and
+passed in the current release-candidate workspace. The recorded branch result
+is local evidence; it does not claim that an external merge or release PR has
+already completed.
 
-**Canonical Action terminology:** One persisted record is an **Action Taken**;
-the collection/feature is **Actions Taken**; `ActionTaken` is the code/model
-identifier. The canonical API field names are `actionAt`,
-`actionDescription`, `result`, `performedBy`, `followUpRequired`,
-`followUpNote`, and `attachmentNotes`. Technical component names may use
-`ActionsTakenList` and `ActionTakenForm`, but test descriptions use the
-canonical business terms.
+This document preserves the planned Test-DD scope and records the final local
+release-candidate result. It is not evidence that this branch has already been
+merged to `main`.
 
-## 1. Test approach
+## 1. Planned test approach
 
-- **Unit tests** isolate Action Taken validation/serialization, transition
-  rules, version/ETag comparison, idempotency normalization, and dashboard
-  date-boundary formulas.
-- **API/integration tests** use the real Express middleware, Prisma test
-  database, sessions, role guards, transactions, ETags, and safe error
-  envelopes. They verify direct calls, not only UI button visibility.
-- **UI component tests** mock only the API boundary and assert accessible
-  labels, role modes, form preservation, drill-down links, and all important
-  loading/empty/error/conflict states.
-- **UI-style and responsive tests** inspect Zen Green tokens, non-color cues,
-  keyboard focus, semantic structure, clipping/overflow, and desktop/tablet/
-  mobile layout behavior.
-- **Authorization tests** use separate Requester, IT Staff, and Administrator
-  sessions and attempt permitted and forbidden calls directly, including
-  forged IDs, roles, performers, and status confirmations.
-- **Workflow tests** run multi-step lifecycle scenarios with more than one
-  staff actor, several Actions Taken, status gates, requester indication,
-  closure, cancellation, and reopening.
-- **Migration-regression tests** create a Lab 3-shaped fixture, run the Lab 4
-  migration/backfill/seed, compare IDs and relationships, and run earlier Lab
-  2–3 suites against the migrated database. The test does not depend on a
-  developer’s existing database.
-- **Performance-smoke tests** use a deterministic local fixture with at least
-  1,000 Tickets and 20 Actions Taken per busy Ticket. They check aggregate queries,
-  pagination, query count, and response budgets without claiming production
-  capacity.
-- **E2E tests** run the integrated client/server with seeded accounts and
-  capture evidence under `artifacts/lab-04/screenshots/`.
+- Unit tests cover validation boundaries, safe serialization, status and
+  dashboard formulas, version/ETag behavior, and idempotency normalization.
+- API/integration tests use Express middleware, Prisma, sessions, role guards,
+  transactions, concurrency headers, and safe error envelopes.
+- UI tests cover role modes, semantic labels, loading/empty/forbidden/
+  conflict/retry states, draft preservation, drill-down links, and duplicate
+  submit protection.
+- Authorization tests use Requester, IT Staff, and Administrator sessions and
+  attempt permitted and forbidden calls, forged identity parameters, and
+  protected-field access.
+- Workflow tests cover Actions Taken, assignment, priority, status gates,
+  resolution evidence, stale writes, Requester indications, and terminal
+  states.
+- Regression tests rerun the Lab 1–3 authentication, role navigation,
+  ownership, Ticket Detail, Attachment, Public Comment, Internal Note, IT
+  Staff, and Administrator User Management behavior after the Lab 4 schema/API
+  changes through the adapted Lab 2/3 paths and the dedicated Lab 4 current-
+  contract regression files.
+- Responsive/accessibility tests cover Zen Green tokens, text status cues,
+  keyboard focus, modal focus behavior, semantic labels, clipping, and page
+  overflow at desktop, tablet, and mobile viewports.
+- Migration tests preserve existing identities and relationships, verify
+  legacy Tickets with zero Actions Taken, and run seed twice for idempotency.
+- E2E tests run the integrated client/server with seeded accounts and capture
+  stable screenshots under artifacts/lab-04/screenshots/.
+- Performance-smoke tests exercise 1,000 Tickets and a 20-row Actions Taken
+  page against explicit 750 ms and 500 ms local budgets.
 
 ## 2. Fixtures and evidence rules
 
-The test seed must include every status, every IT Priority, assigned and
-unassigned Tickets, one Ticket with zero Actions Taken, one with one Action
-Taken, one with multiple Actions Taken by different staff, a follow-up-required
-Action Taken, and isolated
-zero-metric data. Test credentials come from environment variables; no
-password is committed, logged, or rendered.
+The planned fixture contains every Ticket status and IT Priority, assigned and
+unassigned Tickets, zero/one/multiple Actions Taken, multiple performers, a
+follow-up-required Action Taken, and zero-metric dashboard data. Test users
+are created through test helpers; passwords are not committed, logged, or
+rendered as evidence.
 
-Each API test asserts status code, safe error code, authorization scope,
-database side effects, and absence of sensitive fields. Each UI/E2E test uses
-accessible queries and records screenshots only after the state is stable.
-All tests use UTC fixtures but explicitly test the `Asia/Bangkok` local-day
-boundary (`>= start`, `< end`).
+API tests assert status code, safe error code, authorization scope, database
+side effects, and absence of sensitive fields. UI/E2E tests use accessible
+queries and capture screenshots only after the state is stable. Dashboard
+tests use the documented Asia/Bangkok half-open date window.
 
-## 3. Test matrix
+## 3. Planned coverage matrix and actual test paths
 
-| Test ID | Type | Requirement / AC | What it tests | Expected result | Automated test file | Final status |
-|---|---|---|---|---|---|---|
-| UNIT-01 | Unit | FR-01–07, BR-04–06, AC-02 | Validates Action Date/Time, including explicit timezone/UTC normalization, client editability for IT Staff/Administrator, Requester read-only behavior, Description, Result, explicit Follow-Up Required?, conditional Follow-up Note, Attachment Notes, unknown fields, limits, and safe serializer. | Valid boundary values pass; timezone-less/malformed/future/over-limit values fail before persistence; `actionAt` may be corrected by staff/admin on create or edit, but `performedBy` is not writable and Requester cannot edit. | `server/tests/lab-04/actions-taken.unit.test.ts` | Planned — not run |
-| UNIT-02 | Unit | §4.5, BR-09–11, AC-05–06 | Exhaustive status adjacency matrix and resolution/closure/cancel/reopen gate. | Every listed transition passes only for IT Staff; every unlisted transition and missing evidence fails with the documented code. | `server/tests/lab-04/ticket-workflow.unit.test.ts` | Planned — not run |
-| UNIT-03 | Unit | BR-12–14, AC-11 | ETag/version parser, compare-and-swap result, idempotency payload normalization, and stale-write error mapping. | Matching version succeeds; missing `If-Match`/`expectedTicketVersion` returns `428 PRECONDITION_REQUIRED`; malformed precondition returns `400 VALIDATION_ERROR`; stale version/ETag returns `412 STALE_WRITE`; exact replay is safe; changed payload returns `409 IDEMPOTENCY_KEY_REUSED`. | `server/tests/lab-04/concurrency.unit.test.ts` | Planned — not run |
-| UNIT-04 | Unit | §4.6, BR-15–17, AC-08–09 | Dashboard formulas, ACTIVE set, zero buckets, Asia/Bangkok 7-day half-open boundary, and stable preview ordering. | Counts match hand-calculated fixtures; records exactly at start are included and exactly at end are excluded; all buckets appear. | `server/tests/lab-04/dashboard-metrics.unit.test.ts` | Planned — not run |
-| API-01 | API/integration | FR-02/04, AC-03 | Lists Actions Taken for owned/accessible/missing Tickets, empty list, pagination, chronological ordering, and no Requester ID override. | Requester sees only own data; staff/admin see permitted data; empty is 200; foreign own-scope is safe 404. | `server/tests/lab-04/actions-taken.api.test.ts` | Planned — not run |
-| API-02 | API/integration | FR-01/05/06, AC-01–02 | Creates an Action Taken with all fields, derives performer from session, persists parent relation, increments Ticket version, and returns ETags. | 201 contains the complete safe representation; body performer/role/IDs cannot override session. | `server/tests/lab-04/actions-taken.api.test.ts` | Planned — not run |
-| API-03 | API/integration | FR-03/07, AC-02/04 | Updates editable Action Taken fields including `actionAt`, preserves original performer/Ticket/createdAt, validates follow-up conditionality, and updates version. | 200 returns edited row with a corrected client-supplied `actionAt`; `performedBy`, `ticketId`, and `createdAt` remain unchanged; immutable/unknown fields fail; no partial mutation on validation failure. | `server/tests/lab-04/actions-taken.api.test.ts` | Planned — not run |
-| API-04 | API/integration | BR-04–07, AC-02/14 | Boundary and safe-error matrix for malformed JSON, wrong types, blank strings, timezone-less/future dates, hidden fields, and 405 delete. | All errors use documented safe envelope and leave database unchanged. | `server/tests/lab-04/actions-taken.api.test.ts` | Planned — not run |
-| API-05 | API/integration | FR-06, §4.6 Requester, AC-08 | Requester dashboard ownership, counts, recent list, drill-down query, zero state, `window`, `asOf`, and timezone. | Server count equals SQL fixture; forged `userId` is rejected/ignored; foreign Ticket never appears. | `server/tests/lab-04/requester-dashboard.api.test.ts` | Planned — not run |
-| API-06 | API/integration | §4.6 Staff, AC-09 | IT Staff dashboard unassigned/mine/urgent/recent metrics, all status/priority zero buckets, previews, and drill-downs. | Aggregate data is tenant-wide, current-user count is scoped correctly, and response is concise. | `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned — not run |
-| API-07 | API/integration | §4.6 Admin, AC-10 | Administrator dashboard reuse, active/inactive user counts, exact `isActive=true|false` User drill-down filters, safe previews, and role boundary. | Administrator receives read-only aggregate data and reversible user filters; Requester/IT Staff get 403; no mutation permission is implied. | `server/tests/lab-04/staff-dashboard.api.test.ts` | Planned — not run |
-| API-08 | API/integration | §4.5, AC-05 | Positive and negative status transitions, owner/priority atomic update, required reasons, and response version. | Complete matrix is enforced; invalid transitions and same-status writes do not partially mutate. | `server/tests/lab-04/ticket-workflow.api.test.ts` | Planned — not run |
-| API-09 | API/integration | Resolution gate, AC-06 | Direct crafted requests to Resolved/Closed with hidden/false/omitted confirmation or missing summary. | Backend rejects bypass with 400/409; valid evidence succeeds only when role/matrix/version are valid. | `server/tests/lab-04/ticket-workflow.api.test.ts` | Planned — not run |
-| API-10 | API/integration | BR-10, AC-07 | Problem Appears Resolved indication, duplicate safety, allowed statuses, formal status unchanged, and staff clearing behavior. | Owner-only advisory record is created once; it never sets Resolved/Closed. | `server/tests/lab-04/ticket-workflow.api.test.ts` | Planned — not run |
-| API-11 | API/integration | BR-12–14, AC-11 | Two sessions update one Ticket/Action Taken with the same ETag; repeated Action Taken create after the parent version advances; changed-payload retry. | Exactly one stale writer succeeds; loser gets `412 STALE_WRITE`; an exact replay is 200 even with a newer parent version, while changed payload is `409 IDEMPOTENCY_KEY_REUSED`; no duplicates/partial writes. | `server/tests/lab-04/concurrency.api.test.ts` | Planned — not run |
-| API-12 | API/integration | AC-10/14 | Administrator grouped-metric drill-down through `/api/admin/tickets`, exact filters, empty state, safe inspection links, and rejection of mutation/owner options. | Administrator gets a read-only filtered list; other roles get 403; invalid filters get 400; no queue/status/assignment capability is exposed. | `server/tests/lab-04/admin-dashboard-drilldown.api.test.ts` | Planned — not run |
-| AUTH-01 | Authorization | §4.3, AC-03–04 | Full Action Taken matrix for Requester, IT Staff, and Administrator, including deep link/direct API. | Requester GET-own succeeds; Requester POST/PATCH/foreign GET fails; IT Staff/Admin read/write permitted scope succeeds. | `server/tests/lab-04/authorization.api.test.ts` | Planned — not run |
-| AUTH-02 | Authorization | Dashboard matrix, AC-08–10 | Requester, staff, and admin dashboard endpoints with forged query/user IDs. | Each role reaches only its endpoint/data; no client parameter widens scope. | `server/tests/lab-04/authorization.api.test.ts` | Planned — not run |
-| AUTH-03 | Authorization | §4.5, AC-05–06 | Requester/Admin status mutation, admin assignment, and client-hidden resolution controls through direct calls. | Requester and Administrator status/owner calls are 403; only IT Staff can transition or satisfy resolution gate. | `server/tests/lab-04/authorization.api.test.ts` | Planned — not run |
-| AUTH-04 | Authorization | BR-18, AC-17 | Sensitive-field leakage across dashboards, Actions Taken, and legacy Ticket routes. | No password hash, session, storage key, Internal Note, foreign Ticket, or forged performer is returned. | `server/tests/lab-04/authorization.api.test.ts` | Planned — not run |
-| UI-01 | UI component | FR-02/04, UI §3.2, AC-03/14 | `ActionsTakenList` loading, empty, populated, Requester read-only, staff/admin edit affordance, and safe error states. | Accessible list/table shows all seven business fields; role controls match matrix; retry preserves Ticket page. | `client/tests/lab-04/ActionsTaken.test.tsx` | Planned — not run |
-| UI-02 | UI component | FR-06, UI §3.3, AC-02/14 | Create form fields, conditional Follow-up Note, read-only Performed by, inline validation, busy, success, and failed-submit preservation. | Labels/errors are associated; Save disabled while busy; invalid form never calls API; draft survives failure. | `client/tests/lab-04/ActionsTaken.test.tsx` | Planned — not run |
-| UI-03 | UI component | BR-12/14, AC-11/14 | Edit mode, client-editable Action Date/Time, immutable performer, stale conflict, Reload latest, and Cancel behavior. | Successful edit refreshes list; `412 STALE_WRITE` keeps the dirty draft and never silently overwrites it; Requester has no edit control. | `client/tests/lab-04/ActionsTaken.test.tsx` | Planned — not run |
-| UI-04 | UI component | §4.6, UI §2, AC-08–10 | Requester/Staff/Admin metric cards, zero buckets, preview rows, accessible drill-down paths, and period label. | Card values/links match API data; zero cards remain visible; links use exact filters. | `client/tests/lab-04/RequesterDashboard.test.tsx`, `client/tests/lab-04/StaffDashboard.test.tsx` | Planned — not run |
-| UI-05 | UI component | UI §5, AC-14–15 | Dashboard/Actions Taken loading, forbidden, not-found, safe failure, keyboard focus, live announcements, and no raw HTML. | States are explicit and accessible; protected data does not flash; form text renders safely. | `client/tests/lab-04/RequesterDashboard.test.tsx`, `client/tests/lab-04/StaffDashboard.test.tsx`, `client/tests/lab-04/ActionsTaken.test.tsx` | Planned — not run |
-| STYLE-01 | UI-style/accessibility | UI §1/5/7, AC-15/17 | Zen Green tokens, typography, focus ring, role/status/priority text cues, semantic headings/labels, modal focus trap, and console errors. | Visual checklist passes at required states; no new theme, color-only cue, warning, broken asset, or console error. | `e2e/lab-04/visual-checklist.spec.ts` | Planned — not run |
-| RESP-01 | Responsive | UI §2.2/2.3/6, AC-15 | Staff and Requester dashboard at 1440×900, 1024×768, and mobile viewport. | Cards/grid/previews reflow with no clipping, overlap, or horizontal page scroll. | `e2e/lab-04/responsive.spec.ts` | Planned — not run |
-| RESP-02 | Responsive | UI §3, AC-15 | Actions Taken table/card and form at desktop/tablet/mobile. | All fields and Save/Cancel remain reachable; long text wraps and conditional controls fit. | `e2e/lab-04/responsive.spec.ts` | Planned — not run |
-| RESP-03 | Responsive | UI §4–6, AC-15/17 | Ticket workflow dialog, role shell, and regression screens at all widths. | Confirmation modal is usable, focus is trapped/restored, and existing Lab 2/3 screens remain responsive. | `e2e/lab-04/responsive.spec.ts`, `e2e/lab-03/responsive.spec.ts` | Planned — not run |
-| WORK-01 | Workflow | AC-01–04, AC-14 | Staff opens a Ticket, creates two Actions Taken by different staff, edits one, and Requester views the result. | Actions Taken remain under one Ticket; performers differ correctly; Requester sees shared history but no write controls. | `server/tests/lab-04/actions-taken.workflow.test.ts`, `e2e/lab-04/actions-taken-flow.spec.ts` | Planned — not run |
-| WORK-02 | Workflow/concurrency | AC-11/14 | Two actors edit/create against the same Ticket, including network retry and stale form. | One writer wins; missing preconditions return `428 PRECONDITION_REQUIRED`; stale writes return `412 STALE_WRITE`; the stale form is preserved/reviewed; no duplicate Action Taken or parent corruption occurs. | `server/tests/lab-04/concurrency.api.test.ts`, `e2e/lab-04/actions-taken-flow.spec.ts` | Planned — not run |
-| WORK-03 | Workflow | AC-05–07 | Full lifecycle: New → Open → In Progress → Waiting → In Progress → Resolved → Closed, plus Reopened/Cancelled paths and requester indication. | Only matrix transitions work; gate evidence is required; final status and timestamps are correct. | `server/tests/lab-04/ticket-workflow.api.test.ts`, `e2e/lab-04/ticket-resolution.spec.ts` | Planned — not run |
-| MIG-01 | Migration-regression | AC-12 | Lab 3-shaped database snapshot before/after migration: Users, Tickets, owners, statuses, priorities, Attachments, comments, notes, IDs, and storage keys. | Counts/IDs/relationships/data are unchanged; new columns have safe defaults; migration is transactional/recoverable. | `server/tests/lab-04/migration-regression.integration.test.ts` | Planned — not run |
-| MIG-02 | Migration-regression | BR-19, AC-12 | Legacy Tickets with no Action Taken rows and dashboard calculations after migration. | Legacy rows are valid, Actions Taken list is empty 200, and Ticket/dashboard metrics count them by existing fields only. | `server/tests/lab-04/migration-regression.integration.test.ts` | Planned — not run |
-| MIG-03 | Migration-regression | BR-20, AC-13 | Run seed twice and compare controlled fixture counts, seed keys, statuses, priorities, owner states, and Action Taken cardinalities. | Second run is idempotent; zero/one/multiple Actions Taken and zero/non-zero metrics remain demonstrable. | `server/tests/lab-04/migration-regression.integration.test.ts` | Planned — not run |
-| MIG-04 | Migration-regression | AC-17 | Run all Lab 2/3 API, component, E2E, auth, attachment, comments, notes, queue, and User Management suites on migrated data. | Earlier tests remain green without deleting or weakening coverage. | `server/tests/lab-02/**`, `server/tests/lab-03/**`, `client/tests/lab-02/**`, `client/tests/lab-03/**`, `e2e/lab-02/**`, `e2e/lab-03/**` | Planned — not run |
-| REG-01 | Regression | AC-17 | Re-run Lab 3 authentication, session expiry, mandatory password change, logout, and role navigation behavior after the Lab 4 increment. | Existing login/session/role-shell behavior remains green; no protected content flashes. | `server/tests/lab-03/auth.unit.test.ts`, `server/tests/lab-03/auth.api.test.ts`, `client/tests/lab-03/Login.test.tsx`, `e2e/lab-03/authentication.spec.ts` | Planned — not run |
-| REG-02 | Regression | AC-17 | Re-run Requester Ticket creation/list/detail, ownership, Attachment lifecycle, and Public Comment behavior. | Existing Requester-owned Ticket/Attachment/comment behavior remains unchanged and all earlier tests pass. | `server/tests/lab-03/requester-regression.api.test.ts`, `client/tests/lab-03/RequesterRegression.test.tsx`, `e2e/lab-03/requester-regression.spec.ts` | Planned — not run |
-| REG-03 | Regression | AC-07, AC-17 | Re-run Problem Appears Resolved, IT Staff queue/detail, owner/priority/status operations, Public Comments, and Internal Notes. | Advisory indication remains non-resolving; staff operations and private-note boundaries remain correct. | `server/tests/lab-03/staff-ticket-detail.api.test.ts`, `server/tests/lab-03/comments-notes.api.test.ts`, `client/tests/lab-03/StaffTicketDetail.test.tsx`, `e2e/lab-03/staff-ticket-flow.spec.ts` | Planned — not run |
-| REG-04 | Regression | AC-17 | Re-run Administrator User Management, activation/role safety, and Administrator inspection behavior. | Existing admin account-management and read-only inspection behavior remains green; no new status/assignment privilege leaks. | `server/tests/lab-03/users-admin.api.test.ts`, `client/tests/lab-03/UserManagement.test.tsx`, `client/tests/lab-03/AdminTicketInspection.test.tsx`, `e2e/lab-03/user-administration.spec.ts` | Planned — not run |
-| PERF-01 | Performance-smoke | AC-09/16 | Requester, staff, and admin dashboard aggregate calls on deterministic 1,000+ Ticket fixture. | p95 is under 750 ms locally, query count is bounded/no per-row N+1, response contains no full Ticket collection, and memory remains stable. | `server/tests/lab-04/performance-smoke.test.ts` | Planned — not run |
-| PERF-02 | Performance-smoke | AC-01/16 | Paged Actions Taken list (20/100 rows) and create/update transaction under a busy Ticket. | p95 list is under 500 ms locally; pagination is bounded; create/update remains atomic and does not load unbounded history. | `server/tests/lab-04/performance-smoke.test.ts` | Planned — not run |
-| E2E-01 | End-to-end | AC-08–10, AC-14–15 | Seeded Requester, IT Staff, and Administrator open their dashboards, verify cards/zero states, click drill-downs, and observe forbidden boundaries. | Each role sees correct metrics and destination; loading/failure/empty states and responsive evidence are captured. | `e2e/lab-04/dashboards.spec.ts` | Planned — not run |
-| E2E-02 | End-to-end | AC-01–04, AC-11, AC-14 | IT Staff/Admin create and edit Actions Taken, including a corrected Action Date/Time; Requester views the same Ticket; follow-up validation and stale conflict are demonstrated. | Working list/create/edit/read-only behavior, explicit UTC date serialization, and safe `412 STALE_WRITE` conflict feedback are visible in the integrated app. | `e2e/lab-04/actions-taken-flow.spec.ts` | Planned — not run |
-| E2E-03 | End-to-end | AC-05–07, AC-14 | Staff performs permitted transitions, confirmation gate, closure/cancel/reopen, and Requester advisory indication. | Status summary refreshes correctly; client bypass is rejected; lifecycle evidence is captured. | `e2e/lab-04/ticket-resolution.spec.ts` | Planned — not run |
-| E2E-04 | End-to-end/regression | AC-15/17 | Final integrated pass through Login, password change, Requester Tickets/Attachments/Comments, Staff queue/Notes, Admin Users, dashboards, and Action Taken Detail. | No earlier role, ownership, attachment, comment, note, or admin behavior regresses; console is clean. | `e2e/lab-04/final-regression.spec.ts` | Planned — not run |
+| Test area | Planned evidence | Actual test files | Final status |
+|---|---|---|---|
+| Unit | Validation, ticket rules, dashboard boundaries, auth helpers, query helpers, and the complete transition matrix | server/tests/lab-02/*.unit.test.ts, server/tests/lab-03/auth.unit.test.ts, server/tests/lab-04/dashboard-metrics.unit.test.ts, server/tests/lab-04/ticket-workflow.unit.test.ts | Pass |
+| API/integration | Actions Taken, dashboards, workflow, retained Lab 1–3 behavior, and safe errors | server/tests/lab-01/*.test.ts, server/tests/lab-02/*.api.test.ts, server/tests/lab-02/schema.integration.test.ts, server/tests/lab-03/*.api.test.ts, server/tests/lab-03/migration-regression.integration.test.ts, server/tests/lab-04/*.api.test.ts | Pass |
+| Authorization | Role matrix, ownership, forged identity, protected fields | server/tests/lab-03/authorization.api.test.ts, server/tests/lab-03/comments-notes.api.test.ts, server/tests/lab-03/requester-regression.api.test.ts, server/tests/lab-03/staff-ticket-detail.api.test.ts, server/tests/lab-03/users-admin.api.test.ts, server/tests/lab-04/actions-taken.api.test.ts, server/tests/lab-04/dashboard.api.test.ts | Pass |
+| UI component | Forms, role modes, important states, retry, draft preservation, focus | client/tests/lab-01/App.test.tsx, client/tests/lab-02/*.test.tsx, client/tests/lab-03/*.test.tsx, client/tests/lab-04/*.test.tsx | Pass |
+| Workflow | Actions Taken create/read-only flow, stale/idempotent retry, the exhaustive transition matrix, and status gates | server/tests/lab-04/actions-taken.api.test.ts, server/tests/lab-04/ticket-workflow.unit.test.ts, server/tests/lab-04/ticket-workflow.api.test.ts, client/tests/lab-04/ActionsTaken.test.tsx, client/tests/lab-04/TicketWorkflow.test.tsx, e2e/lab-04/actions-taken-flow.spec.ts, e2e/lab-04/ticket-resolution.spec.ts | Pass |
+| Migration/regression | Preserve Lab 1–3 data and run seed twice | server/tests/lab-02/schema.integration.test.ts, server/tests/lab-03/migration-regression.integration.test.ts, server/tests/lab-04/lab23-regression.api.test.ts | Pass |
+| Responsive/accessibility | Desktop/tablet/mobile layout, labels, focus, non-color cues, overflow, and every Lab 4 major screen | e2e/lab-04/actions-taken-flow.spec.ts, e2e/lab-04/dashboards.spec.ts, e2e/lab-04/ticket-resolution.spec.ts, docs/lab-04/ui-spec.md §7–8 | Pass |
+| E2E regression | Authentication, Requester, IT Staff, Administrator, Actions Taken, dashboards, resolution, and migrated Lab 2 browser flows | e2e/lab-02/*.spec.ts, e2e/lab-03/*.spec.ts, e2e/lab-04/*.spec.ts | Pass |
+| Lab 2/3 current-contract regression | Session-derived ownership, Attachments, Public Comments, Internal Notes, and Administrator User Management after the Lab 4 schema/API migration | server/tests/lab-04/lab23-regression.api.test.ts, client/tests/lab-04/Lab23Regression.test.tsx, e2e/lab-04/lab23-regression.spec.ts, plus adapted `lab-02`/`lab-03` suites | Pass |
+| Performance-smoke | 1,000+ Ticket aggregate and bounded Actions Taken pagination | server/tests/lab-04/performance-smoke.test.ts | Pass |
 
-## 4. Acceptance-criterion traceability
+## 4. Acceptance-Criterion traceability
 
-| Acceptance criterion | Planned tests |
-|---|---|
-| AC-01 | UNIT-01, API-02, WORK-01, E2E-02 |
-| AC-02 | UNIT-01, API-02–04, UI-02, E2E-02 |
-| AC-03 | API-01, AUTH-01, UI-01, E2E-02 |
-| AC-04 | AUTH-01, AUTH-04, API-02–03, E2E-02 |
-| AC-05 | UNIT-02, API-08, AUTH-03, WORK-03, E2E-03 |
-| AC-06 | UNIT-02, API-09, AUTH-03, WORK-03, E2E-03 |
-| AC-07 | API-10, WORK-03, E2E-03 |
-| AC-08 | UNIT-04, API-05, AUTH-02, UI-04, E2E-01 |
-| AC-09 | UNIT-04, API-06, AUTH-02, UI-04, PERF-01, E2E-01 |
-| AC-10 | API-07, API-12, AUTH-02, AUTH-03, AUTH-04, UI-04, E2E-01 |
-| AC-11 | UNIT-03, API-11, UI-03, WORK-02, E2E-02 |
-| AC-12 | MIG-01, MIG-02, MIG-04 |
-| AC-13 | MIG-03 |
-| AC-14 | API-04, UI-01–05, WORK-01–03, E2E-01–03 |
-| AC-15 | STYLE-01, RESP-01–03, UI-05, E2E-01/E2E-04 |
-| AC-16 | PERF-01–02 |
-| AC-17 | MIG-04, E2E-04 |
+| AC | Planned test IDs | Actual evidence | Final status |
+|---|---|---|---|
+| AC-01 | API-02, WORK-01, E2E-02 | server/tests/lab-04/actions-taken.api.test.ts, client/tests/lab-04/ActionsTaken.test.tsx, e2e/lab-04/actions-taken-flow.spec.ts | Pass |
+| AC-02 | UNIT-01, API-03, UI-02 | server/tests/lab-04/actions-taken.api.test.ts, client/tests/lab-04/ActionsTaken.test.tsx | Pass |
+| AC-03 | AUTH-01, API-01, E2E-02 | server/tests/lab-04/actions-taken.api.test.ts, client/tests/lab-04/ActionsTaken.test.tsx, e2e/lab-04/actions-taken-flow.spec.ts | Pass |
+| AC-04 | AUTH-01/02, API-02/03 | server/tests/lab-04/actions-taken.api.test.ts, client/tests/lab-04/ActionsTaken.test.tsx | Pass |
+| AC-05 | UNIT-02, API-08, WORK-03 | server/tests/lab-04/ticket-workflow.unit.test.ts, server/tests/lab-03/staff-ticket-detail.api.test.ts, server/tests/lab-04/ticket-workflow.api.test.ts, client/tests/lab-03/StaffTicketDetail.test.tsx, client/tests/lab-04/TicketWorkflow.test.tsx | Pass |
+| AC-06 | API-09, AUTH-03, E2E-03 | server/tests/lab-03/staff-ticket-detail.api.test.ts, server/tests/lab-04/ticket-workflow.api.test.ts, client/tests/lab-03/StaffTicketDetail.test.tsx, e2e/lab-04/ticket-resolution.spec.ts | Pass |
+| AC-07 | API-10, REG-03, E2E-03 | server/tests/lab-03/requester-regression.api.test.ts, server/tests/lab-03/staff-ticket-detail.api.test.ts, client/tests/lab-03/RequesterRegression.test.tsx | Pass |
+| AC-08 | UNIT-04, API-05, UI-04, E2E-01 | server/tests/lab-04/dashboard-metrics.unit.test.ts, server/tests/lab-04/requester-dashboard.api.test.ts, client/tests/lab-04/RequesterDashboard.test.tsx, e2e/lab-04/dashboards.spec.ts | Pass |
+| AC-09 | API-06, UI-04, E2E-01 | server/tests/lab-04/staff-dashboard.api.test.ts, server/tests/lab-04/dashboard.api.test.ts, client/tests/lab-04/StaffDashboard.test.tsx, e2e/lab-04/dashboards.spec.ts | Pass |
+| AC-10 | API-07/12, AUTH-04, UI-04, E2E-01 | server/tests/lab-04/dashboard.api.test.ts, client/tests/lab-04/Dashboard.test.tsx, client/tests/lab-04/ActionsTaken.test.tsx, e2e/lab-04/dashboards.spec.ts, artifacts/lab-04/screenshots/administrator-dashboard/ | Pass |
+| AC-11 | UNIT-03, API-11, UI-03, WORK-02 | server/tests/lab-04/actions-taken.api.test.ts, server/tests/lab-04/ticket-workflow.api.test.ts, client/tests/lab-04/ActionsTaken.test.tsx | Pass |
+| AC-12 | MIG-01/02, REG-01–04 | server/tests/lab-02/schema.integration.test.ts, server/tests/lab-03/migration-regression.integration.test.ts, server/tests/lab-04/lab23-regression.api.test.ts | Pass |
+| AC-13 | MIG-03 | server/tests/lab-03/migration-regression.integration.test.ts | Pass |
+| AC-14 | API-04, UI-01–05, E2E-01–03 | client/tests/lab-02/*.test.tsx, client/tests/lab-03/*.test.tsx, client/tests/lab-04/*.test.tsx, e2e/lab-02/*.spec.ts, e2e/lab-03/*.spec.ts, e2e/lab-04/*.spec.ts | Pass |
+| AC-15 | STYLE-01, RESP-01–03 | e2e/lab-04/actions-taken-flow.spec.ts, e2e/lab-04/dashboards.spec.ts, e2e/lab-04/ticket-resolution.spec.ts, artifacts/lab-04/screenshots/ | Pass |
+| AC-16 | PERF-01/02 | server/tests/lab-04/performance-smoke.test.ts | Pass |
+| AC-17 | MIG-04, REG-01–04, E2E-04 | server/tests/lab-02/*.test.ts, server/tests/lab-03/*.test.ts, server/tests/lab-04/lab23-regression.api.test.ts, client/tests/lab-02/*.test.tsx, client/tests/lab-03/*.test.tsx, client/tests/lab-04/Lab23Regression.test.tsx, e2e/lab-02/*.spec.ts, e2e/lab-03/*.spec.ts, e2e/lab-04/lab23-regression.spec.ts | Pass |
 
-## 5. Required coverage checklist before approval
+## 5. Recorded commands and passing output
 
-- [ ] Unit coverage exists for field boundaries, full transition matrix,
-  resolution gate, formulas/date boundaries, version/ETag, and idempotency.
-- [ ] API/integration coverage exists for create/list/update Actions Taken,
-  every dashboard endpoint, workflow, safe errors, and retained APIs.
-- [ ] UI component coverage exists for DashboardMetricCard,
-  ActionsTakenList, ActionTakenForm, role modes, and all important states.
-- [ ] UI-style and responsive coverage exists at desktop, tablet, and mobile.
-- [ ] Authorization coverage directly calls every new read/write endpoint with
-  every role and attempts forged actor/owner/requester values.
-- [ ] Workflow coverage demonstrates multiple Actions Taken on one Ticket, different
-  performers, ownership continuity, status transitions, resolution gate,
-  cancellation, reopening, and Requester feedback.
-- [ ] Migration-regression coverage compares pre/post records and runs earlier
-  Lab 2/3 suites; seed runs twice.
-- [ ] Performance-smoke coverage records p95, query count, and bounded payload.
-- [ ] E2E coverage passes on the integrated main branch and produces readable
-  screenshots/evidence.
-- [ ] All final rows change from `Planned — not run` to `Pass` or receive an
-  explicitly approved exception before release.
+The following output was recorded after the Lab 2/3 current-contract test
+updates. The client and server commands were run with `npm.cmd` because this
+Windows workspace blocks the PowerShell `npm.ps1` wrapper.
+
+~~~text
+$ npm.cmd run test:client
+Test Files  21 passed (21)
+      Tests  68 passed (68)
+
+$ npm.cmd run test:server
+Test Files  30 passed (30)
+      Tests  115 passed (115)
+
+$ npm.cmd run test:e2e:lab2
+Running 8 tests using 1 worker
+  8 passed (13.8s)
+
+$ npm.cmd run test:e2e:lab3
+Running 9 tests using 1 worker
+  9 passed (44.9s)
+
+$ npm.cmd run test:e2e:lab4
+Running 15 tests using 1 worker
+  15 passed (47.7s)
+
+$ npm.cmd run build:client
+passed
+
+$ npm.cmd run build:server
+passed
+
+$ npm.cmd run test:regression
+client: 21 test files / 68 tests passed
+server: 30 test files / 115 tests passed
+E2E Lab 2: 8 passed; E2E Lab 3: 9 passed; E2E Lab 4: 15 passed
+exit code: 0
+~~~
+
+`npm.cmd run test:e2e:lab2` uses `playwright.lab2.config.ts`,
+`npm.cmd run test:e2e:lab3` uses `playwright.config.ts`, and
+`npm.cmd run test:e2e:lab4` uses `playwright.lab4.config.ts`; each suite keeps
+its own artifact directory.
+
+### 5.1 Lab 1–3 regression commands
+
+The legacy test paths remain in their Lab 1/2/3 directories, but fixtures and
+assertions that referenced the retired development-requester selector,
+`requesterId` input, or pre-session UI were adapted to the current User/session
+contract. The behavior under test was not weakened or removed.
+
+~~~text
+$ npm.cmd run test:client:lab2
+Test Files  7 passed (7)
+      Tests  31 passed (31)
+
+$ npm.cmd run test:client:lab3
+Test Files  7 passed (7)
+      Tests  16 passed (16)
+
+$ npm.cmd run test:server:lab2
+Test Files  10 passed (10)
+      Tests  51 passed (51)
+
+$ npm.cmd run test:server:lab3
+Test Files  9 passed (9)
+      Tests  34 passed (34)
+~~~
+
+The complete aggregate commands in §5 also passed, so the release gate does
+not rely only on the new `lab-04` regression files.
+
+### 5.2 Current Lab 4 scoped regression run
+
+The Lab 4-specific files below add coverage for Actions Taken, dashboards,
+resolution workflow, conflict/idempotency handling, and cross-Lab regression
+boundaries on top of the passing Lab 1–3 suites.
+
+~~~text
+$ npm.cmd run test:client:lab4
+Test Files  6 passed (6)
+      Tests  18 passed (18)
+
+$ npm.cmd run test:server:lab4
+Test Files  9 passed (9)
+      Tests  28 passed (28)
+
+$ npm.cmd run test:e2e:lab4
+Running 15 tests using 1 worker
+  15 passed (47.7s)
+~~~
+
+Current-contract regression files:
+
+- `server/tests/lab-04/lab23-regression.api.test.ts` — ownership,
+  Attachments, Public Comments, Internal Notes, and User Management API.
+- `client/tests/lab-04/Lab23Regression.test.tsx` — current Ticket Detail
+  ownership, Attachment, Public Comment, and private-Note UI boundary.
+- `e2e/lab-04/lab23-regression.spec.ts` — integrated Requester/IT Staff/
+  Administrator flow at desktop, tablet, and mobile.
+
+## 6. Submission Part 8 regression evidence
+
+The table below is the required Submission Part 8 representative regression
+evidence. Every listed behavior is covered by at least one passing API, UI, or
+E2E path after the Lab 4 schema/API migration; the dedicated Lab 4 files add
+cross-role checks without replacing the Lab 1–3 paths.
+
+| Required behavior | Current Lab 4 evidence | Result |
+|---|---|---|
+| Authentication and role navigation | server/tests/lab-04/lab23-regression.api.test.ts, e2e/lab-04/lab23-regression.spec.ts | Pass |
+| My Tickets and ownership | server/tests/lab-04/lab23-regression.api.test.ts, client/tests/lab-04/Lab23Regression.test.tsx, e2e/lab-04/lab23-regression.spec.ts | Pass |
+| Ticket Detail | client/tests/lab-04/Lab23Regression.test.tsx, e2e/lab-04/lab23-regression.spec.ts | Pass |
+| Attachments | server/tests/lab-04/lab23-regression.api.test.ts, client/tests/lab-04/Lab23Regression.test.tsx, e2e/lab-04/lab23-regression.spec.ts | Pass |
+| Public Comments | server/tests/lab-04/lab23-regression.api.test.ts, client/tests/lab-04/Lab23Regression.test.tsx, e2e/lab-04/lab23-regression.spec.ts | Pass |
+| IT Staff functions | server/tests/lab-04/lab23-regression.api.test.ts, e2e/lab-04/lab23-regression.spec.ts | Pass |
+| Internal Notes | server/tests/lab-04/lab23-regression.api.test.ts, client/tests/lab-04/Lab23Regression.test.tsx, e2e/lab-04/lab23-regression.spec.ts | Pass |
+| Administrator User Management | server/tests/lab-04/lab23-regression.api.test.ts, e2e/lab-04/lab23-regression.spec.ts | Pass |
+
+| Required evidence | Actual paths | Result |
+|---|---|---|
+| Authentication and role navigation | server/tests/lab-03/auth.api.test.ts, server/tests/lab-03/auth.unit.test.ts, client/tests/lab-03/Login.test.tsx, client/tests/lab-03/ChangePassword.test.tsx, e2e/lab-03/authentication.spec.ts, e2e/lab-03/visual-checklist.spec.ts | Pass |
+| My Tickets and ownership | server/tests/lab-02/my-tickets.api.test.ts, server/tests/lab-03/requester-regression.api.test.ts, client/tests/lab-02/MyTickets.test.tsx, client/tests/lab-03/RequesterRegression.test.tsx, e2e/lab-02/requester-ticket-flow.spec.ts, e2e/lab-02/responsive-layout.spec.ts, e2e/lab-03/requester-regression.spec.ts | Pass |
+| Ticket Detail | server/tests/lab-02/ticket-detail.api.test.ts, server/tests/lab-03/staff-ticket-detail.api.test.ts, client/tests/lab-02/TicketDetail.test.tsx, client/tests/lab-02/RequesterTicketDetail.test.tsx, client/tests/lab-03/StaffTicketDetail.test.tsx, e2e/lab-02/requester-ticket-flow.spec.ts, e2e/lab-03/requester-regression.spec.ts, e2e/lab-03/staff-ticket-flow.spec.ts | Pass |
+| Attachments | server/tests/lab-02/attachments.api.test.ts, server/tests/lab-03/migration-regression.integration.test.ts, client/tests/lab-02/AttachmentSection.test.tsx, client/tests/lab-02/TicketDetail.test.tsx, e2e/lab-02/requester-ticket-flow.spec.ts, e2e/lab-03/requester-regression.spec.ts | Pass |
+| Public Comments | server/tests/lab-03/comments-notes.api.test.ts, server/tests/lab-03/requester-regression.api.test.ts, server/tests/lab-03/staff-ticket-detail.api.test.ts, client/tests/lab-03/RequesterRegression.test.tsx, client/tests/lab-03/StaffTicketDetail.test.tsx, e2e/lab-03/visual-checklist.spec.ts | Pass |
+| IT Staff functions | server/tests/lab-03/staff-queue.api.test.ts, server/tests/lab-03/staff-ticket-detail.api.test.ts, client/tests/lab-03/StaffTicketQueue.test.tsx, client/tests/lab-03/StaffTicketDetail.test.tsx, e2e/lab-03/staff-ticket-flow.spec.ts | Pass |
+| Internal Notes | server/tests/lab-03/comments-notes.api.test.ts, server/tests/lab-03/staff-ticket-detail.api.test.ts, client/tests/lab-03/StaffTicketDetail.test.tsx, client/tests/lab-03/AdminTicketInspection.test.tsx, e2e/lab-03/staff-ticket-flow.spec.ts, e2e/lab-03/visual-checklist.spec.ts | Pass |
+| Administrator User Management | server/tests/lab-03/users-admin.api.test.ts, server/tests/lab-03/authorization.api.test.ts, client/tests/lab-03/UserManagement.test.tsx, client/tests/lab-03/AdminTicketInspection.test.tsx, e2e/lab-03/user-administration.spec.ts | Pass |
+
+## 7. Screenshot manifest and accessibility evidence
+
+The required Issue 28 screenshot set is fifteen files: Actions Taken, Requester
+Dashboard, IT Staff Dashboard, Administrator Dashboard, and Ticket resolution,
+each at desktop, tablet, and mobile sizes.
+
+~~~text
+artifacts/lab-04/screenshots/actions-taken/actions-taken-desktop.png
+artifacts/lab-04/screenshots/actions-taken/actions-taken-tablet.png
+artifacts/lab-04/screenshots/actions-taken/actions-taken-mobile.png
+artifacts/lab-04/screenshots/requester-dashboard/requester-dashboard-desktop.png
+artifacts/lab-04/screenshots/requester-dashboard/requester-dashboard-tablet.png
+artifacts/lab-04/screenshots/requester-dashboard/requester-dashboard-mobile.png
+artifacts/lab-04/screenshots/staff-dashboard/staff-dashboard-desktop.png
+artifacts/lab-04/screenshots/staff-dashboard/staff-dashboard-tablet.png
+artifacts/lab-04/screenshots/staff-dashboard/staff-dashboard-mobile.png
+artifacts/lab-04/screenshots/administrator-dashboard/administrator-dashboard-desktop.png
+artifacts/lab-04/screenshots/administrator-dashboard/administrator-dashboard-tablet.png
+artifacts/lab-04/screenshots/administrator-dashboard/administrator-dashboard-mobile.png
+artifacts/lab-04/screenshots/ticket-resolution/ticket-resolution-desktop.png
+artifacts/lab-04/screenshots/ticket-resolution/ticket-resolution-tablet.png
+artifacts/lab-04/screenshots/ticket-resolution/ticket-resolution-mobile.png
+~~~
+
+The screenshot tests assert stable page state, keyboard focus, and no
+page-level horizontal overflow. Status and priority use text/badge cues
+rather than color alone. The completed checklist and its evidence references
+are in ui-spec.md section 7–8.
+
+## 8. Release handoff boundary
+
+The Lab 4 implementation, the adapted Lab 1–3 regression suites, the
+current-contract cross-Lab tests, and the screenshots are green. The release
+candidate uses the User/session schema throughout; no retired requester
+selector is required by the release gate.
+
+1. Evidence was captured on `feature/28-final-regression-release`; a maintainer
+   still has to merge the branch/release PR and confirm the final `main` result.
+   This is an external release action, not an unverified test claim.
+2. The release handoff is still an external repository action; the local
+   evidence does not claim that the branch has already been merged to `main`.
