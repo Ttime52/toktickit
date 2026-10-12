@@ -80,7 +80,9 @@ describe("Administrator Ticket Inspection (UI-06)", () => {
     render(<AdminTicketInspection ticketId={101} onBack={vi.fn()} />);
 
     expect(await screen.findByRole("heading", { name: "Ticket Inspection" })).toBeInTheDocument();
-    expect(screen.getByText("Administrator read-only inspection")).toBeInTheDocument();
+    expect(screen.getByText(/Ticket inspection is read-only for core fields\./iu)).toHaveTextContent(
+      "Ticket inspection is read-only for core fields.",
+    );
     expect(screen.getByText("Public progress update.")).toBeInTheDocument();
     expect(screen.getByText("Private operational context.")).toBeInTheDocument();
     expect(screen.getByText(/Work controls, comment\/note composers/iu)).toBeInTheDocument();

@@ -2,6 +2,10 @@
 node_modules/
 artifacts/lab-03/test-results/
 artifacts/lab-03/playwright-report/
+artifacts/lab-04/test-results/
+artifacts/lab-04/playwright-report/
+# local browser session cookies
+server/cookies.txt
 # env & secrets
 .env
 *.env

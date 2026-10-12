@@ -146,7 +146,6 @@ export default function CreateTicket({
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdTicket, setCreatedTicket] = useState<Ticket | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [fileRows, setFileRows] = useState<SelectedFileRow[]>([]);
   const nextFileId = useRef(1);
   const idempotencyKey = useRef<string | null>(null);
@@ -291,7 +290,6 @@ export default function CreateTicket({
     const validationErrors = validateForm();
     setFormErrors(validationErrors);
     setFormError(null);
-    setSuccessNotice(null);
     if (Object.keys(validationErrors).length > 0) return;
 
     if (referenceState !== "success") {
@@ -364,25 +362,16 @@ export default function CreateTicket({
             <ReadOnlyValue label="Current Status" value={createdTicket.currentStatus} />
             <ReadOnlyValue label="Requested Priority" value={createdTicket.requestedPriority} />
           </dl>
-          {successNotice !== null && (
-            <p className="zen-field-error" role="alert">{successNotice}</p>
-          )}
           <div className="zen-action-row">
-            <button
-              type="button"
-              className="zen-button zen-button-secondary"
-              onClick={() => {
-                if (onViewTicket !== undefined) {
-                  onViewTicket(createdTicket.id);
-                  return;
-                }
-                setSuccessNotice(
-                  "Ticket Detail is outside Issue 4. The Ticket was saved successfully.",
-                );
-              }}
-            >
-              View Ticket
-            </button>
+            {onViewTicket !== undefined && (
+              <button
+                type="button"
+                className="zen-button zen-button-secondary"
+                onClick={() => onViewTicket(createdTicket.id)}
+              >
+                View Ticket
+              </button>
+            )}
             <button
               type="button"
               className="zen-button zen-button-primary"

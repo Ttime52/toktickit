@@ -100,10 +100,14 @@ test.describe("Lab 3 IT Staff ticket flow", () => {
       await expect(administratorPage.getByText(publicComment, { exact: true })).toBeVisible();
       await expect(administratorPage.getByText(internalNote, { exact: true })).toBeVisible();
       await expect(
-        administratorPage.getByText(
-          "Read-only inspection. Work controls, comment/note composers and Attachment metadata are unavailable to Administrators.",
-          { exact: true },
-        ),
+        administratorPage.getByText("Ticket inspection is read-only for core fields.", {
+          exact: false,
+        }),
+      ).toBeVisible();
+      await expect(
+        administratorPage.getByText("Attachment metadata are unavailable to Administrators.", {
+          exact: false,
+        }),
       ).toBeVisible();
       await expect(administratorPage.getByLabel("Add a Public Comment", { exact: true })).toHaveCount(0);
       await expect(administratorPage.getByLabel("Add an Internal Note", { exact: true })).toHaveCount(0);

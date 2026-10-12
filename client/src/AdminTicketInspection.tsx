@@ -246,7 +246,7 @@ export default function AdminTicketInspection({
           Back to User Management
         </button>
         <div>
-          <p className="zen-eyebrow">Administrator read-only inspection</p>
+          <p className="zen-eyebrow">Administrator Ticket support</p>
           <h1>Ticket Inspection</h1>
           {ticket !== null && (
             <p className="zen-detail-ticket-number">

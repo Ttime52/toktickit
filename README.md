@@ -157,7 +157,7 @@ cd server
 # Run database migrations
 npm run prisma:migrate
 
-# Seed required Categories, Related Systems, and Requesters
+# Seed required Categories, Related Systems, Users, Tickets, and Lab 4 fixtures
 npm run prisma:seed
 
 cd ..
@@ -171,7 +171,8 @@ This will:
 
 #### Local seed accounts
 
-The Lab 3 seed creates local-only accounts. Set
+The Lab 4 seed creates local-only accounts and deterministic regression
+fixtures. Set
 `LAB3_SEED_INITIAL_PASSWORD` to a private 12–128-character value before
 running the seed. The value is hashed with Argon2id, is not stored in source
 code or logged, and every seeded account requires a first password change.
@@ -205,7 +206,8 @@ Seed account emails:
 | Administrator | `admin@example.test` | Active |
 
 Do not commit the shell history, `server/.env`, the chosen password, cookies,
-or generated password hashes.
+or generated password hashes. Browser session cookies are ignored as
+`server/cookies.txt`.
 
 ## Running the Application
 
@@ -232,6 +234,9 @@ npm run dev
 The client will typically start on `http://localhost:5173` (check terminal output for exact URL)
 
 Open your browser and navigate to the client URL to see the application.
+
+From the repository root, the equivalent convenience commands are
+`npm run demo:server` and `npm run demo:client` in two terminals.
 
 ### Production Build
 
@@ -270,6 +275,14 @@ npm test
 
 Tests will run using Vitest with jsdom. Test files are located in `client/tests/`.
 
+To run the Lab 2, Lab 3, or Lab 4 client suites from the repository root:
+
+```bash
+npm run test:client:lab2
+npm run test:client:lab3
+npm run test:client:lab4
+```
+
 ### Server Tests
 
 ```bash
@@ -278,6 +291,14 @@ npm test
 ```
 
 Tests will run using Vitest. Test files are located in `server/tests/`.
+
+To run the Lab 2, Lab 3, or Lab 4 API suites from the repository root:
+
+```bash
+npm run test:server:lab2
+npm run test:server:lab3
+npm run test:server:lab4
+```
 
 ### Build Checks
 
@@ -331,7 +352,16 @@ PLAYWRIGHT_EXTERNAL_SERVERS=1 npm run test:e2e
 Useful E2E commands:
 
 ```bash
-# Run one viewport project
+# Run Lab 2 current-session regression (desktop/tablet/mobile)
+npm run test:e2e:lab2
+
+# Run Lab 3 regression (the root playwright.config.ts)
+npm run test:e2e
+
+# Explicit Lab 3 command
+npm run test:e2e:lab3
+
+# Run one Lab 3 viewport project
 npm run test:e2e -- --project=desktop
 npm run test:e2e -- --project=tablet
 npm run test:e2e -- --project=mobile
@@ -341,16 +371,41 @@ npm run test:e2e:headed
 
 # Open the generated Playwright HTML report
 npm run test:e2e:report
+
+# Open the Lab 4 release report
+npm run test:e2e:lab4:report
+
+# Run only the Lab 4 release flows
+npm run test:e2e:lab4
+
+# Run one Lab 4 viewport project
+npm run test:e2e:lab4 -- --project=desktop
+npm run test:e2e:lab4 -- --project=tablet
+npm run test:e2e:lab4 -- --project=mobile
 ```
 
-The Lab 3 E2E suite covers authentication, requester Ticket/Attachment
-regression, IT Staff queue/detail operations, Administrator user creation and
-the Public Comment/Internal Note visibility boundary. Functional flows run on
-desktop; `responsive.spec.ts` captures Login, Change Password, requester
-Ticket Detail, Staff Queue, Staff Detail and User Management at `1440x900`,
-`1024x768` and `390x844`, with an additional `320px` overflow check.
-Screenshots are stored in `artifacts/lab-03/screenshots/` and the HTML report
-is stored in `artifacts/lab-03/playwright-report/`.
+The Lab 2 regression uses `playwright.lab2.config.ts`, Lab 3 uses
+`playwright.config.ts`, and Lab 4 release flows use
+`playwright.lab4.config.ts`; their output directories are separate.
+
+Lab 2/3 fixtures and assertions that referenced the retired
+development-requester selector, client-supplied `requesterId`, or old UI copy
+were adapted to the current User/session/schema contract. The behavioral tests
+remain in their Lab 1/2/3 directories. The complete release gate is:
+
+```bash
+npm run test:regression
+```
+
+This runs the complete client and server suites, Lab 2 and Lab 3 browser
+regression, and the Lab 4 release flows. The Lab 4 release flows cover
+dashboards, Actions Taken, resolution confirmation, keyboard focus, and
+ownership checks.
+Lab 4 Actions Taken, Requester Dashboard, IT Staff Dashboard, Administrator
+Dashboard, and Ticket resolution screenshots are stored at
+`artifacts/lab-04/screenshots/{actions-taken,requester-dashboard,staff-dashboard,administrator-dashboard,ticket-resolution}/`
+for desktop, tablet, and mobile. The HTML report is stored in
+`artifacts/lab-04/playwright-report/`.
 
 ## API Documentation
 
@@ -370,9 +425,24 @@ Check the server source files in `server/src/` for the complete API specificatio
 
 | Script | Description |
 |--------|-------------|
-| `npm run test:e2e` | Run all Playwright E2E, responsive, and visual tests |
+| `npm run test:e2e` | Run the Lab 3 E2E, responsive, and visual tests |
+| `npm run test:e2e:lab2` | Run the Lab 2 current-session E2E suite |
+| `npm run test:e2e:lab3` | Run the Lab 3 E2E suite |
+| `npm run test:e2e:lab4` | Run the required Lab 4 E2E flows |
+| `npm run test:client` | Run the complete client Vitest suite |
+| `npm run test:client:lab2` / `npm run test:client:lab3` | Run Lab 2 or Lab 3 client regression |
+| `npm run test:client:lab4` | Run the Lab 4 client and current-schema regression suite |
+| `npm run test:server` | Run the complete server Vitest suite |
+| `npm run test:server:lab2` / `npm run test:server:lab3` | Run Lab 2 or Lab 3 server regression |
+| `npm run test:server:lab4` | Run the Lab 4 API and current-schema regression suite |
+| `npm run test:regression` | Run the complete client/server/Lab 2–4 E2E release gate |
+| `npm run migrate` | Run the current Prisma migrations |
+| `npm run seed` | Run the idempotent Prisma seed, including Lab 4 fixtures |
+| `npm run build:client` / `npm run build:server` | Build the client/server release artifacts |
+| `npm run demo:server` / `npm run demo:client` | Start the API/UI development servers |
 | `npm run test:e2e:headed` | Run Playwright with a visible browser |
-| `npm run test:e2e:report` | Open the generated Playwright HTML report |
+| `npm run test:e2e:report` | Open the Lab 3 Playwright HTML report |
+| `npm run test:e2e:lab4:report` | Open the Lab 4 release Playwright HTML report |
 
 ### Client Scripts
 

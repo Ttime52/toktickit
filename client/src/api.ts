@@ -1396,22 +1396,21 @@ export async function removeAttachment(
   return body.data as TicketAttachment;
 }
 
-// Issue 2 + Issue 4 — call the backend.
-// Steps: fetch `${API_URL}/api/health`; if not ok, throw.
-//        then fetch `${API_URL}/api/categories`; if not ok, throw.
-//        return { online: true, categories }.
-// Throwing on failure lets the UI show a single Offline/error state.
 export async function checkSystem(): Promise<SystemStatus> {
-  // TODO(Issue 2 & 4): implement the two fetch calls described above.
-  // throw new Error("checkSystem not implemented yet");
-  
   const healthRes = await fetch(`${API_URL}/api/health`, withCredentials());
-  if (!healthRes.ok) throw new Error("Backend health check failed");
-  
+  if (!healthRes.ok) {
+    throw new ApiRequestError("Backend health check failed.", healthRes.status);
+  }
+
   const catRes = await fetch(`${API_URL}/api/categories`, withCredentials());
-  if (!catRes.ok) throw new Error("Failed to load categories");
-  const categories: Category[] = await catRes.json();
+  if (!catRes.ok) {
+    throw new ApiRequestError("Unable to load Categories.", catRes.status);
+  }
+  const body: unknown = await catRes.json();
+  if (!Array.isArray(body)) {
+    throw new ApiRequestError("Invalid Categories response.", catRes.status);
+  }
+  const categories = body.filter(isReference) as Category[];
 
   return { online: true, categories };
-  
 }

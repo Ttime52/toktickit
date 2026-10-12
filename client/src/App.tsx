@@ -82,19 +82,6 @@ function SessionLoading() {
   );
 }
 
-function RoleLanding({ role }: { role: string }) {
-  return (
-    <section className="zen-placeholder" aria-labelledby="role-landing-title">
-      <p className="zen-eyebrow">Authenticated application</p>
-      <h1 id="role-landing-title">Your {role} workspace</h1>
-      <p>
-        Your role navigation is ready. The operational screen for this role is
-        delivered in the next Issue.
-      </p>
-    </section>
-  );
-}
-
 function ForbiddenState({ area }: { area: string }) {
   return (
     <section className="zen-empty-panel" aria-labelledby="forbidden-title">
@@ -196,7 +183,7 @@ function AuthenticatedApp() {
             currentUser={user}
           />
         ) : (
-          <RoleLanding role={user.role === "IT_STAFF" ? "IT Staff" : "Administrator"} />
+          <ForbiddenState area="this screen" />
         )
       ) : (
         currentPage === "staff-queue" || currentPage === "staff-ticket-detail" || currentPage === "admin-users" || currentPage === "admin-queue" ? (

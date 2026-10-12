@@ -203,7 +203,6 @@ export default function StaffTicketQueue({
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [queueRetry, setQueueRetry] = useState(0);
   const [referenceRetry, setReferenceRetry] = useState(0);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const query = useMemo<StaffTicketQuery>(
     () => ({
@@ -293,9 +292,7 @@ export default function StaffTicketQueue({
   function openTicket(ticketId: number) {
     if (onOpenTicket !== undefined) {
       onOpenTicket(ticketId);
-      return;
     }
-    setNotice("Ticket Detail will be available in the next Issue.");
   }
 
   function handlePageSizeChange(event: ChangeEvent<HTMLSelectElement>) {
@@ -473,8 +470,6 @@ export default function StaffTicketQueue({
           <button type="button" className="zen-button zen-button-secondary zen-small-button" onClick={() => setReferenceRetry((value) => value + 1)}>Retry</button>
         </div>
       )}
-      {notice !== null && <div className="zen-callout zen-callout-info" role="status">{notice}</div>}
-
       {queueState === "loading" && (
         <section className="zen-ticket-skeleton" aria-busy="true" aria-live="polite">
           <div className="zen-status" role="status"><span className="zen-spinner" aria-hidden="true" /> Loading Ticket Queue…</div>

@@ -45,7 +45,6 @@ function renderDetail(onNavigate = vi.fn()) {
   render(
     <TicketDetail
       ticketId={ticket.id}
-      requesterId={ticket.requester.id}
       onNavigate={onNavigate}
     />,
   );
@@ -57,8 +56,11 @@ function mockOwnedDetail(detail: Ticket = ticket) {
     const url = String(input);
     const method = init?.method ?? "GET";
 
-    if (method === "GET" && url.includes("/api/tickets/701?requesterId=7")) {
+    if (method === "GET" && url === "http://localhost:3000/api/tickets/701") {
       return jsonResponse({ data: detail });
+    }
+    if (method === "GET" && url === "http://localhost:3000/api/tickets/701/comments") {
+      return jsonResponse({ data: [] });
     }
 
     throw new Error(`Unexpected fetch: ${method} ${url}`);
@@ -96,9 +98,9 @@ describe("Requester Ticket Detail screen", () => {
     expect(within(attachments).getByLabelText("Add Attachment")).toBeInTheDocument();
     expect(within(attachments).getByText("No Attachments on this Ticket.")).toBeInTheDocument();
 
-    expect(screen.queryByText("Public Comments")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Public Comments" })).toBeInTheDocument();
     expect(screen.queryByText("Internal Notes")).not.toBeInTheDocument();
-    expect(screen.queryByText("Actions Taken")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Actions Taken" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /change status|edit ticket/iu })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Back to My Tickets" }));
@@ -123,7 +125,7 @@ describe("Requester Ticket Detail screen", () => {
 
     resolveRequest(jsonResponse({ data: ticket }));
     expect(await screen.findByText(ticket.ticketNumber)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "http://localhost:3000/api/tickets/701")).toHaveLength(1);
   });
 
   it("handles a missing Ticket with a safe Retry and Back action", async () => {
@@ -153,7 +155,7 @@ describe("Requester Ticket Detail screen", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText(ticket.ticketNumber)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "http://localhost:3000/api/tickets/701")).toHaveLength(2);
 
     await userEvent.click(screen.getByRole("button", { name: "Back to My Tickets" }));
     expect(onNavigate).toHaveBeenCalledWith("my-tickets");
@@ -185,6 +187,6 @@ describe("Requester Ticket Detail screen", () => {
     expect(screen.queryByText(ticket.summary)).not.toBeInTheDocument();
     expect(screen.queryByText(/sql|password|stack|prisma/iu)).not.toBeInTheDocument();
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 });

@@ -5,10 +5,16 @@ import request from "supertest";
 
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import {
+  createTestUser,
+  loginAs,
+  sameOrigin,
+} from "../lab-04/test-support.js";
 
 const prisma = getPrisma();
 const createdTicketIds = new Set<number>();
 const temporaryRequesterIds = new Set<number>();
+const requesterAgents = new Map<number, Awaited<ReturnType<typeof loginAs>>>();
 
 type Reference = { id: number; name: string };
 
@@ -16,14 +22,9 @@ let categories: Record<string, Reference>;
 let relatedSystems: Record<string, Reference>;
 
 async function createRequester(label: string, isActive = true) {
-  const requester = await prisma.developmentRequester.create({
-    data: {
-      displayName: `${label} ${randomUUID().slice(0, 8)}`,
-      email: `${label.toLowerCase().replace(/[^a-z0-9]+/gu, "-")}-${randomUUID()}@example.test`,
-      isActive,
-    },
-  });
+  const requester = await createTestUser("REQUESTER", label, isActive);
   temporaryRequesterIds.add(requester.id);
+  if (isActive) requesterAgents.set(requester.id, await loginAs(requester.email));
   return requester;
 }
 
@@ -38,7 +39,6 @@ async function createOwnedTicket(
   }> = {},
 ) {
   const body = {
-    requesterId,
     categoryId: overrides.categoryId ?? categories.hardware.id,
     relatedSystemId: overrides.relatedSystemId ?? relatedSystems.laptop.id,
     summary: overrides.summary ?? `Query ticket ${randomUUID()}`,
@@ -47,10 +47,14 @@ async function createOwnedTicket(
       overrides.description ??
       "This ticket is created for the My Tickets query test.",
   };
-  const response = await request(app)
-    .post("/api/tickets")
-    .set("Idempotency-Key", randomUUID())
-    .send(body);
+  const agent = requesterAgents.get(requesterId);
+  if (agent === undefined) throw new Error(`No authenticated agent for User ${requesterId}.`);
+  const response = await sameOrigin(
+    agent
+      .post("/api/tickets")
+      .set("Idempotency-Key", randomUUID())
+      .send(body),
+  );
 
   expect(response.status).toBe(201);
   const id = response.body.data.id as number;
@@ -71,7 +75,9 @@ function listQuery(
   requesterId: number,
   query: Record<string, string | undefined> = {},
 ) {
-  return request(app).get("/api/tickets").query({ requesterId, ...query });
+  const agent = requesterAgents.get(requesterId);
+  if (agent === undefined) throw new Error(`No authenticated agent for User ${requesterId}.`);
+  return agent.get("/api/tickets").query(query);
 }
 
 beforeAll(async () => {
@@ -113,7 +119,7 @@ afterAll(async () => {
 
   const requesterIds = [...temporaryRequesterIds];
   if (requesterIds.length > 0) {
-    await prisma.developmentRequester.deleteMany({ where: { id: { in: requesterIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: requesterIds } } });
   }
 });
 
@@ -396,7 +402,7 @@ describe("GET /api/tickets (API-08/API-09/API-10/API-11)", () => {
       { sortBy: "summary" },
       { sortOrder: "sideways" },
       { requestedPriority: "NORMAL" },
-      { currentStatus: "CLOSED" },
+      { currentStatus: "NOT_A_STATUS" },
       { unsupported: "true" },
     ];
     for (const query of invalidQueries) {
@@ -406,8 +412,11 @@ describe("GET /api/tickets (API-08/API-09/API-10/API-11)", () => {
     }
 
     const inactiveRequester = await createRequester("Inactive Owner", false);
-    const inactiveResponse = await listQuery(inactiveRequester.id);
-    expect(inactiveResponse.status).toBe(400);
-    expect(inactiveResponse.body.error.code).toBe("REQUESTER_CONTEXT_INVALID");
+    const inactiveResponse = await request(app).post("/api/auth/login").set("Origin", "http://localhost:5173").send({
+      email: inactiveRequester.email,
+      password: "Issue28RegressionPassword1!",
+    });
+    expect(inactiveResponse.status).toBe(401);
+    expect(inactiveResponse.body.error.code).toBe("INVALID_CREDENTIALS");
   });
 });

@@ -201,7 +201,6 @@ export default function MyTickets({
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [listRetry, setListRetry] = useState(0);
   const [referenceRetry, setReferenceRetry] = useState(0);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const query = useMemo<TicketListQuery>(
     () => ({
@@ -305,9 +304,7 @@ export default function MyTickets({
   function openTicket(ticketId: number) {
     if (onOpenTicket !== undefined) {
       onOpenTicket(ticketId);
-      return;
     }
-    setNotice("Ticket Detail is not part of Issue 5 yet.");
   }
 
   const hasFilters = isFiltered(filters, drilldownFilters);
@@ -516,12 +513,6 @@ export default function MyTickets({
           >
             Retry
           </button>
-        </div>
-      )}
-
-      {notice !== null && (
-        <div className="zen-callout zen-callout-info" role="status">
-          {notice}
         </div>
       )}
 

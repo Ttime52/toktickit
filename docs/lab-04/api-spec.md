@@ -2,7 +2,11 @@
 
 **Version:** 1.0 — Spec-DD contract  
 **Base path:** `/api`  
-**Status:** Approval baseline before Issue 2 implementation
+**Status:** Final release-candidate API evidence audit; approval baseline retained in §11
+**Final evidence status:** The API contract is implemented and covered by the
+automated evidence listed in §11 and by the full Lab 1–4 server regression
+run; the recorded results are from the current release-candidate workspace,
+not a merged `main` checkout.
 
 This document extends the Lab 2 and Lab 3 REST contracts. Existing endpoint
 semantics remain valid unless an additive Lab 4 field is called out here. JSON
@@ -662,3 +666,24 @@ and AUTH-02 in addition to the aggregate dashboard coverage below.
 | IT Staff/Admin dashboards | specification §4.6, API §5.3–5.4 | API-06, API-07, E2E-01 |
 | Concurrency and retries | API §8 | UNIT-03, API-11, WORK-02 |
 | Migration and retained routes | specification §7, API §6 | MIG-01–MIG-04, REG-01–REG-04 |
+
+## 11. Final API evidence
+
+The planned trace above is closed against the following actual test files. A
+`Pass` means the file was included in the final server test command and passed;
+the same command is recorded in [tests.md](tests.md).
+
+| API area | Actual evidence | Final status |
+|---|---|---|
+| Action Taken validation, ordering, create/update, ETag, idempotency, and role/ownership authorization | `server/tests/lab-04/actions-taken.api.test.ts`, `server/tests/lab-04/ticket-workflow.api.test.ts`, `server/tests/lab-04/ticket-workflow.unit.test.ts` | Pass |
+| Complete Ticket transition matrix and resolution/closure gates | `server/tests/lab-04/ticket-workflow.unit.test.ts`, `server/tests/lab-04/ticket-workflow.api.test.ts`, `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Pass |
+| Requester, IT Staff, and Administrator dashboard calculations, zero buckets, and drill-down authorization | `server/tests/lab-04/dashboard-metrics.unit.test.ts`, `server/tests/lab-04/requester-dashboard.api.test.ts`, `server/tests/lab-04/staff-dashboard.api.test.ts`, `server/tests/lab-04/dashboard.api.test.ts` | Pass |
+| Retained authentication, ownership, Attachments, Public Comments, Internal Notes, staff functions, and Administrator User Management | `server/tests/lab-01/*.test.ts`, `server/tests/lab-02/*.test.ts`, `server/tests/lab-03/*.test.ts`, `server/tests/lab-04/lab23-regression.api.test.ts` | Pass |
+| Migration/backfill, idempotent seed, and legacy-record preservation | `server/tests/lab-02/schema.integration.test.ts`, `server/tests/lab-03/migration-regression.integration.test.ts`, `server/tests/lab-04/lab23-regression.api.test.ts` | Pass |
+| Aggregate and paged-list performance at the documented fixture size | `server/tests/lab-04/performance-smoke.test.ts` | Pass |
+
+The API implementation deliberately keeps the Administrator boundary narrow:
+Administrator users can inspect dashboards and use Actions Taken, but status,
+assignment, and ownership mutations remain IT Staff-only. Every protected
+route rechecks the authenticated session and returns the documented safe error
+envelope before exposing protected data.
