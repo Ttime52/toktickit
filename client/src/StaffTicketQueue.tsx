@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 import {
   ApiRequestError,
+  fetchAdminTickets,
   fetchCategories,
   fetchRelatedSystems,
   fetchStaffTickets,
@@ -20,6 +21,7 @@ import {
 
 interface StaffTicketQueueProps {
   onOpenTicket?: (ticketId: number) => void;
+  mode?: "staff" | "admin";
 }
 
 type QueueState = "loading" | "success" | "error";
@@ -35,6 +37,13 @@ interface QueueFilters {
   assignment: StaffAssignment;
   sortBy: StaffSortField;
   sortOrder: TicketSortOrder;
+}
+
+interface QueueDrilldownFilters {
+  scope?: "active";
+  updatedWithin?: "7d";
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 const INITIAL_FILTERS: QueueFilters = {
@@ -105,17 +114,23 @@ function getPageSummary(meta: TicketListMeta): string {
   return `Showing ${first}–${last} of ${meta.totalItems} Tickets`;
 }
 
-function safeQueueError(error: unknown): string {
+function safeQueueError(error: unknown, mode: "staff" | "admin"): string {
   if (error instanceof ApiRequestError && error.status === 403) {
-    return "You are not allowed to view the IT Staff Ticket Queue.";
+    return mode === "admin"
+      ? "You are not allowed to view Administrator Ticket Review."
+      : "You are not allowed to view the IT Staff Ticket Queue.";
   }
   if (!(error instanceof ApiRequestError) || error.message.length === 0) {
-    return "Unable to load the Ticket Queue. Please try again.";
+    return mode === "admin"
+      ? "Unable to load Administrator Ticket Review. Please try again."
+      : "Unable to load the Ticket Queue. Please try again.";
   }
   return /\b(sql|select|insert|update|delete|password|secret|stack|trace|prisma|node_modules)\b/iu.test(
     error.message,
   )
-    ? "Unable to load the Ticket Queue. Please try again."
+    ? mode === "admin"
+      ? "Unable to load Administrator Ticket Review. Please try again."
+      : "Unable to load the Ticket Queue. Please try again."
     : error.message;
 }
 
@@ -131,8 +146,49 @@ function isFiltered(filters: QueueFilters): boolean {
   );
 }
 
-export default function StaffTicketQueue({ onOpenTicket }: StaffTicketQueueProps) {
-  const [filters, setFilters] = useState<QueueFilters>(INITIAL_FILTERS);
+function readQueueRoute(): {
+  filters: QueueFilters;
+  drilldown: QueueDrilldownFilters;
+} {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get("currentStatus");
+  const priority = params.get("itPriority");
+  const assignment = params.get("assignment");
+  return {
+    filters: {
+      ...INITIAL_FILTERS,
+      currentStatus: STATUSES.includes(status as CurrentStatus)
+        ? status as CurrentStatus
+        : "",
+      itPriority: PRIORITIES.includes(priority as RequestedPriority)
+        ? priority as RequestedPriority
+        : "",
+      assignment:
+        assignment === "assigned" || assignment === "unassigned" || assignment === "mine"
+          ? assignment
+          : "all",
+    },
+    drilldown: {
+      ...(params.get("scope") === "active" ? { scope: "active" as const } : {}),
+      ...(params.get("updatedWithin") === "7d"
+        ? { updatedWithin: "7d" as const }
+        : {}),
+      ...(params.get("windowStart") !== null && params.get("windowEnd") !== null
+        ? { windowStart: params.get("windowStart") as string, windowEnd: params.get("windowEnd") as string }
+        : {}),
+    },
+  };
+}
+
+export default function StaffTicketQueue({
+  onOpenTicket,
+  mode = "staff",
+}: StaffTicketQueueProps) {
+  const initialRoute = useMemo(readQueueRoute, []);
+  const [filters, setFilters] = useState<QueueFilters>(initialRoute.filters);
+  const [drilldownFilters, setDrilldownFilters] = useState<QueueDrilldownFilters>(
+    initialRoute.drilldown,
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<TicketPageSize>(10);
   const [queueState, setQueueState] = useState<QueueState>("loading");
@@ -164,8 +220,9 @@ export default function StaffTicketQueue({ onOpenTicket }: StaffTicketQueueProps
       sortOrder: filters.sortOrder,
       page,
       pageSize,
+      ...drilldownFilters,
     }),
-    [filters, page, pageSize],
+    [drilldownFilters, filters, page, pageSize],
   );
   const queryKey = JSON.stringify(query);
 
@@ -191,7 +248,9 @@ export default function StaffTicketQueue({ onOpenTicket }: StaffTicketQueueProps
     const controller = new AbortController();
     setQueueState("loading");
     setQueueError(null);
-    fetchStaffTickets(query, controller.signal)
+    (mode === "admin"
+      ? fetchAdminTickets(query, controller.signal)
+      : fetchStaffTickets(query, controller.signal))
       .then((result) => {
         setQueueResult(result);
         setQueueState("success");
@@ -199,10 +258,10 @@ export default function StaffTicketQueue({ onOpenTicket }: StaffTicketQueueProps
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === "AbortError") return;
         setQueueState("error");
-        setQueueError(safeQueueError(error));
+        setQueueError(safeQueueError(error, mode));
       });
     return () => controller.abort();
-  }, [queryKey, queueRetry]);
+  }, [mode, queryKey, queueRetry]);
 
   function updateFilter<K extends keyof QueueFilters>(field: K, value: QueueFilters[K]) {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -227,6 +286,7 @@ export default function StaffTicketQueue({ onOpenTicket }: StaffTicketQueueProps
 
   function clearFilters() {
     setFilters(INITIAL_FILTERS);
+    setDrilldownFilters({});
     setPage(1);
   }
 
@@ -303,17 +363,27 @@ export default function StaffTicketQueue({ onOpenTicket }: StaffTicketQueueProps
     );
   }
 
-  const hasFilters = isFiltered(filters);
+  const hasFilters =
+    isFiltered(filters) ||
+    drilldownFilters.scope !== undefined ||
+    drilldownFilters.updatedWithin !== undefined ||
+    drilldownFilters.windowStart !== undefined ||
+    drilldownFilters.windowEnd !== undefined;
   const tickets = queueResult?.data ?? [];
   const meta = queueResult?.meta ?? null;
+  const adminMode = mode === "admin";
 
   return (
     <div className="zen-staff-queue">
       <header className="zen-list-heading">
         <div>
-          <p className="zen-eyebrow">IT Staff workspace</p>
-          <h1>Ticket Queue</h1>
-          <p className="zen-lead">Search and triage every Ticket in the system.</p>
+          <p className="zen-eyebrow">{adminMode ? "Administrator workspace" : "IT Staff workspace"}</p>
+          <h1>{adminMode ? "Administrator Ticket Review" : "Ticket Queue"}</h1>
+          <p className="zen-lead">
+            {adminMode
+              ? "Review dashboard drill-down results without assignment or status mutation controls."
+              : "Search and triage every Ticket in the system."}
+          </p>
         </div>
       </header>
 
@@ -390,6 +460,12 @@ export default function StaffTicketQueue({ onOpenTicket }: StaffTicketQueueProps
           Clear Filters
         </button>
       </section>
+
+      {(drilldownFilters.scope !== undefined || drilldownFilters.updatedWithin !== undefined || drilldownFilters.windowStart !== undefined || drilldownFilters.windowEnd !== undefined) && (
+        <div className="zen-callout zen-callout-info" role="status">
+          This list is filtered by the selected Dashboard metric. Clear Filters to return to the full review list.
+        </div>
+      )}
 
       {referenceError !== null && (
         <div className="zen-callout zen-callout-warning" role="alert">

@@ -265,6 +265,12 @@ later reopened. The metric additionally requires current status `RESOLVED` or
 `CLOSED`, so a reopened Ticket is not presented as currently resolved. It does
 not count a Requester indication as a resolution.
 
+For every drill-down whose formula uses `windowStart`/`windowEnd`, the server
+includes the exact serialized bounds captured for that Dashboard response in
+the drill-down query. The destination list must use those bounds rather than
+recomputing a relative `7d` window at click time, so the displayed count and
+drill-down rows remain evidence-consistent across a reporting boundary.
+
 #### IT Staff dashboard (`GET /api/dashboard/staff`)
 
 The staff dashboard is available to IT Staff. Administrators may use the

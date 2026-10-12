@@ -3,11 +3,13 @@ import { useRef, useState, type ReactNode } from "react";
 import type { AuthUser, UserRole } from "./api.js";
 
 export type AppPage =
+  | "dashboard"
   | "my-tickets"
   | "create-ticket"
   | "ticket-detail"
   | "staff-queue"
   | "staff-ticket-detail"
+  | "admin-queue"
   | "admin-users";
 
 interface ApplicationShellProps {
@@ -81,6 +83,17 @@ export default function ApplicationShell({
             {user.role === "REQUESTER" ? (
               <>
                 <a
+                  href="/dashboard"
+                  aria-current={currentPage === "dashboard" ? "page" : undefined}
+                  className={currentPage === "dashboard" ? "is-active" : ""}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate("dashboard");
+                  }}
+                >
+                  Dashboard
+                </a>
+                <a
                   href="/my-tickets"
                   aria-current={
                     currentPage === "my-tickets" || currentPage === "ticket-detail"
@@ -112,37 +125,63 @@ export default function ApplicationShell({
                 </a>
               </>
             ) : user.role === "IT_STAFF" ? (
-              <a
-                href="/staff/tickets"
-                aria-current={
-                  currentPage === "staff-queue" || currentPage === "staff-ticket-detail"
-                    ? "page"
-                    : undefined
-                }
-                className={
-                  currentPage === "staff-queue" || currentPage === "staff-ticket-detail"
-                    ? "is-active"
-                    : ""
-                }
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigate("staff-queue");
-                }}
-              >
-                Ticket Queue
-              </a>
+              <>
+                <a
+                  href="/dashboard"
+                  aria-current={currentPage === "dashboard" ? "page" : undefined}
+                  className={currentPage === "dashboard" ? "is-active" : ""}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate("dashboard");
+                  }}
+                >
+                  Dashboard
+                </a>
+                <a
+                  href="/staff/tickets"
+                  aria-current={
+                    currentPage === "staff-queue" || currentPage === "staff-ticket-detail"
+                      ? "page"
+                      : undefined
+                  }
+                  className={
+                    currentPage === "staff-queue" || currentPage === "staff-ticket-detail"
+                      ? "is-active"
+                      : ""
+                  }
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate("staff-queue");
+                  }}
+                >
+                  Ticket Queue
+                </a>
+              </>
             ) : (
-              <a
-                href="/admin/users"
-                aria-current={currentPage === "admin-users" ? "page" : undefined}
-                className={currentPage === "admin-users" ? "is-active" : ""}
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigate("admin-users");
-                }}
-              >
-                User Management
-              </a>
+              <>
+                <a
+                  href="/dashboard"
+                  aria-current={currentPage === "dashboard" ? "page" : undefined}
+                  className={currentPage === "dashboard" ? "is-active" : ""}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate("dashboard");
+                  }}
+                >
+                  Dashboard
+                </a>
+                <a
+                  href="/admin/users"
+                  aria-current={currentPage === "admin-users" ? "page" : undefined}
+                  className={currentPage === "admin-users" ? "is-active" : ""}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate("admin-users");
+                  }}
+                >
+                  User Management
+                </a>
+              </>
             )}
           </nav>
 

@@ -10,7 +10,7 @@
 |  #64  | feature/23-actions-taken-model | Request changes and Approved |
 |  #65  | feature/24-actions-taken-api | Request changes and Approved |
 |  #66  | feature/25-actions-taken-ui | Request changes and Approved |
-|  #67  | feature/26-ticket-workflow |  |
+|  #67  | feature/26-ticket-workflow | Request changes and Approved |
 |  #68  | feature/27-dashboards |  |
 |  #69  | feature/28-final-regression-release |  |
 
@@ -80,14 +80,22 @@ https://github.com/Ttime52/toktickit/pull/67
 The Lab 4 UI spec requires the Resolved and Closed status changes to use a confirmation dialog with the required evidence, confirmation checkbox, and keyboard/focus behavior.
 The current implementation renders those controls inline in the Work Controls section instead of using the required dialog.
 Please update the Resolved/Closed workflow UI to match the documented confirmation-dialog behavior before approval.
-- How I responded:
-- Reviewer comment I received:
+- How I responded: Fixed the Resolved and Closed status changes to use a confirmation dialog with the required evidence, confirmation checkbox, and keyboard/focus behavior. Ready to re-review.
+- Reviewer comment I received: Re-reviewed the Resolved/Closed workflow fix. The inline formal-transition controls have been replaced with an accessible confirmation dialog that provides the documented status context, evidence field, confirmation checkbox, Cancel/Confirm actions, focus trapping, and focus restoration. The Resolved dialog flow is covered by the focused client test, and the client build passes.
+The only remaining suggestion is non-blocking: add direct regression coverage for the Closed dialog variant and Cancel-without-mutation behavior. Approved.
+- How I responded: 
+1. Added direct coverage for the Closed dialog variant and Closure Summary.
+2. Added Cancel-without-mutation coverage, verifying no PATCH request is sent and status remains unchanged.
+3. Existing focus-trap test remains covered.
+- Reviewer comment I received: good good my friend.
 
 PR #68 feature/27-dashboards
 https://github.com/Ttime52/toktickit/pull/68
 
-- Reviewer comment I received: 
+- Reviewer comment I received: Dashboard drill-down windows are not tied to the dashboard snapshot.
+The dashboard captures a fixed asOf value for its metrics, but the drill-down links use relative filters such as updatedWithin=7d / resolvedWithin=7d, and the destination list recomputes the window at request time. This can cause the card count and drill-down results to disagree around the reporting boundary. The drill-down should preserve the exact server-captured window used for the dashboard metrics.
 - How I responded:
+- Reviewer comment I received:
 
 PR #69 feature/28-final-regression-release
 https://github.com/Ttime52/toktickit/pull/69
@@ -148,7 +156,6 @@ https://github.com/KwanchanokThungsuk/toktickit/pull/73
 Tests were also updated to verify the real callback -> Ticket refetch -> refreshed status flow instead of relying only on manual prop rerendering.
 
 Verification:
-
 Full client suite: 15 files / 107 tests passed
 Build passed
 git diff --check passed
@@ -172,6 +179,42 @@ If the user enters My Tickets with statusGroup=active and then selects a specifi
 3. Admin cannot open Ticket Detail from the new dashboard
 Admin dashboard links use #/staff/tickets/:id, which renders StaffTicketDetail and calls GET /api/staff/tickets/:id. However, that endpoint still uses the staff-only guard, so Administrators are rejected even though the UI routes them there.
 Please normalize/clear mutually exclusive Requester filters, allow Administrator access to the operational Ticket Detail endpoint, and add tests for the full Dashboard → Ticket/List flows.
-
 The rest of the dashboard metrics, ownership scoping, empty/error states, and drill-down definitions look good.
-- Partner's response:
+- Partner's response: Thanks for the review. I fixed all three Dashboard → Ticket flow issues:
+Recently Resolved no longer sends conflicting sortBy / sortOrder.
+Selecting a specific Requester status clears statusGroup.
+Administrator can open operational Ticket Detail and use the related operational actions.
+I also added Dashboard → destination flow coverage and authorization regression tests.
+Verification is green:
+Client: 133/133 tests passed
+Server: 130/130 tests passed
+Client/server builds passed
+Prisma validation passed
+git diff --check passed
+Ready for re-review.
+- My comment: The previous dashboard issues are fixed. One filter conflict still remains:
+After opening Recently Resolved, selecting a Current Status keeps recentlyResolvedFrom/To and adds currentStatus. The backend rejects this combination with 400 Conflicting recently resolved filters.
+Please clear the recently-resolved date filters when an exact status is selected (or otherwise prevent this conflicting combination), and add a test for this interaction.
+Moreover, this commit accidentally includes server/cookies.txt, which was generated by curl. Please remove this file and add cookies.txt to .gitignore to avoid accidentally committing session cookies in the future.
+Everything else from the previous review looks resolved.
+
+- Partner's response: Fixed the remaining review items:
+Selecting an exact Current Status after entering Recently Resolved now clears recentlyResolvedFrom, recentlyResolvedTo, and statusGroup, preventing the conflicting requester query.
+Added regression coverage for the Dashboard → Recently Resolved → exact status flow.
+Removed server/cookies.txt from tracking and added it to .gitignore.
+Verification is green:
+Client: 134/134
+Server: 130/130
+Client/server builds passed
+Prisma validation passed
+git diff --check passed
+Ready for re-review.
+- My comment: Rechecked the latest changes. The previous issues are resolved: Recently Resolved filters are now cleared correctly when selecting an exact status, Admin can open operational Ticket Detail, the related regression tests were added, and the generated cookies.txt file has been removed and ignored.
+Approved.
+
+PR #76 feature/32-lab4-tests-regression
+https://github.com/KwanchanokThungsuk/toktickit/pull/76
+- My comment: The added tests cover the remaining Action ordering/ownership, field boundaries and no-partial-mutation behavior, terminal Action immutability, forced-password authorization, and duplicate-submit protection. The test evidence and AC traceability were also updated consistently.
+The remaining browser E2E, responsive/accessibility, performance, and final release evidence are clearly documented as future Issue 33 work.
+No blocking issues found. Approved.
+- Partner's response: Merged.

@@ -63,7 +63,7 @@ describe("Ticket list query parsing (UNIT-03)", () => {
     ["malformed requester", { requesterId: "0" }, "requesterId"],
     ["invalid category", { requesterId: "1", categoryId: "abc" }, "categoryId"],
     ["invalid priority", { requesterId: "1", requestedPriority: "NORMAL" }, "requestedPriority"],
-    ["invalid status", { requesterId: "1", currentStatus: "CLOSED" }, "currentStatus"],
+    ["invalid status", { requesterId: "1", currentStatus: "NOT_A_STATUS" }, "currentStatus"],
     ["invalid sort field", { requesterId: "1", sortBy: "summary" }, "sortBy"],
     ["invalid direction", { requesterId: "1", sortOrder: "sideways" }, "sortOrder"],
     ["invalid page", { requesterId: "1", page: "0" }, "page"],
