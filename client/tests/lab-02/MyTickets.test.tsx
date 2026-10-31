@@ -108,7 +108,6 @@ function renderMyTickets(
 ) {
   return render(
     <MyTickets
-      requesterId={1}
       requesterName="Arun Chaiyasit"
       {...props}
     />,
@@ -139,7 +138,7 @@ describe("My Tickets screen (UI-11/UI-12)", () => {
     );
     expect(listCall).toBeDefined();
     const params = new URL(String(listCall?.[0])).searchParams;
-    expect(params.get("requesterId")).toBe("1");
+    expect(params.get("requesterId")).toBeNull();
     expect(params.get("sortBy")).toBe("updatedAt");
     expect(params.get("sortOrder")).toBe("desc");
     expect(params.get("page")).toBe("1");

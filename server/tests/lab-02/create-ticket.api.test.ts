@@ -5,32 +5,37 @@ import request from "supertest";
 
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import {
+  activeReferences,
+  createTestUser,
+  loginAs,
+  sameOrigin,
+  TEST_PASSWORD,
+} from "../lab-04/test-support.js";
 
 const prisma = getPrisma();
 const createdTicketIds: number[] = [];
-const temporaryRequesterIds: number[] = [];
+const createdUserIds: number[] = [];
 
 function idempotencyKey() {
   return randomUUID();
 }
 
-async function validBody() {
-  const [requester, category, relatedSystem] = await Promise.all([
-    prisma.developmentRequester.findFirst({ where: { isActive: true } }),
-    prisma.category.findFirst({ where: { isActive: true }, orderBy: { id: "asc" } }),
-    prisma.relatedSystem.findFirst({ where: { isActive: true }, orderBy: { id: "asc" } }),
+async function validBody(isActive = true) {
+  const [requester, references] = await Promise.all([
+    createTestUser("REQUESTER", "lab2-create-ticket", isActive),
+    activeReferences(),
   ]);
-
-  if (requester === null || category === null || relatedSystem === null) {
-    throw new Error("Issue 4 seed data is missing.");
-  }
-
+  createdUserIds.push(requester.id);
   return {
-    requesterId: requester.id,
-    categoryId: category.id,
-    relatedSystemId: relatedSystem.id,
-    summary: "  Laptop battery drains quickly  ",
-    description: "  The laptop battery drops below 20 percent after a short meeting.  ",
+    requester,
+    agent: isActive ? await loginAs(requester.email) : null,
+    body: {
+      categoryId: references.category.id,
+      relatedSystemId: references.relatedSystem.id,
+      summary: "  Laptop battery drains quickly  ",
+      description: "  The laptop battery drops below 20 percent after a short meeting.  ",
+    },
   };
 }
 
@@ -41,45 +46,43 @@ async function rememberTicket(idempotency: string) {
 }
 
 afterAll(async () => {
-  if (createdTicketIds.length > 0) {
-    await prisma.attachment.deleteMany({ where: { ticketId: { in: createdTicketIds } } });
-    await prisma.ticket.deleteMany({ where: { id: { in: createdTicketIds } } });
-  }
-
-  if (temporaryRequesterIds.length > 0) {
-    await prisma.developmentRequester.deleteMany({
-      where: { id: { in: temporaryRequesterIds } },
+  if (createdUserIds.length > 0) {
+    const ownedTickets = await prisma.ticket.findMany({
+      where: { requesterId: { in: createdUserIds } },
+      select: { id: true },
     });
+    const ticketIds = [...new Set([...createdTicketIds, ...ownedTickets.map(({ id }) => id)])];
+    await prisma.attachment.deleteMany({ where: { ticketId: { in: ticketIds } } });
+    await prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } });
+  }
+  if (createdUserIds.length > 0) {
+    await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
   }
 });
 
 describe("POST /api/tickets (API-03/API-04/API-05/API-06)", () => {
   it("persists a valid Ticket with generated values and relationships", async () => {
-    const body = await validBody();
+    const { agent, body, requester } = await validBody();
     const key = idempotencyKey();
 
-    const response = await request(app)
-      .post("/api/tickets")
-      .set("Idempotency-Key", key)
-      .send(body);
+    const response = await sameOrigin(
+      agent!
+        .post("/api/tickets")
+        .set("Idempotency-Key", key)
+        .send(body),
+    );
 
     expect(response.status).toBe(201);
     expect(response.body.meta).toEqual({ idempotentReplay: false });
     expect(response.body.data).toMatchObject({
       ticketNumber: expect.stringMatching(/^TT-\d{4}-\d{6}$/u),
-      requester: {
-        id: body.requesterId,
-      },
-      category: {
-        id: body.categoryId,
-      },
-      relatedSystem: {
-        id: body.relatedSystemId,
-      },
+      requester: { id: requester.id },
+      category: { id: body.categoryId },
+      relatedSystem: { id: body.relatedSystemId },
       summary: "Laptop battery drains quickly",
       description: "The laptop battery drops below 20 percent after a short meeting.",
       requestedPriority: "MEDIUM",
-      itPriority: null,
+      itPriority: "MEDIUM",
       currentStatus: "NEW",
       attachments: [],
     });
@@ -89,7 +92,7 @@ describe("POST /api/tickets (API-03/API-04/API-05/API-06)", () => {
 
     const persisted = await rememberTicket(key);
     expect(persisted).toMatchObject({
-      requesterId: body.requesterId,
+      requesterId: requester.id,
       categoryId: body.categoryId,
       relatedSystemId: body.relatedSystemId,
       summary: "Laptop battery drains quickly",
@@ -100,14 +103,16 @@ describe("POST /api/tickets (API-03/API-04/API-05/API-06)", () => {
   });
 
   it("replays an equivalent request and rejects a changed payload", async () => {
-    const body = await validBody();
+    const { agent, body } = await validBody();
     const key = idempotencyKey();
-    const first = await request(app).post("/api/tickets").set("Idempotency-Key", key).send(body);
-    const replay = await request(app).post("/api/tickets").set("Idempotency-Key", key).send(body);
-    const conflict = await request(app)
-      .post("/api/tickets")
-      .set("Idempotency-Key", key)
-      .send({ ...body, summary: "A different valid summary" });
+    const first = await sameOrigin(agent!.post("/api/tickets").set("Idempotency-Key", key).send(body));
+    const replay = await sameOrigin(agent!.post("/api/tickets").set("Idempotency-Key", key).send(body));
+    const conflict = await sameOrigin(
+      agent!
+        .post("/api/tickets")
+        .set("Idempotency-Key", key)
+        .send({ ...body, summary: "A different valid summary" }),
+    );
 
     expect(first.status).toBe(201);
     expect(replay.status).toBe(200);
@@ -121,53 +126,8 @@ describe("POST /api/tickets (API-03/API-04/API-05/API-06)", () => {
     expect(await prisma.ticket.count({ where: { idempotencyKey: key } })).toBe(1);
   });
 
-  it("replays the existing Ticket when its requester becomes inactive", async () => {
-    const temporaryRequester = await prisma.developmentRequester.create({
-      data: {
-        displayName: "Replay Edge Requester",
-        email: `replay-${randomUUID()}@example.test`,
-        isActive: true,
-      },
-    });
-    temporaryRequesterIds.push(temporaryRequester.id);
-
-    const body = await validBody();
-    const requestBody = { ...body, requesterId: temporaryRequester.id };
-    const key = idempotencyKey();
-
-    try {
-      const first = await request(app)
-        .post("/api/tickets")
-        .set("Idempotency-Key", key)
-        .send(requestBody);
-
-      expect(first.status).toBe(201);
-      createdTicketIds.push(first.body.data.id);
-
-      await prisma.developmentRequester.update({
-        where: { id: temporaryRequester.id },
-        data: { isActive: false },
-      });
-
-      const replay = await request(app)
-        .post("/api/tickets")
-        .set("Idempotency-Key", key)
-        .send(requestBody);
-
-      expect(replay.status).toBe(200);
-      expect(replay.body.meta).toEqual({ idempotentReplay: true });
-      expect(replay.body.data.id).toBe(first.body.data.id);
-      expect(replay.body.data.ticketNumber).toBe(first.body.data.ticketNumber);
-    } finally {
-      await prisma.developmentRequester.update({
-        where: { id: temporaryRequester.id },
-        data: { isActive: true },
-      });
-    }
-  });
-
   it("rejects invalid form values before creating a Ticket", async () => {
-    const body = await validBody();
+    const { agent, body } = await validBody();
     const cases = [
       { ...body, summary: "   " },
       { ...body, summary: "x".repeat(121) },
@@ -179,10 +139,9 @@ describe("POST /api/tickets (API-03/API-04/API-05/API-06)", () => {
 
     for (const invalidBody of cases) {
       const key = idempotencyKey();
-      const response = await request(app)
-        .post("/api/tickets")
-        .set("Idempotency-Key", key)
-        .send(invalidBody);
+      const response = await sameOrigin(
+        agent!.post("/api/tickets").set("Idempotency-Key", key).send(invalidBody),
+      );
 
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe("VALIDATION_ERROR");
@@ -190,32 +149,32 @@ describe("POST /api/tickets (API-03/API-04/API-05/API-06)", () => {
     }
   });
 
-  it("rejects inactive or missing references without a partial Ticket", async () => {
-    const body = await validBody();
-    const inactiveRequester = await prisma.developmentRequester.findFirst({
-      where: { isActive: false },
-    });
-    if (inactiveRequester === null) throw new Error("Inactive seed requester is missing.");
+  it("rejects inactive accounts and missing active references without a partial Ticket", async () => {
+    const inactive = await validBody(false);
+    const inactiveLogin = await sameOrigin(
+      request(app)
+        .post("/api/auth/login")
+        .send({ email: inactive.requester.email, password: TEST_PASSWORD }),
+    );
+    expect(inactiveLogin.status).toBe(401);
 
-    const inactiveResponse = await request(app)
-      .post("/api/tickets")
-      .set("Idempotency-Key", idempotencyKey())
-      .send({ ...body, requesterId: inactiveRequester.id });
+    const active = await validBody();
     const missingReferenceKey = idempotencyKey();
-    const missingReferenceResponse = await request(app)
-      .post("/api/tickets")
-      .set("Idempotency-Key", missingReferenceKey)
-      .send({ ...body, categoryId: 999999999 });
+    const missingReferenceResponse = await sameOrigin(
+      active.agent!
+        .post("/api/tickets")
+        .set("Idempotency-Key", missingReferenceKey)
+        .send({ ...active.body, categoryId: 999999999 }),
+    );
 
-    expect(inactiveResponse.status).toBe(400);
-    expect(inactiveResponse.body.error.code).toBe("REQUESTER_CONTEXT_INVALID");
     expect(missingReferenceResponse.status).toBe(400);
     expect(missingReferenceResponse.body.error.code).toBe("INVALID_REFERENCE");
     expect(await prisma.ticket.count({ where: { idempotencyKey: missingReferenceKey } })).toBe(0);
   });
 
   it("requires a valid Idempotency-Key", async () => {
-    const response = await request(app).post("/api/tickets").send(await validBody());
+    const { agent, body } = await validBody();
+    const response = await sameOrigin(agent!.post("/api/tickets").send(body));
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatchObject({ code: "VALIDATION_ERROR" });

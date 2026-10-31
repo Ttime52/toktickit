@@ -19,6 +19,7 @@ export interface ManagedUser extends AuthUser {
 export interface AdminUserQuery {
   search: string;
   role: UserRole | null;
+  isActive?: boolean | null;
 }
 
 export interface CreateAdminUserInput {
@@ -87,6 +88,7 @@ export interface TicketAttachment {
 
 export interface Ticket {
   id: number;
+  version?: number;
   ticketNumber: string;
   ticketDate: string;
   requester: TicketRequester;
@@ -97,6 +99,13 @@ export interface Ticket {
   itPriority: RequestedPriority | null;
   description: string;
   currentStatus: CurrentStatus;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  cancelledAt?: string | null;
+  resolutionSummary?: string | null;
+  closureSummary?: string | null;
+  cancelReason?: string | null;
+  reopenReason?: string | null;
   requesterResolutionIndicatedAt: string | null;
   attachments: TicketAttachment[];
   createdAt: string;
@@ -149,6 +158,12 @@ export interface TicketListQuery {
   sortOrder: TicketSortOrder;
   page: number;
   pageSize: TicketPageSize;
+  scope?: "active";
+  updatedWithin?: "7d";
+  resolvedWithin?: "7d";
+  resolutionIndicated?: true;
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 export interface TicketListMeta {
@@ -207,10 +222,108 @@ export interface StaffTicketQuery {
   sortOrder: TicketSortOrder;
   page: number;
   pageSize: TicketPageSize;
+  scope?: "active";
+  updatedWithin?: "7d";
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 export interface StaffTicketListResult {
   data: StaffTicket[];
+  meta: TicketListMeta;
+}
+
+export interface DashboardDrillDown {
+  path: string;
+  query: Record<string, string>;
+}
+
+export interface DashboardMetric {
+  value: number;
+  drillDown: DashboardDrillDown;
+}
+
+export interface DashboardWindow {
+  key: "7d";
+  start: string;
+  end: string;
+}
+
+export interface DashboardTicketOwner {
+  id: number;
+  displayName: string;
+  role: UserRole;
+}
+
+export interface DashboardTicketPreview {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: CurrentStatus;
+  itPriority: RequestedPriority;
+  ticketOwner: DashboardTicketOwner | null;
+  updatedAt: string;
+}
+
+export interface RequesterTicketPreview extends DashboardTicketPreview {
+  requestedPriority: RequestedPriority;
+}
+
+export interface DashboardStatusMetric {
+  status: CurrentStatus;
+  value: number;
+  drillDown: DashboardDrillDown;
+}
+
+export interface DashboardItPriorityMetric {
+  itPriority: RequestedPriority;
+  value: number;
+  drillDown: DashboardDrillDown;
+}
+
+export interface RequesterDashboard {
+  asOf: string;
+  reportTimeZone: "Asia/Bangkok";
+  window: DashboardWindow;
+  metrics: {
+    openTicketCount: DashboardMetric;
+    waitingForRequesterCount: DashboardMetric;
+    recentlyUpdatedTicketCount: DashboardMetric;
+    recentlyResolvedTicketCount: DashboardMetric;
+    resolutionIndicationCount: DashboardMetric;
+  };
+  recentTickets: RequesterTicketPreview[];
+}
+
+export interface StaffDashboard {
+  asOf: string;
+  reportTimeZone: "Asia/Bangkok";
+  window: DashboardWindow;
+  metrics: {
+    unassignedActiveCount: DashboardMetric;
+    myAssignedActiveCount: DashboardMetric;
+    urgentActiveCount: DashboardMetric;
+    recentlyUpdatedCount: DashboardMetric;
+    ticketsByStatus: DashboardStatusMetric[];
+    ticketsByItPriority: DashboardItPriorityMetric[];
+  };
+  recentTickets: DashboardTicketPreview[];
+  urgentTickets: DashboardTicketPreview[];
+}
+
+export interface AdministratorDashboard extends StaffDashboard {
+  metrics: StaffDashboard["metrics"] & {
+    activeUserCount: DashboardMetric;
+    inactiveUserCount: DashboardMetric;
+  };
+}
+
+export interface AdminTicket extends StaffTicket {
+  inspectionPath: string;
+}
+
+export interface AdminTicketListResult {
+  data: AdminTicket[];
   meta: TicketListMeta;
 }
 
@@ -233,11 +346,74 @@ export interface StaffUserOption {
 }
 
 export interface StaffTicketDetail extends StaffTicket {
+  version?: number;
   description: string;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
+  cancelledAt?: string | null;
+  resolutionSummary?: string | null;
+  closureSummary?: string | null;
+  cancelReason?: string | null;
+  reopenReason?: string | null;
   attachments: TicketAttachment[];
   publicComments: PublicComment[];
   internalNotes: InternalNote[];
   createdAt: string;
+}
+
+export interface ActionTaken {
+  id: number;
+  ticketId: number;
+  actionAt: string;
+  actionDescription: string;
+  result: string;
+  performedBy: {
+    id: number;
+    displayName: string;
+    role: UserRole;
+  };
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: {
+    id: number;
+    displayName: string;
+    role: UserRole;
+  } | null;
+  version: number;
+  etag: string;
+}
+
+export interface ActionTakenListMeta {
+  page: number;
+  pageSize: 10 | 20 | 50 | 100;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  ticketVersion: number;
+}
+
+export interface ActionTakenListResult {
+  data: ActionTaken[];
+  meta: ActionTakenListMeta;
+}
+
+export interface ActionTakenInput {
+  actionAt: string;
+  actionDescription: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+}
+
+export interface ActionTakenMutationResult {
+  action: ActionTaken;
+  ticketVersion: number;
+  idempotentReplay?: boolean;
 }
 
 export type StaffTicketAction = "claim" | "assign" | "reassign";
@@ -248,6 +424,10 @@ export interface StaffTicketUpdateInput {
   itPriority?: RequestedPriority;
   currentStatus?: CurrentStatus;
   confirmStatusChange?: boolean;
+  resolutionSummary?: string | null;
+  closureSummary?: string | null;
+  cancelReason?: string | null;
+  reopenReason?: string | null;
 }
 
 export interface PublicComment {
@@ -530,6 +710,14 @@ export async function fetchTickets(
     params.set("requestedPriority", query.requestedPriority);
   }
   if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+  if (query.scope !== undefined) params.set("scope", query.scope);
+  if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
+  if (query.resolvedWithin !== undefined) params.set("resolvedWithin", query.resolvedWithin);
+  if (query.resolutionIndicated !== undefined) {
+    params.set("resolutionIndicated", String(query.resolutionIndicated));
+  }
+  if (query.windowStart !== undefined) params.set("windowStart", query.windowStart);
+  if (query.windowEnd !== undefined) params.set("windowEnd", query.windowEnd);
 
   const response = await fetch(`${API_URL}/api/tickets?${params.toString()}`, withCredentials(signal
     ? { signal }
@@ -575,6 +763,10 @@ export async function fetchStaffTickets(
   }
   if (query.itPriority !== null) params.set("itPriority", query.itPriority);
   if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+  if (query.scope !== undefined) params.set("scope", query.scope);
+  if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
+  if (query.windowStart !== undefined) params.set("windowStart", query.windowStart);
+  if (query.windowEnd !== undefined) params.set("windowEnd", query.windowEnd);
 
   const response = await fetch(
     `${API_URL}/api/staff/tickets?${params.toString()}`,
@@ -589,6 +781,90 @@ export async function fetchStaffTickets(
   }
   return {
     data: body.data as StaffTicket[],
+    meta: body.meta as TicketListMeta,
+  };
+}
+
+async function fetchDashboard<T>(
+  path: string,
+  fallbackMessage: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(
+    `${API_URL}${path}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) throwApiResponseError(response, body, fallbackMessage);
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError(`Invalid dashboard response.`, response.status);
+  }
+  return body.data as T;
+}
+
+export function fetchRequesterDashboard(
+  signal?: AbortSignal,
+): Promise<RequesterDashboard> {
+  return fetchDashboard<RequesterDashboard>(
+    "/api/dashboard/requester?window=7d",
+    "Unable to load My Dashboard.",
+    signal,
+  );
+}
+
+export function fetchStaffDashboard(signal?: AbortSignal): Promise<StaffDashboard> {
+  return fetchDashboard<StaffDashboard>(
+    "/api/dashboard/staff?window=7d",
+    "Unable to load the IT Staff Dashboard.",
+    signal,
+  );
+}
+
+export function fetchAdministratorDashboard(
+  signal?: AbortSignal,
+): Promise<AdministratorDashboard> {
+  return fetchDashboard<AdministratorDashboard>(
+    "/api/dashboard/administrator?window=7d",
+    "Unable to load the Administrator Dashboard.",
+    signal,
+  );
+}
+
+export async function fetchAdminTickets(
+  query: StaffTicketQuery,
+  signal?: AbortSignal,
+): Promise<AdminTicketListResult> {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+    assignment: query.assignment,
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+  if (query.search.trim().length > 0) params.set("search", query.search.trim());
+  if (query.categoryId !== null) params.set("categoryId", String(query.categoryId));
+  if (query.relatedSystemId !== null) params.set("relatedSystemId", String(query.relatedSystemId));
+  if (query.requestedPriority !== null) params.set("requestedPriority", query.requestedPriority);
+  if (query.itPriority !== null) params.set("itPriority", query.itPriority);
+  if (query.currentStatus !== null) params.set("currentStatus", query.currentStatus);
+  if (query.scope !== undefined) params.set("scope", query.scope);
+  if (query.updatedWithin !== undefined) params.set("updatedWithin", query.updatedWithin);
+  if (query.windowStart !== undefined) params.set("windowStart", query.windowStart);
+  if (query.windowEnd !== undefined) params.set("windowEnd", query.windowEnd);
+
+  const response = await fetch(
+    `${API_URL}/api/admin/tickets?${params.toString()}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Administrator Ticket Review.");
+  }
+  if (!Array.isArray(body.data) || typeof body.meta !== "object" || body.meta === null) {
+    throw new ApiRequestError("Invalid Administrator Ticket Review response.", response.status);
+  }
+  return {
+    data: body.data as AdminTicket[],
     meta: body.meta as TicketListMeta,
   };
 }
@@ -617,6 +893,9 @@ export async function fetchAdminUsers(
   const params = new URLSearchParams();
   if (query.search.trim().length > 0) params.set("search", query.search.trim());
   if (query.role !== null) params.set("role", query.role);
+  if (query.isActive !== undefined && query.isActive !== null) {
+    params.set("isActive", String(query.isActive));
+  }
 
   const response = await fetch(
     `${API_URL}/api/users?${params.toString()}`,
@@ -715,15 +994,155 @@ export async function fetchStaffTicket(
   return body.data as StaffTicketDetail;
 }
 
+function parseTicketVersionFromEtag(etag: string | null): number | null {
+  if (etag === null) return null;
+  const match = /-v(\d+)"?$/u.exec(etag);
+  if (match === null) return null;
+  const version = Number(match[1]);
+  return Number.isSafeInteger(version) && version > 0 ? version : null;
+}
+
+function actionListMeta(
+  value: unknown,
+  response: Response,
+  dataLength: number,
+): ActionTakenListMeta {
+  const meta = typeof value === "object" && value !== null
+    ? value as Record<string, unknown>
+    : {};
+  const page = typeof meta.page === "number" ? meta.page : 1;
+  const pageSize = meta.pageSize === 10 || meta.pageSize === 20 || meta.pageSize === 50 || meta.pageSize === 100
+    ? meta.pageSize
+    : 100;
+  const totalItems = typeof meta.totalItems === "number" ? meta.totalItems : dataLength;
+  const totalPages = typeof meta.totalPages === "number" ? meta.totalPages : (totalItems > 0 ? 1 : 0);
+  const ticketVersion = typeof meta.ticketVersion === "number"
+    ? meta.ticketVersion
+    : parseTicketVersionFromEtag(response.headers?.get("ETag") ?? null) ?? 0;
+
+  return {
+    page,
+    pageSize,
+    totalItems,
+    totalPages,
+    hasNextPage: meta.hasNextPage === true,
+    hasPreviousPage: meta.hasPreviousPage === true,
+    ticketVersion,
+  };
+}
+
+export async function fetchActionsTaken(
+  ticketId: number,
+  signal?: AbortSignal,
+  page = 1,
+  pageSize: 10 | 20 | 50 | 100 = 100,
+): Promise<ActionTakenListResult> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/actions?${params.toString()}`,
+    withCredentials(signal ? { signal } : undefined),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to load Actions Taken.");
+  }
+  if (!Array.isArray(body.data)) {
+    throw new ApiRequestError("Invalid Actions Taken response.", response.status);
+  }
+
+  return {
+    data: body.data as ActionTaken[],
+    meta: actionListMeta(body.meta, response, body.data.length),
+  };
+}
+
+export async function createActionTaken(
+  ticketId: number,
+  input: ActionTakenInput,
+  ticketVersion: number,
+  idempotencyKey: string,
+): Promise<ActionTakenMutationResult> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/actions`,
+    withCredentials({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+        "If-Match": `"ticket-${ticketId}-v${ticketVersion}"`,
+      },
+      body: JSON.stringify(input),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to save Action Taken.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Action Taken response.", response.status);
+  }
+
+  const meta = typeof body.meta === "object" && body.meta !== null
+    ? body.meta as Record<string, unknown>
+    : {};
+  const responseTicketVersion = typeof meta.ticketVersion === "number"
+    ? meta.ticketVersion
+    : ticketVersion + 1;
+
+  return {
+    action: body.data as ActionTaken,
+    ticketVersion: responseTicketVersion,
+    idempotentReplay: meta.idempotentReplay === true,
+  };
+}
+
+export async function updateActionTaken(
+  ticketId: number,
+  action: ActionTaken,
+  input: ActionTakenInput,
+  ticketVersion: number,
+): Promise<ActionTakenMutationResult> {
+  const response = await fetch(
+    `${API_URL}/api/tickets/${ticketId}/actions/${action.id}`,
+    withCredentials({
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": action.etag,
+      },
+      body: JSON.stringify({ ...input, expectedTicketVersion: ticketVersion }),
+    }),
+  );
+  const body = await readApiBody(response);
+  if (!response.ok) {
+    throwApiResponseError(response, body, "Unable to update Action Taken.");
+  }
+  if (typeof body.data !== "object" || body.data === null) {
+    throw new ApiRequestError("Invalid Action Taken update response.", response.status);
+  }
+
+  const meta = typeof body.meta === "object" && body.meta !== null
+    ? body.meta as Record<string, unknown>
+    : {};
+  return {
+    action: body.data as ActionTaken,
+    ticketVersion: typeof meta.ticketVersion === "number" ? meta.ticketVersion : ticketVersion + 1,
+  };
+}
+
 export async function updateStaffTicket(
   ticketId: number,
   input: StaffTicketUpdateInput,
+  ticketVersion: number,
 ): Promise<StaffTicketDetail> {
   const response = await fetch(
     `${API_URL}/api/staff/tickets/${ticketId}`,
     withCredentials({
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": `"ticket-${ticketId}-v${ticketVersion}"`,
+      },
       body: JSON.stringify(input),
     }),
   );
@@ -740,12 +1159,16 @@ export async function updateStaffTicket(
 export async function updateStaffTicketOwner(
   ticketId: number,
   input: Pick<StaffTicketUpdateInput, "action" | "assignedToUserId">,
+  ticketVersion: number,
 ): Promise<StaffTicketDetail> {
   const response = await fetch(
     `${API_URL}/api/staff/tickets/${ticketId}/owner`,
     withCredentials({
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "If-Match": `"ticket-${ticketId}-v${ticketVersion}"`,
+      },
       body: JSON.stringify(input),
     }),
   );
@@ -973,22 +1396,21 @@ export async function removeAttachment(
   return body.data as TicketAttachment;
 }
 
-// Issue 2 + Issue 4 — call the backend.
-// Steps: fetch `${API_URL}/api/health`; if not ok, throw.
-//        then fetch `${API_URL}/api/categories`; if not ok, throw.
-//        return { online: true, categories }.
-// Throwing on failure lets the UI show a single Offline/error state.
 export async function checkSystem(): Promise<SystemStatus> {
-  // TODO(Issue 2 & 4): implement the two fetch calls described above.
-  // throw new Error("checkSystem not implemented yet");
-  
   const healthRes = await fetch(`${API_URL}/api/health`, withCredentials());
-  if (!healthRes.ok) throw new Error("Backend health check failed");
-  
+  if (!healthRes.ok) {
+    throw new ApiRequestError("Backend health check failed.", healthRes.status);
+  }
+
   const catRes = await fetch(`${API_URL}/api/categories`, withCredentials());
-  if (!catRes.ok) throw new Error("Failed to load categories");
-  const categories: Category[] = await catRes.json();
+  if (!catRes.ok) {
+    throw new ApiRequestError("Unable to load Categories.", catRes.status);
+  }
+  const body: unknown = await catRes.json();
+  if (!Array.isArray(body)) {
+    throw new ApiRequestError("Invalid Categories response.", catRes.status);
+  }
+  const categories = body.filter(isReference) as Category[];
 
   return { online: true, categories };
-  
 }

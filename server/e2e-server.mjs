@@ -34,6 +34,10 @@ let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
+  // Playwright may leave keep-alive sockets open while tearing down an API
+  // context. Close them explicitly so the webServer worker can exit cleanly.
+  server.closeIdleConnections?.();
+  server.closeAllConnections?.();
   server.close((error) => {
     if (error) {
       console.error("Failed to close the E2E API server.", error);

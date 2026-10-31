@@ -1,130 +1,85 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { cleanup, render, screen } from "@testing-library/react";
 
 import App from "../../src/App.js";
 
-const activeRequesters = [
-  {
-    id: 1,
-    displayName: "Arun Chaiyasit",
-    email: "arun.chaiyasit@example.test",
-  },
-  {
-    id: 2,
-    displayName: "Boonmee Srisuk",
-    email: "boonmee.srisuk@example.test",
-  },
-];
+const authenticatedUser = {
+  id: 11,
+  displayName: "Session Requester",
+  email: "session.requester@example.test",
+  role: "REQUESTER",
+  isActive: true,
+  mustChangePassword: false,
+};
 
-function mockRequesterResponse(body: unknown, ok = true) {
-  const fetchMock = vi.fn().mockResolvedValue({
-    ok,
+function jsonResponse(body: unknown, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
     json: vi.fn().mockResolvedValue(body),
-  });
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+  };
 }
 
 afterEach(() => {
   cleanup();
-  window.localStorage.clear();
   window.history.replaceState({}, "", "/my-tickets");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-describe("Development Requester Selection (UI-01)", () => {
-  it("shows a readable loading state and disables selection actions", () => {
+describe("Session-based requester replacement (UI-01)", () => {
+  it("shows a loading session state before choosing a route", () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => undefined)));
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Loading your session" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Checking authentication");
+  });
+
+  it("renders the login form instead of a requester selector after an unauthenticated response", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation(() => new Promise(() => undefined)),
+      vi.fn().mockResolvedValue(
+        jsonResponse({ error: { code: "AUTHENTICATION_REQUIRED" } }, 401),
+      ),
     );
 
     render(<App />);
 
-    expect(
-      screen.getByRole("heading", { name: "Development Requester Selection" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Select a Development Requester to test requester-specific ticket behavior. This is not a login screen."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Loading Development Requesters",
-    );
-    expect(screen.getByRole("combobox", { name: /Development Requester/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByText(/Development Requester Selection/iu)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Requester/iu })).not.toBeInTheDocument();
   });
 
-  it("renders active options, excludes inactive data, and continues to the shell", async () => {
-    mockRequesterResponse([
-      ...activeRequesters,
-      {
-        id: 99,
-        displayName: "Inactive Test Requester",
-        email: "inactive.requester@example.test",
-        isActive: false,
-      },
-    ]);
-
-    const user = userEvent.setup();
-    render(<App />);
-
-    const select = await screen.findByRole("combobox", {
-      name: /Development Requester/,
+  it("uses the current session identity for My Tickets and navigation", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/auth/me")) return jsonResponse({ data: { user: authenticatedUser } });
+      if (url.includes("/api/categories")) return jsonResponse([]);
+      if (url.includes("/api/related-systems")) return jsonResponse([]);
+      if (url.includes("/api/tickets?")) {
+        return jsonResponse({
+          data: [],
+          meta: {
+            page: 1,
+            pageSize: 10,
+            totalItems: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
     });
-    expect(select).not.toBeDisabled();
-    expect(
-      screen.queryByRole("option", { name: /Inactive Test Requester/ }),
-    ).not.toBeInTheDocument();
-
-    const continueButton = screen.getByRole("button", { name: "Continue" });
-    expect(continueButton).toBeDisabled();
-    await user.selectOptions(select, "1");
-    expect(continueButton).toBeEnabled();
-    await user.click(continueButton);
-
-    expect(
-      await screen.findByRole("heading", { name: "My Tickets" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Arun Chaiyasit")).toBeInTheDocument();
-  });
-
-  it("shows an empty state with Retry when no active requester exists", async () => {
-    const fetchMock = mockRequesterResponse([]);
-    render(<App />);
-
-    expect(
-      await screen.findByText("No active Development Requesters are available."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows a safe failure and retries the requester request", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("SQL password and stack path"))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue(activeRequesters),
-      });
     vi.stubGlobal("fetch", fetchMock);
 
-    const user = userEvent.setup();
     render(<App />);
 
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(
-      "Unable to load Development Requesters. Please try again.",
-    );
-    expect(alert).not.toHaveTextContent("SQL password");
-    await user.click(screen.getByRole("button", { name: "Retry" }));
-
-    await waitFor(() =>
-      expect(screen.getByRole("option", { name: /Arun Chaiyasit/ })).toBeInTheDocument(),
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole("heading", { name: "My Tickets" })).toBeInTheDocument();
+    expect(screen.getByText(authenticatedUser.displayName)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("development-requesters"))).toBe(false);
+    expect(screen.getByRole("link", { name: "Create Ticket" })).toBeInTheDocument();
   });
 });

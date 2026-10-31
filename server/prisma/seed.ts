@@ -43,6 +43,42 @@ const TICKET_FIXTURES = [
   { key: "lab3-seed-ticket-0008", requesterEmail: "darin.phromma@example.test", category: "Account and Access", relatedSystem: "Email", summary: "New account access is pending", description: "A new account needs the standard access package for a training session.", requestedPriority: "MEDIUM" as const, itPriority: "MEDIUM" as const, currentStatus: "NEW" as const, ownerEmail: null },
 ];
 
+const ACTION_FIXTURES = [
+  {
+    key: "lab4-seed-action-0001",
+    ticketKey: "lab3-seed-ticket-0001",
+    performerEmail: "somchai.staff@example.test",
+    actionDateTime: "2026-09-19T02:30:00.000Z",
+    description: "Checked battery health and reviewed the endpoint power profile.",
+    result: "Battery health is degraded and a replacement request is recommended.",
+    followUpRequired: false,
+    followUpNote: null,
+    attachmentNotes: "Review the existing battery diagnostic screenshot.",
+  },
+  {
+    key: "lab4-seed-action-0002",
+    ticketKey: "lab3-seed-ticket-0002",
+    performerEmail: "somchai.staff@example.test",
+    actionDateTime: "2026-09-19T03:00:00.000Z",
+    description: "Reviewed wireless controller logs and restarted the affected access point.",
+    result: "The connection is stable for the current test window.",
+    followUpRequired: true,
+    followUpNote: "Confirm connection stability with the requester after the next workday.",
+    attachmentNotes: null,
+  },
+  {
+    key: "lab4-seed-action-0003",
+    ticketKey: "lab3-seed-ticket-0002",
+    performerEmail: "pimchanok.staff@example.test",
+    actionDateTime: "2026-09-19T04:15:00.000Z",
+    description: "Compared the workstation settings with the approved campus Wi-Fi profile.",
+    result: "The workstation profile matches the approved configuration.",
+    followUpRequired: false,
+    followUpNote: null,
+    attachmentNotes: "No new upload; compare with the existing network diagnostic attachment.",
+  },
+] as const;
+
 function normalizedEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -138,13 +174,19 @@ export async function seedDatabase(prisma: PrismaClient = getPrisma()) {
     // A migration may contain requester rows that are not part of this local
     // fixture. They still need credentials before passwordHash becomes NOT NULL.
     const users = await transaction.user.findMany({
-      select: { id: true, email: true },
+      select: { id: true, email: true, passwordHash: true },
     });
     for (const user of users) {
       const email = normalizedEmail(user.email);
+      const seededPasswordHash = passwordHashByEmail.get(email);
+      // Seeded fixture accounts are deliberately reset on every run. For
+      // migrated/non-fixture users, only provision rows that still have no
+      // password so rerunning the seed remains safe and bounded.
+      if (seededPasswordHash === undefined && user.passwordHash !== null) {
+        continue;
+      }
       const passwordHash =
-        passwordHashByEmail.get(email) ??
-        (await argon2.hash(password, { type: argon2.argon2id }));
+        seededPasswordHash ?? (await argon2.hash(password, { type: argon2.argon2id }));
       await transaction.user.update({
         where: { id: user.id },
         data: { passwordHash, mustChangePassword: true },
@@ -171,6 +213,8 @@ export async function seedDatabase(prisma: PrismaClient = getPrisma()) {
       relatedSystems.map((row) => [row.name, row.id]),
     );
 
+    const ticketIdBySeedKey = new Map<string, number>();
+
     for (const fixture of TICKET_FIXTURES) {
       const requesterId = userIdByEmail.get(normalizedEmail(fixture.requesterEmail));
       const categoryId = categoryIdByName.get(fixture.category);
@@ -193,6 +237,27 @@ export async function seedDatabase(prisma: PrismaClient = getPrisma()) {
         select: { id: true },
       });
       const assignedAt = assignedToUserId === null ? null : ticketDate;
+      const workflowFields = {
+        resolvedAt:
+          fixture.currentStatus === "RESOLVED" || fixture.currentStatus === "CLOSED"
+            ? ticketDate
+            : null,
+        closedAt: fixture.currentStatus === "CLOSED" ? ticketDate : null,
+        cancelledAt: fixture.currentStatus === "CANCELLED" ? ticketDate : null,
+        resolutionSummary:
+          fixture.currentStatus === "RESOLVED" || fixture.currentStatus === "CLOSED"
+            ? "The reported service issue was investigated and the requested outcome was confirmed."
+            : null,
+        closureSummary:
+          fixture.currentStatus === "CLOSED"
+            ? "The requester-facing resolution was confirmed and the Ticket was closed."
+            : null,
+        cancelReason:
+          fixture.currentStatus === "CANCELLED"
+            ? "The requested work is no longer required."
+            : null,
+        reopenReason: null,
+      };
 
       const ticket =
         existing === null
@@ -211,6 +276,7 @@ export async function seedDatabase(prisma: PrismaClient = getPrisma()) {
                 assignedToUserId,
                 assignedAt,
                 idempotencyKey: fixture.key,
+                ...workflowFields,
               },
             })
           : await transaction.ticket.update({
@@ -226,14 +292,48 @@ export async function seedDatabase(prisma: PrismaClient = getPrisma()) {
                 currentStatus: fixture.currentStatus,
                 assignedToUserId,
                 assignedAt,
+                ...workflowFields,
               },
             });
+
+      ticketIdBySeedKey.set(fixture.key, ticket.id);
 
       const staffAuthorId = userIdByEmail.get("narin.staff@example.test");
       if (staffAuthorId === undefined) throw new Error("Seed staff author is missing.");
       if (fixture.key === "lab3-seed-ticket-0001") {
         await seedCommentAndNote(transaction, ticket.id, staffAuthorId);
       }
+    }
+
+    for (const fixture of ACTION_FIXTURES) {
+      const ticketId = ticketIdBySeedKey.get(fixture.ticketKey);
+      const performerId = userIdByEmail.get(normalizedEmail(fixture.performerEmail));
+      if (ticketId === undefined || performerId === undefined) {
+        throw new Error(`Seed Action Taken ${fixture.key} has an unresolved reference.`);
+      }
+
+      await transaction.actionTaken.upsert({
+        where: { seedKey: fixture.key },
+        update: {
+          actionDateTime: new Date(fixture.actionDateTime),
+          description: fixture.description,
+          result: fixture.result,
+          followUpRequired: fixture.followUpRequired,
+          followUpNote: fixture.followUpNote,
+          attachmentNotes: fixture.attachmentNotes,
+        },
+        create: {
+          ticketId,
+          actionDateTime: new Date(fixture.actionDateTime),
+          description: fixture.description,
+          result: fixture.result,
+          performedById: performerId,
+          followUpRequired: fixture.followUpRequired,
+          followUpNote: fixture.followUpNote,
+          attachmentNotes: fixture.attachmentNotes,
+          seedKey: fixture.key,
+        },
+      });
     }
 
     const missingPasswordRows = await transaction.$queryRaw<Array<{ count: number }>>`
@@ -248,7 +348,7 @@ export async function seedDatabase(prisma: PrismaClient = getPrisma()) {
     await transaction.$executeRaw`
       ALTER TABLE "users" ALTER COLUMN "passwordHash" SET NOT NULL
     `;
-  }, { maxWait: 10000, timeout: 30000 });
+  }, { maxWait: 10000, timeout: 120000 });
 }
 
 async function main() {
@@ -257,7 +357,7 @@ async function main() {
   try {
     await seedDatabase(prisma);
     console.log(
-      `Seeded ${CATEGORY_NAMES.length} categories, ${RELATED_SYSTEM_NAMES.length} related systems, ${SEED_USERS.length} users, ${TICKET_FIXTURES.length} tickets, and example comments/notes.`,
+      `Seeded ${CATEGORY_NAMES.length} categories, ${RELATED_SYSTEM_NAMES.length} related systems, ${SEED_USERS.length} users, ${TICKET_FIXTURES.length} tickets, ${ACTION_FIXTURES.length} Actions Taken, and example comments/notes.`,
     );
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Unable to seed database.");

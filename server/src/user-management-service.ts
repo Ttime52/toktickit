@@ -59,6 +59,7 @@ export interface ResetManagedUserPasswordInput {
 export interface UserListQuery {
   search: string;
   role: ManagedUserRole | null;
+  isActive: boolean | null;
 }
 
 type ValidationResult<T> =
@@ -255,7 +256,7 @@ export function parseUserListQuery(
 ): ValidationResult<UserListQuery> {
   const fields: Record<string, string> = {};
   for (const key of Object.keys(query)) {
-    if (key !== "search" && key !== "role") {
+    if (key !== "search" && key !== "role" && key !== "isActive") {
       fields[key] = `Unknown query parameter: ${key}.`;
     }
   }
@@ -274,10 +275,20 @@ export function parseUserListQuery(
     else role = rawRole;
   }
 
+  const rawIsActive = query.isActive;
+  let isActive: boolean | null = null;
+  if (rawIsActive !== undefined) {
+    if (rawIsActive !== "true" && rawIsActive !== "false") {
+      fields.isActive = "isActive must be true or false.";
+    } else {
+      isActive = rawIsActive === "true";
+    }
+  }
+
   if (Object.keys(fields).length > 0) {
     return { ok: false, error: validationError(fields, "Invalid User query.") };
   }
-  return { ok: true, value: { search, role } };
+  return { ok: true, value: { search, role, isActive } };
 }
 
 export async function listManagedUsers(
@@ -286,6 +297,7 @@ export async function listManagedUsers(
 ): Promise<ManagedUser[]> {
   const where: Prisma.UserWhereInput = {};
   if (query.role !== null) where.role = query.role;
+  if (query.isActive !== null) where.isActive = query.isActive;
   if (query.search.length > 0) {
     where.OR = [
       { displayName: { contains: query.search, mode: "insensitive" } },

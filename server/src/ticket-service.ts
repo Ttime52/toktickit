@@ -16,9 +16,11 @@ import {
   type NormalizedCreateTicketInput,
 } from "./ticket-validation.js";
 import {
+  ACTIVE_TICKET_STATUSES,
   type TicketListQuery,
   type TicketSortField,
 } from "./ticket-query.js";
+import { dashboardWindowFor } from "./dashboard-window.js";
 
 export const fullTicketInclude = {
   requester: {
@@ -66,6 +68,7 @@ export function serializeTicket(ticket: FullTicketRecord) {
   const ticketOwner = serializeTicketOwner(ticket.assignedTo);
   return {
     id: ticket.id,
+    version: ticket.version,
     ticketNumber: ticket.ticketNumber,
     ticketDate: ticket.ticketDate.toISOString(),
     requester: ticket.requester,
@@ -76,6 +79,13 @@ export function serializeTicket(ticket: FullTicketRecord) {
     itPriority: ticket.itPriority,
     description: ticket.description,
     currentStatus: ticket.currentStatus,
+    resolvedAt: ticket.resolvedAt?.toISOString() ?? null,
+    closedAt: ticket.closedAt?.toISOString() ?? null,
+    cancelledAt: ticket.cancelledAt?.toISOString() ?? null,
+    resolutionSummary: ticket.resolutionSummary,
+    closureSummary: ticket.closureSummary,
+    cancelReason: ticket.cancelReason,
+    reopenReason: ticket.reopenReason,
     ticketOwner,
     assignedTo: ticketOwner,
     assignedAt: ticket.assignedAt?.toISOString() ?? null,
@@ -300,59 +310,86 @@ function sortTicketListRecords(
 }
 
 function ownedTicketWhere(query: TicketListQuery): Prisma.TicketWhereInput {
-  return {
-    requesterId: query.requesterId,
-    ...(query.categoryId === null ? {} : { categoryId: query.categoryId }),
-    ...(query.relatedSystemId === null
-      ? {}
-      : { relatedSystemId: query.relatedSystemId }),
-    ...(query.requestedPriority === null
-      ? {}
-      : { requestedPriority: query.requestedPriority }),
-    ...(query.currentStatus === null
-      ? {}
-      : { currentStatus: query.currentStatus }),
-    ...(query.search.length === 0
-      ? {}
-      : {
-          OR: [
-            {
-              ticketNumber: {
-                contains: query.search,
-                mode: "insensitive",
-              },
+  const conditions: Prisma.TicketWhereInput[] = [{ requesterId: query.requesterId }];
+  const dashboardWindow =
+    query.windowStart !== undefined && query.windowEnd !== undefined
+      ? { start: query.windowStart, end: query.windowEnd }
+      : query.updatedWithin === "7d" || query.resolvedWithin === "7d"
+      ? dashboardWindowFor(new Date())
+      : null;
+  if (query.categoryId !== null) conditions.push({ categoryId: query.categoryId });
+  if (query.relatedSystemId !== null) {
+    conditions.push({ relatedSystemId: query.relatedSystemId });
+  }
+  if (query.requestedPriority !== null) {
+    conditions.push({ requestedPriority: query.requestedPriority });
+  }
+  if (query.currentStatus !== null) {
+    conditions.push({ currentStatus: query.currentStatus });
+  }
+  if (query.scope === "active") {
+    conditions.push({ currentStatus: { in: [...ACTIVE_TICKET_STATUSES] } });
+  }
+
+  if (query.updatedWithin === "7d" && dashboardWindow !== null) {
+    conditions.push({ updatedAt: { gte: dashboardWindow.start, lt: dashboardWindow.end } });
+  }
+  if (query.resolvedWithin === "7d" && dashboardWindow !== null) {
+    conditions.push({
+      currentStatus: { in: ["RESOLVED", "CLOSED"] },
+      resolvedAt: { gte: dashboardWindow.start, lt: dashboardWindow.end },
+    });
+  }
+
+  if (query.resolutionIndicated === true) {
+    conditions.push({
+      requesterResolutionIndicatedAt: { not: null },
+      currentStatus: { in: [...ACTIVE_TICKET_STATUSES] },
+    });
+  }
+
+  if (query.search.length > 0) {
+    conditions.push({
+      OR: [
+        {
+          ticketNumber: {
+            contains: query.search,
+            mode: "insensitive",
+          },
+        },
+        {
+          summary: {
+            contains: query.search,
+            mode: "insensitive",
+          },
+        },
+        {
+          description: {
+            contains: query.search,
+            mode: "insensitive",
+          },
+        },
+        {
+          category: {
+            name: {
+              contains: query.search,
+              mode: "insensitive",
             },
-            {
-              summary: {
-                contains: query.search,
-                mode: "insensitive",
-              },
+          },
+        },
+        {
+          relatedSystem: {
+            name: {
+              contains: query.search,
+              mode: "insensitive",
             },
-            {
-              description: {
-                contains: query.search,
-                mode: "insensitive",
-              },
-            },
-            {
-              category: {
-                name: {
-                  contains: query.search,
-                  mode: "insensitive",
-                },
-              },
-            },
-            {
-              relatedSystem: {
-                name: {
-                  contains: query.search,
-                  mode: "insensitive",
-                },
-              },
-            },
-          ],
-        }),
-  };
+          },
+        },
+      ],
+    });
+  }
+
+  return { AND: conditions };
 }
 
 export async function listTickets(

@@ -1,27 +1,67 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 
 import App from "../../src/App.js";
-import { REQUESTER_STORAGE_KEY } from "../../src/RequesterContext.js";
 
-const requesters = [
-  {
-    id: 1,
-    displayName: "Arun Chaiyasit",
-    email: "arun.chaiyasit@example.test",
-  },
-  {
-    id: 2,
-    displayName: "Boonmee Srisuk",
-    email: "boonmee.srisuk@example.test",
-  },
-];
+const requester = {
+  id: 1,
+  displayName: "Arun Chaiyasit",
+  email: "arun.chaiyasit@example.test",
+  role: "REQUESTER",
+  isActive: true,
+  mustChangePassword: false,
+};
 
-function mockRequesterResponse() {
-  const fetchMock = vi.fn().mockResolvedValue({
-    ok: true,
-    json: vi.fn().mockResolvedValue(requesters),
+const staff = {
+  id: 2,
+  displayName: "Narin IT Staff",
+  email: "narin.staff@example.test",
+  role: "IT_STAFF",
+  isActive: true,
+  mustChangePassword: false,
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: vi.fn().mockResolvedValue(body),
+  };
+}
+
+function mockSession(user: typeof requester | typeof staff) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/auth/me")) return jsonResponse({ data: { user } });
+    if (url.includes("/api/categories")) return jsonResponse([]);
+    if (url.includes("/api/related-systems")) return jsonResponse([]);
+    if (url.includes("/api/tickets?")) {
+      return jsonResponse({
+        data: [],
+        meta: {
+          page: 1,
+          pageSize: 10,
+          totalItems: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      });
+    }
+    if (url.includes("/api/staff/tickets?")) {
+      return jsonResponse({
+        data: [],
+        meta: {
+          page: 1,
+          pageSize: 10,
+          totalItems: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      });
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -29,78 +69,47 @@ function mockRequesterResponse() {
 
 afterEach(() => {
   cleanup();
-  window.localStorage.clear();
   window.history.replaceState({}, "", "/my-tickets");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-describe("Requester context and navigation (UI-02)", () => {
-  it("redirects an unselected My Tickets URL to the selection screen", async () => {
-    mockRequesterResponse();
-    window.history.replaceState({}, "", "/my-tickets");
+describe("Authenticated User context and role navigation (UI-02)", () => {
+  it("shows the sign-in boundary when no authenticated session exists", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({ error: { code: "AUTHENTICATION_REQUIRED" } }, 401),
+      ),
+    );
 
     render(<App />);
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "Development Requester Selection",
-      }),
-    ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/select-requester");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Email/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Password/)).toBeInTheDocument();
   });
 
-  it("restores a valid stored requester and removes an invalid stored id", async () => {
-    mockRequesterResponse();
-    window.localStorage.setItem(REQUESTER_STORAGE_KEY, "2");
+  it("restores the authenticated requester and keeps ownership in the session boundary", async () => {
+    mockSession(requester);
 
-    const { unmount } = render(<App />);
-    expect(
-      await screen.findByRole("heading", { name: "My Tickets" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Boonmee Srisuk")).toBeInTheDocument();
-
-    unmount();
-    window.localStorage.setItem(REQUESTER_STORAGE_KEY, "999");
     render(<App />);
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "Development Requester Selection",
-      }),
-    ).toBeInTheDocument();
-    expect(window.localStorage.getItem(REQUESTER_STORAGE_KEY)).toBeNull();
+    expect(await screen.findByRole("heading", { name: "My Tickets" })).toBeInTheDocument();
+    expect(screen.getByText(requester.displayName)).toBeInTheDocument();
+    expect(screen.getByText("Requester")).toBeInTheDocument();
+    expect(screen.queryByText(/Development Requester/iu)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Requester/iu })).not.toBeInTheDocument();
   });
 
-  it("persists selection, updates the shell, and clears requester-scoped state on change", async () => {
-    mockRequesterResponse();
-    const user = userEvent.setup();
+  it("does not expose requester screens to an IT Staff session", async () => {
+    mockSession(staff);
+
     render(<App />);
 
-    const select = await screen.findByRole("combobox", {
-      name: /Development Requester/,
-    });
-    await user.selectOptions(select, "1");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(window.localStorage.getItem(REQUESTER_STORAGE_KEY)).toBe("1");
-    expect(screen.getByText("Arun Chaiyasit")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Change Requester" }));
-    expect(
-      await screen.findByRole("heading", {
-        name: "Development Requester Selection",
-      }),
-    ).toBeInTheDocument();
-    expect(window.localStorage.getItem(REQUESTER_STORAGE_KEY)).toBeNull();
-
-    const changedSelect = screen.getByRole("combobox", {
-      name: /Development Requester/,
-    });
-    await user.selectOptions(changedSelect, "2");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(window.localStorage.getItem(REQUESTER_STORAGE_KEY)).toBe("2");
-    expect(screen.getByText("Boonmee Srisuk")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /You cannot view Requester Ticket screens/iu })).toBeInTheDocument();
+    expect(screen.getByText(staff.displayName)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ticket Queue" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create Ticket" })).not.toBeInTheDocument();
   });
 });

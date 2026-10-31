@@ -3,10 +3,28 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "migrate": "npm --prefix server run prisma:migrate",
+    "seed": "npm --prefix server run prisma:seed",
+    "test:client": "npm --prefix client test",
+    "test:client:lab2": "npm --prefix client test -- tests/lab-02",
+    "test:client:lab3": "npm --prefix client test -- tests/lab-03",
+    "test:client:lab4": "npm --prefix client test -- tests/lab-04",
+    "test:server": "npm --prefix server test",
+    "test:server:lab2": "npm --prefix server test -- tests/lab-02",
+    "test:server:lab3": "npm --prefix server test -- tests/lab-03",
+    "test:server:lab4": "npm --prefix server test -- tests/lab-04",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
     "test:e2e": "playwright test",
+    "test:e2e:lab2": "playwright test --config playwright.lab2.config.ts",
     "test:e2e:lab3": "playwright test",
+    "test:e2e:lab4": "playwright test --config playwright.lab4.config.ts",
+    "test:regression": "npm run test:client && npm run test:server && npm run test:e2e:lab2 && npm run test:e2e:lab3 && npm run test:e2e:lab4",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report artifacts/lab-03/playwright-report"
+    "test:e2e:report": "playwright show-report artifacts/lab-03/playwright-report",
+    "test:e2e:lab4:report": "playwright show-report artifacts/lab-04/playwright-report",
+    "demo:server": "npm --prefix server run dev",
+    "demo:client": "npm --prefix client run dev"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"

@@ -25,7 +25,7 @@ const activeAttachment: TicketAttachment = {
   removalReason: null,
   previewable: true,
   downloadUrl:
-    "/api/tickets/101/attachments/501/download?requesterId=1",
+    "/api/tickets/101/attachments/501/download",
 };
 
 const ticket: Ticket = {
@@ -61,7 +61,6 @@ function renderDetail() {
   return render(
     <TicketDetail
       ticketId={ticket.id}
-      requesterId={ticket.requester.id}
       onNavigate={vi.fn()}
     />,
   );
@@ -77,11 +76,15 @@ function mockDetailApi(options?: {
     const url = String(input);
     const method = init?.method ?? "GET";
 
-    if (method === "GET" && url.includes("/api/tickets/101?requesterId=1")) {
+    if (method === "GET" && url === "http://localhost:3000/api/tickets/101") {
       return jsonResponse(
         options?.detailBody ?? { data: ticket },
         options?.detailStatus ?? 200,
       );
+    }
+
+    if (method === "GET" && url === "http://localhost:3000/api/tickets/101/comments") {
+      return jsonResponse({ data: [] });
     }
 
     if (method === "POST" && url.includes("/api/tickets/101/attachments")) {
@@ -155,7 +158,7 @@ describe("Requester Ticket Detail (UI-13/UI-14/UI-15)", () => {
     expect(screen.getByRole("link", { name: "Preview" })).toHaveAttribute(
       "href",
       expect.stringContaining(
-        "/api/tickets/101/attachments/501/download?requesterId=1&disposition=inline",
+        "/api/tickets/101/attachments/501/download?disposition=inline",
       ),
     );
     expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
@@ -168,9 +171,9 @@ describe("Requester Ticket Detail (UI-13/UI-14/UI-15)", () => {
     );
     expect(screen.getByText("old-file.pdf")).toBeInTheDocument();
     expect(screen.getAllByText("Download unavailable")).toHaveLength(1);
-    expect(screen.queryByText("Public Comments")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Public Comments" })).toBeInTheDocument();
     expect(screen.queryByText("Internal Notes")).not.toBeInTheDocument();
-    expect(screen.queryByText("Actions Taken")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Actions Taken" })).toBeInTheDocument();
   });
 
   it("validates a selected file and uploads a permitted file to the owned Ticket", async () => {
@@ -230,7 +233,7 @@ describe("Requester Ticket Detail (UI-13/UI-14/UI-15)", () => {
 
     await waitFor(() => {
       expect(fetchMock.mock.calls.some(([input, init]) =>
-        String(input).includes("/api/tickets/101/attachments/501?requesterId=1") &&
+        String(input).includes("/api/tickets/101/attachments/501") &&
         init?.method === "DELETE" &&
         String(init.body).includes("Uploaded the wrong screenshot"),
       )).toBe(true);

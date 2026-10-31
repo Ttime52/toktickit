@@ -88,6 +88,7 @@ export interface StaffUserOption extends StaffOwnerSummary {}
 
 export interface StaffTicketDetail {
   id: number;
+  version: number;
   ticketNumber: string;
   ticketDate: string;
   requester: { id: number; displayName: string; email: string };
@@ -98,6 +99,13 @@ export interface StaffTicketDetail {
   itPriority: ItPriority;
   description: string;
   currentStatus: CurrentStatus;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  cancelledAt: string | null;
+  resolutionSummary: string | null;
+  closureSummary: string | null;
+  cancelReason: string | null;
+  reopenReason: string | null;
   ticketOwner: StaffOwnerSummary | null;
   assignedTo: StaffOwnerSummary | null;
   requesterResolutionIndicatedAt: string | null;
@@ -123,6 +131,7 @@ export function serializeStaffTicketDetail(
   const ticketOwner = ownerSummary(ticket.assignedTo);
   return {
     id: ticket.id,
+    version: ticket.version,
     ticketNumber: ticket.ticketNumber,
     ticketDate: ticket.ticketDate.toISOString(),
     requester: ticket.requester,
@@ -133,6 +142,13 @@ export function serializeStaffTicketDetail(
     itPriority: ticket.itPriority,
     description: ticket.description,
     currentStatus: ticket.currentStatus,
+    resolvedAt: ticket.resolvedAt?.toISOString() ?? null,
+    closedAt: ticket.closedAt?.toISOString() ?? null,
+    cancelledAt: ticket.cancelledAt?.toISOString() ?? null,
+    resolutionSummary: ticket.resolutionSummary,
+    closureSummary: ticket.closureSummary,
+    cancelReason: ticket.cancelReason,
+    reopenReason: ticket.reopenReason,
     ticketOwner,
     assignedTo: ticketOwner,
     requesterResolutionIndicatedAt:
@@ -194,6 +210,10 @@ export interface StaffTicketUpdateInput {
   itPriority?: ItPriority;
   currentStatus?: TicketStatusValue;
   confirmStatusChange?: boolean;
+  resolutionSummary?: string;
+  closureSummary?: string;
+  cancelReason?: string;
+  reopenReason?: string;
 }
 
 type StaffTicketUpdateResult =
@@ -206,6 +226,10 @@ const UPDATE_FIELDS = new Set([
   "itPriority",
   "currentStatus",
   "confirmStatusChange",
+  "resolutionSummary",
+  "closureSummary",
+  "cancelReason",
+  "reopenReason",
 ]);
 
 const OWNER_UPDATE_FIELDS = new Set(["action", "assignedToUserId"]);
@@ -280,6 +304,23 @@ export function validateStaffTicketUpdateBody(
     }
   }
 
+  function optionalEvidenceField(
+    name: "resolutionSummary" | "closureSummary" | "cancelReason" | "reopenReason",
+  ): string | undefined {
+    const value = record[name];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== "string") {
+      fields[name] = "This field must be a string when provided.";
+      return undefined;
+    }
+    return value;
+  }
+
+  const resolutionSummary = optionalEvidenceField("resolutionSummary");
+  const closureSummary = optionalEvidenceField("closureSummary");
+  const cancelReason = optionalEvidenceField("cancelReason");
+  const reopenReason = optionalEvidenceField("reopenReason");
+
   if (action === "claim" && assignedToUserId !== undefined) {
     fields.assignedToUserId = "Claim does not accept an assignee ID.";
   }
@@ -309,12 +350,46 @@ export function validateStaffTicketUpdateBody(
 
   return {
     ok: true,
-    value: { action, assignedToUserId, itPriority, currentStatus, confirmStatusChange },
+    value: {
+      action,
+      assignedToUserId,
+      itPriority,
+      currentStatus,
+      confirmStatusChange,
+      resolutionSummary,
+      closureSummary,
+      cancelReason,
+      reopenReason,
+    },
   };
 }
 
 function isFormalStatus(status: TicketStatusValue): boolean {
   return status === "RESOLVED" || status === "CLOSED";
+}
+
+function requiredStatusEvidence(
+  field: "resolutionSummary" | "closureSummary" | "cancelReason" | "reopenReason",
+  label: string,
+  value: string | undefined,
+  minLength: number,
+  maxLength: number,
+): string {
+  const trimmed = value?.trim() ?? "";
+  if (trimmed.length === 0) {
+    throw new ApiError(
+      400,
+      "STATUS_CONFIRMATION_REQUIRED",
+      `${label} is required for this status transition.`,
+      { [field]: `${label} must be ${minLength} to ${maxLength} characters.` },
+    );
+  }
+  if (trimmed.length < minLength || trimmed.length > maxLength) {
+    throw validationError({
+      [field]: `${label} must be ${minLength} to ${maxLength} characters.`,
+    });
+  }
+  return trimmed;
 }
 
 function isOwnerRole(role: UserRole): boolean {
@@ -327,6 +402,7 @@ export async function updateStaffTicket(
   actorId: number,
   actorRole: UserRole,
   input: StaffTicketUpdateInput,
+  expectedTicketVersion: number,
 ): Promise<StaffTicketDetail> {
   return prisma.$transaction(async (transaction) => {
     const ticket = await transaction.ticket.findUnique({
@@ -336,12 +412,21 @@ export async function updateStaffTicket(
         assignedToUserId: true,
         currentStatus: true,
         itPriority: true,
+        version: true,
       },
     });
     if (ticket === null) throw ticketNotFound();
 
     if (actorRole !== "IT_STAFF" && actorRole !== "ADMINISTRATOR") {
       throw new ApiError(403, "FORBIDDEN", "You are not allowed to update Tickets.");
+    }
+
+    if (expectedTicketVersion !== ticket.version) {
+      throw new ApiError(
+        412,
+        "STALE_WRITE",
+        "The Ticket changed. Reload it before saving again.",
+      );
     }
 
     if (
@@ -457,14 +542,69 @@ export async function updateStaffTicket(
       data.itPriority = input.itPriority;
     }
     if (statusChanged && input.currentStatus !== undefined) {
+      const transitionTime = new Date();
       data.currentStatus = input.currentStatus;
-      if (input.currentStatus === "IN_PROGRESS" || input.currentStatus === "REOPENED") {
+      if (input.currentStatus === "RESOLVED") {
+        data.resolvedAt = transitionTime;
+        data.resolutionSummary = requiredStatusEvidence(
+          "resolutionSummary",
+          "Resolution summary",
+          input.resolutionSummary,
+          10,
+          2000,
+        );
+      } else if (input.currentStatus === "CLOSED") {
+        data.closedAt = transitionTime;
+        data.closureSummary = requiredStatusEvidence(
+          "closureSummary",
+          "Closure summary",
+          input.closureSummary,
+          10,
+          2000,
+        );
+      } else if (input.currentStatus === "CANCELLED") {
+        data.cancelledAt = transitionTime;
+        data.cancelReason = requiredStatusEvidence(
+          "cancelReason",
+          "Cancellation reason",
+          input.cancelReason,
+          3,
+          1000,
+        );
+      } else if (input.currentStatus === "REOPENED") {
+        data.reopenReason = requiredStatusEvidence(
+          "reopenReason",
+          "Reopen reason",
+          input.reopenReason,
+          3,
+          1000,
+        );
+      }
+
+      // A Requester indication is advisory. It is cleared as soon as staff
+      // formally resolves the Ticket or resumes/reopens work, in the same
+      // compare-and-swap update as the status transition.
+      if (
+        input.currentStatus === "IN_PROGRESS" ||
+        input.currentStatus === "REOPENED" ||
+        input.currentStatus === "RESOLVED"
+      ) {
         data.requesterResolutionIndicatedAt = null;
         data.requesterResolutionIndicatedByUserId = null;
       }
     }
 
-    await transaction.ticket.update({ where: { id: ticketId }, data });
+    const updatedCount = await transaction.ticket.updateMany({
+      where: { id: ticketId, version: expectedTicketVersion },
+      data: { ...data, version: { increment: 1 } },
+    });
+    if (updatedCount.count !== 1) {
+      throw new ApiError(
+        412,
+        "STALE_WRITE",
+        "The Ticket changed. Reload it before saving again.",
+      );
+    }
     const updated = await transaction.ticket.findUnique({
       where: { id: ticketId },
       include: staffTicketDetailInclude,
